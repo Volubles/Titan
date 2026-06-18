@@ -1,0 +1,24 @@
+name: TitanMC
+version: '1.0-SNAPSHOT'
+main: com.voluble.titanMC.TitanMC
+api-version: '1.21'
+softdepend: [WorldEdit, FastAsyncWorldEdit, WorldGuard]
+commands:
+  dtools:
+    description: Give a donator tool
+    usage: /dtools <tool> [player]
+    permission: donatortools.give
+  mine:
+    description: Manage mines
+    usage: /mine <list|create|redefine|setinterval|addblock|removeblock|forcereset|delete>
+    permission: titanmc.mine.admin
+permissions:
+  donatortools.give:
+    description: Allows giving donator tools
+    default: op
+  donatortools.reload:
+    description: Allows reloading the donator tools config
+    default: op
+  titanmc.mine.admin:
+    description: Allows managing mines
+    default: op

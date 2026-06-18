@@ -1,0 +1,6 @@
+# TitanMC Plugin Configuration
+
+# Economy settings
+economy:
+  enabled: true
+

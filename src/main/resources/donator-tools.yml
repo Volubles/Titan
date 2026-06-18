@@ -1,0 +1,29 @@
+# Donator Tools Configuration
+
+# Enable/disable donator tools
+enabled: true
+
+# List of blocks that can trigger donator tool effects
+# If empty, all blocks will trigger the effects
+# Example blocks: STONE, COBBLESTONE, IRON_ORE, DIAMOND_ORE, etc.
+blocks:
+  - STONE
+  - COBBLESTONE
+  - IRON_ORE
+  - DEEPSLATE_IRON_ORE
+  - GOLD_ORE
+  - DEEPSLATE_GOLD_ORE
+  - DIAMOND_ORE
+  - DEEPSLATE_DIAMOND_ORE
+  - EMERALD_ORE
+  - DEEPSLATE_EMERALD_ORE
+  - COAL_ORE
+  - DEEPSLATE_COAL_ORE
+  - REDSTONE_ORE
+  - DEEPSLATE_REDSTONE_ORE
+  - LAPIS_ORE
+  - DEEPSLATE_LAPIS_ORE
+  - COPPER_ORE
+  - DEEPSLATE_COPPER_ORE
+  - ANCIENT_DEBRIS
+
