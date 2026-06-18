@@ -8,6 +8,8 @@ import com.voluble.titanMC.managers.RegistrationManager;
 import com.voluble.titanMC.mines.MineManager;
 import com.voluble.titanMC.mines.reset.MineScheduler;
 import com.voluble.titanMC.mines.listeners.MineBlockListener;
+import com.voluble.titanMC.regions.persistence.RegionStorageException;
+import com.voluble.titanMC.regions.service.RegionEngine;
 import io.voluble.michellelib.commands.CommandKit;
 import io.voluble.michellelib.menu.MenuService;
 import net.milkbowl.vault.economy.Economy;
@@ -25,10 +27,20 @@ public final class TitanMC extends JavaPlugin {
 	private MineManager mineManager;
 	private MineScheduler mineScheduler;
 	private MenuService menuService;
+	private RegionEngine regionEngine;
 
 	@Override
 	public void onEnable() {
 		instance = this;
+		try {
+			regionEngine = RegionEngine.open(getDataFolder().toPath().resolve("regions.db"));
+			getLogger().info("Titan Region Engine loaded " + regionEngine.snapshot().definitions().size() + " regions");
+		} catch (RegionStorageException exception) {
+			getLogger().severe("Titan Region Engine failed to initialize: " + exception.getMessage());
+			exception.printStackTrace();
+			getServer().getPluginManager().disablePlugin(this);
+			return;
+		}
 
 		// Initialize menu service
 		menuService = MenuService.create(this);
@@ -68,6 +80,13 @@ public final class TitanMC extends JavaPlugin {
 		if (menuService != null) menuService.shutdown();
 		if (mineScheduler != null) mineScheduler.stop();
 		if (mineManager != null) mineManager.saveAll();
+		if (regionEngine != null) {
+			try {
+				regionEngine.close();
+			} catch (RegionStorageException exception) {
+				getLogger().severe("Failed to close Titan Region Engine cleanly: " + exception.getMessage());
+			}
+		}
 	}
 
 	public static TitanMC getInstance() {
@@ -91,4 +110,5 @@ public final class TitanMC extends JavaPlugin {
 	public MineManager getMineManager() { return mineManager; }
 	public MineScheduler getMineScheduler() { return mineScheduler; }
 	public MenuService getMenuService() { return menuService; }
+	public RegionEngine getRegionEngine() { return regionEngine; }
 }
