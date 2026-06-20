@@ -87,6 +87,29 @@ class BlockProtectionListenerTest extends MockBukkitProtectionTestSupport {
 	}
 
 	@Test
+	void bukkitAdminBypassAllowsLeverAndPressurePlate() {
+		player.addAttachment(plugin, "titanmc.region.admin", true);
+		player.addAttachment(plugin, "titanmc.protection.bypass", true);
+		register(
+			request -> ProtectionDecision.DENY,
+			BukkitProtectionBypass.permission(server, "titanmc.protection.bypass")
+		);
+		Block lever = world.getBlockAt(3, 64, 3);
+		lever.setType(Material.LEVER);
+		Block pressurePlate = world.getBlockAt(4, 64, 4);
+		pressurePlate.setType(Material.STONE_PRESSURE_PLATE);
+		PlayerInteractEvent leverEvent = interactEvent(Action.RIGHT_CLICK_BLOCK, lever);
+		PlayerInteractEvent pressureEvent = interactEvent(Action.PHYSICAL, pressurePlate);
+		Event.Result leverBefore = leverEvent.useInteractedBlock();
+
+		server.getPluginManager().callEvent(leverEvent);
+		server.getPluginManager().callEvent(pressureEvent);
+
+		assertEquals(leverBefore, leverEvent.useInteractedBlock());
+		assertFalse(pressureEvent.isCancelled());
+	}
+
+	@Test
 	void deniesRightClickAndPhysicalBlockInteractions() {
 		register(request -> ProtectionDecision.DENY, ProtectionBypass.none());
 		Block clicked = world.getBlockAt(3, 64, 3);
@@ -103,6 +126,29 @@ class BlockProtectionListenerTest extends MockBukkitProtectionTestSupport {
 		assertEquals(Event.Result.DENY, blockInteraction.useInteractedBlock());
 		assertTrue(physicalInteraction.isCancelled());
 		assertEquals(airBefore, airInteraction.useInteractedBlock());
+	}
+
+	@Test
+	void blockAndPhysicalInteractionFlagsAreIndependent() {
+		register(
+			request -> request.action() == ProtectionAction.BLOCK_INTERACT
+				? ProtectionDecision.ALLOW
+				: ProtectionDecision.DENY,
+			ProtectionBypass.none()
+		);
+		Block lever = world.getBlockAt(3, 64, 3);
+		lever.setType(Material.LEVER);
+		Block pressurePlate = world.getBlockAt(4, 64, 4);
+		pressurePlate.setType(Material.STONE_PRESSURE_PLATE);
+		PlayerInteractEvent leverEvent = interactEvent(Action.RIGHT_CLICK_BLOCK, lever);
+		PlayerInteractEvent pressureEvent = interactEvent(Action.PHYSICAL, pressurePlate);
+		Event.Result leverBefore = leverEvent.useInteractedBlock();
+
+		server.getPluginManager().callEvent(leverEvent);
+		server.getPluginManager().callEvent(pressureEvent);
+
+		assertEquals(leverBefore, leverEvent.useInteractedBlock());
+		assertTrue(pressureEvent.isCancelled());
 	}
 
 	@Test

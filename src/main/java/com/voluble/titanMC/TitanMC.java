@@ -20,6 +20,7 @@ import com.voluble.titanMC.regions.protection.bukkit.BukkitProtectionConfigurati
 import com.voluble.titanMC.regions.protection.bukkit.ExplosionProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.EntityContainerProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.EntityInteractionProtectionListener;
+import com.voluble.titanMC.regions.protection.bukkit.BukkitProtectionBypass;
 import com.voluble.titanMC.regions.command.RegionCommandModule;
 import com.voluble.titanMC.regions.protection.bukkit.FireProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.FluidFlowProtectionListener;
@@ -129,7 +130,7 @@ public final class TitanMC extends JavaPlugin {
 				.register(new MineProtectionPolicy())
 				.build(),
 			configuration.defaults(),
-			ProtectionBypass.permission(configuration.bypassPermission())
+			BukkitProtectionBypass.permission(getServer(), configuration.bypassPermission())
 		);
 		getServer().getPluginManager().registerEvents(new BlockProtectionListener(protectionService), this);
 		TrustedFluidFlow trustedFluidFlow = new TrustedFluidFlow();
