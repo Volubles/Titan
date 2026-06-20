@@ -17,10 +17,17 @@ public final class MineProtectionPolicy implements RegionProtectionPolicy {
 			ProtectionAction.BLOCK_PLACE,
 			ProtectionAction.PHYSICAL_INTERACT,
 			ProtectionAction.CONTAINER_OPEN,
+			ProtectionAction.ENTITY_PLACE,
+			ProtectionAction.ENTITY_INTERACT,
+			ProtectionAction.ENTITY_DAMAGE,
+			ProtectionAction.HANGING_MODIFY,
 			ProtectionAction.BUCKET_FILL,
 			ProtectionAction.BUCKET_EMPTY,
 			ProtectionAction.EXPLOSION_BLOCK_DAMAGE,
 			ProtectionAction.PISTON_MOVE,
+			ProtectionAction.FLUID_FLOW,
+			ProtectionAction.FIRE_SPREAD,
+			ProtectionAction.VEHICLE_PLACE,
 			ProtectionAction.VEHICLE_ENTER,
 			ProtectionAction.VEHICLE_MODIFY
 		)

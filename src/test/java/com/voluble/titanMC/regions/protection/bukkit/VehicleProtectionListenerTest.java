@@ -14,6 +14,8 @@ import org.bukkit.entity.Vehicle;
 import org.bukkit.event.vehicle.VehicleDamageEvent;
 import org.bukkit.event.vehicle.VehicleDestroyEvent;
 import org.bukkit.event.vehicle.VehicleEnterEvent;
+import org.bukkit.event.entity.EntityPlaceEvent;
+import org.bukkit.block.BlockFace;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -46,6 +48,18 @@ class VehicleProtectionListenerTest extends MockBukkitProtectionTestSupport {
 			ProtectionBypass.none()
 		);
 		listener = new VehicleProtectionListener(service);
+	}
+
+	@Test
+	void deniesPlayersPlacingVehicles() {
+		EntityPlaceEvent event = new EntityPlaceEvent(
+			vehicle, player, vehicle.getLocation().getBlock(), BlockFace.UP
+		);
+
+		listener.onVehiclePlace(event);
+
+		assertTrue(event.isCancelled());
+		assertRequest(ProtectionAction.VEHICLE_PLACE);
 	}
 
 	@Test

@@ -9,6 +9,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.vehicle.VehicleDamageEvent;
 import org.bukkit.event.vehicle.VehicleDestroyEvent;
 import org.bukkit.event.vehicle.VehicleEnterEvent;
+import org.bukkit.event.entity.EntityPlaceEvent;
 
 import java.util.Objects;
 
@@ -18,6 +19,14 @@ public final class VehicleProtectionListener implements Listener {
 
 	public VehicleProtectionListener(ProtectionService protection) {
 		this.protection = Objects.requireNonNull(protection, "protection");
+	}
+
+	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+	public void onVehiclePlace(EntityPlaceEvent event) {
+		if (!(event.getEntity() instanceof org.bukkit.entity.Vehicle) || event.getPlayer() == null) return;
+		if (!allowed(event.getPlayer(), ProtectionAction.VEHICLE_PLACE, event.getEntity().getLocation())) {
+			event.setCancelled(true);
+		}
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

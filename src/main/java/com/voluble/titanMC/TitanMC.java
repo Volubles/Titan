@@ -17,7 +17,12 @@ import com.voluble.titanMC.regions.protection.bukkit.BucketProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.BukkitProtectionConfiguration;
 import com.voluble.titanMC.regions.protection.bukkit.ExplosionProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.EntityContainerProtectionListener;
+import com.voluble.titanMC.regions.protection.bukkit.EntityInteractionProtectionListener;
+import com.voluble.titanMC.regions.protection.bukkit.FireProtectionListener;
+import com.voluble.titanMC.regions.protection.bukkit.FluidFlowProtectionListener;
+import com.voluble.titanMC.regions.protection.bukkit.HangingProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.PistonProtectionListener;
+import com.voluble.titanMC.regions.protection.bukkit.TrustedFluidFlow;
 import com.voluble.titanMC.regions.protection.bukkit.VehicleProtectionListener;
 import com.voluble.titanMC.regions.protection.policy.ProtectionBypass;
 import com.voluble.titanMC.regions.protection.policy.RegionPolicyRegistry;
@@ -120,10 +125,15 @@ public final class TitanMC extends JavaPlugin {
 			ProtectionBypass.permission(configuration.bypassPermission())
 		);
 		getServer().getPluginManager().registerEvents(new BlockProtectionListener(protectionService), this);
-		getServer().getPluginManager().registerEvents(new BucketProtectionListener(protectionService), this);
+		TrustedFluidFlow trustedFluidFlow = new TrustedFluidFlow();
+		getServer().getPluginManager().registerEvents(new BucketProtectionListener(protectionService, trustedFluidFlow), this);
+		getServer().getPluginManager().registerEvents(new FluidFlowProtectionListener(protectionService, trustedFluidFlow), this);
+		getServer().getPluginManager().registerEvents(new FireProtectionListener(protectionService), this);
 		getServer().getPluginManager().registerEvents(new ExplosionProtectionListener(protectionService), this);
 		getServer().getPluginManager().registerEvents(new PistonProtectionListener(protectionService), this);
 		getServer().getPluginManager().registerEvents(new EntityContainerProtectionListener(protectionService), this);
+		getServer().getPluginManager().registerEvents(new EntityInteractionProtectionListener(protectionService), this);
+		getServer().getPluginManager().registerEvents(new HangingProtectionListener(protectionService), this);
 		getServer().getPluginManager().registerEvents(new VehicleProtectionListener(protectionService), this);
 		if (configuration.protectedWorlds().isEmpty()) {
 			getLogger().warning("Titan protection is enabled, but protected-worlds is empty; no world is protected");

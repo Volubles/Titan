@@ -17,6 +17,7 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockbukkit.mockbukkit.MockBukkit;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -86,6 +87,34 @@ class BucketProtectionListenerTest extends MockBukkitProtectionTestSupport {
 
 		assertTrue(event.isCancelled());
 		assertRequest(ProtectionAction.BUCKET_EMPTY, affected);
+	}
+
+	@Test
+	void remembersFluidSourcesPlacedThroughBypass() {
+		player.addAttachment(MockBukkit.createMockPlugin(), "titanmc.protection.bypass", true);
+		TrustedFluidFlow trusted = new TrustedFluidFlow();
+		ProtectionService bypassingService = new ProtectionService(
+			(worldId, x, y, z) -> List.of(),
+			RegionPolicyRegistry.builder().build(),
+			request -> ProtectionDecision.DENY,
+			ProtectionBypass.permission("titanmc.protection.bypass")
+		);
+		BucketProtectionListener bypassingListener = new BucketProtectionListener(bypassingService, trusted);
+		Block affected = world.getBlockAt(12, 64, 12);
+		PlayerBucketEmptyEvent event = new PlayerBucketEmptyEvent(
+			player,
+			affected,
+			world.getBlockAt(12, 63, 12),
+			BlockFace.UP,
+			Material.WATER_BUCKET,
+			new ItemStack(Material.BUCKET),
+			EquipmentSlot.HAND
+		);
+
+		bypassingListener.onBucketEmpty(event);
+		bypassingListener.rememberBypassedFluidSource(event);
+
+		assertTrue(trusted.contains(affected));
 	}
 
 	private void assertRequest(ProtectionAction action, Block target) {

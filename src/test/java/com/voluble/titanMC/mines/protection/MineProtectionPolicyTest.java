@@ -46,19 +46,26 @@ class MineProtectionPolicyTest {
 	void allowsMiningAndDeniesPlacement() {
 		assertEquals(ProtectionDecision.ALLOW, decide(ProtectionAction.BLOCK_BREAK));
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.BLOCK_PLACE));
+		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.PHYSICAL_INTERACT));
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.CONTAINER_OPEN));
+		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.ENTITY_PLACE));
+		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.ENTITY_INTERACT));
+		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.ENTITY_DAMAGE));
+		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.HANGING_MODIFY));
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.BUCKET_FILL));
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.BUCKET_EMPTY));
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.EXPLOSION_BLOCK_DAMAGE));
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.PISTON_MOVE));
+		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.FLUID_FLOW));
+		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.FIRE_SPREAD));
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.VEHICLE_ENTER));
+		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.VEHICLE_PLACE));
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.VEHICLE_MODIFY));
 	}
 
 	@Test
-	void abstainsFromActionsWithoutMineSemanticsYet() {
+	void abstainsFromOrdinaryBlockInteraction() {
 		assertEquals(ProtectionDecision.ABSTAIN, decide(ProtectionAction.BLOCK_INTERACT));
-		assertEquals(ProtectionDecision.ABSTAIN, decide(ProtectionAction.FLUID_FLOW));
 	}
 
 	private ProtectionDecision decide(ProtectionAction action) {
