@@ -4,12 +4,13 @@ import org.gradle.api.tasks.Copy
 plugins {
     java
     id("com.gradleup.shadow") version "9.4.2"
+    id("io.github.drownek.paperwright") version "1.3.2"
 }
 
 group = "com.voluble"
 version = "1.0-SNAPSHOT"
 
-val minecraftVersion = "1.21.11"
+val targetMinecraftVersion = "1.21.11"
 val serverDirectory = providers.gradleProperty("serverDirectory")
     .map { file(it) }
     .orElse(layout.projectDirectory.dir("run").asFile)
@@ -24,7 +25,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:$minecraftVersion-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:$targetMinecraftVersion-R0.1-SNAPSHOT")
     compileOnly("com.sk89q.worldedit:worldedit-bukkit:7.3.15")
     compileOnly("com.github.MilkBowl:VaultAPI:1.7")
     compileOnly("me.clip:placeholderapi:2.11.6")
@@ -40,11 +41,35 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v1.21:4.110.0")
-    testImplementation("io.papermc.paper:paper-api:$minecraftVersion-R0.1-SNAPSHOT")
+    testImplementation("io.papermc.paper:paper-api:$targetMinecraftVersion-R0.1-SNAPSHOT")
 }
 
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+paperwright {
+    minecraftVersion.set(targetMinecraftVersion)
+    runDir.set(layout.projectDirectory.dir("run/paperwright"))
+    testsDir.set(layout.projectDirectory.dir("src/test/e2e"))
+    acceptEula.set(true)
+    jvmArgs.set(listOf("-Xmx2G"))
+    writeFiles {
+        file("plugins/TitanMC/config.yml", """
+            economy:
+              enabled: false
+
+            protection:
+              enabled: true
+              bypass-permission: titanmc.protection.bypass
+              protected-worlds:
+                - world
+        """.trimIndent())
+    }
+}
+
+tasks.matching { it.name.startsWith("paperwright") }.configureEach {
+    notCompatibleWithConfigurationCache("Paperwright 1.3.2 captures Gradle project state in its tasks")
 }
 
 tasks.withType<JavaCompile>().configureEach {
