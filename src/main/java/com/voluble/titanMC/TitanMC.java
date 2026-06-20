@@ -24,6 +24,7 @@ import com.voluble.titanMC.regions.protection.bukkit.FireProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.FluidFlowProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.HangingProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.MobGriefProtectionListener;
+import com.voluble.titanMC.regions.protection.bukkit.MobSpawnProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.PistonProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.PortalProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.TrustedFluidFlow;
@@ -136,6 +137,7 @@ public final class TitanMC extends JavaPlugin {
 		getServer().getPluginManager().registerEvents(new BlockAutomationProtectionListener(protectionService), this);
 		getServer().getPluginManager().registerEvents(new BlockLifecycleProtectionListener(protectionService), this);
 		getServer().getPluginManager().registerEvents(new MobGriefProtectionListener(protectionService), this);
+		getServer().getPluginManager().registerEvents(new MobSpawnProtectionListener(protectionService), this);
 		getServer().getPluginManager().registerEvents(new PortalProtectionListener(protectionService), this);
 		getServer().getPluginManager().registerEvents(new ExplosionProtectionListener(protectionService), this);
 		getServer().getPluginManager().registerEvents(new PistonProtectionListener(protectionService), this);

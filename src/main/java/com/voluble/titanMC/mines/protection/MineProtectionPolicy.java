@@ -33,6 +33,7 @@ public final class MineProtectionPolicy implements RegionProtectionPolicy {
 			ProtectionAction.BLOCK_GROWTH,
 			ProtectionAction.BLOCK_DECAY,
 			ProtectionAction.MOB_GRIEF,
+			ProtectionAction.MOB_SPAWN,
 			ProtectionAction.PORTAL_CREATE,
 			ProtectionAction.VEHICLE_PLACE,
 			ProtectionAction.VEHICLE_ENTER,
