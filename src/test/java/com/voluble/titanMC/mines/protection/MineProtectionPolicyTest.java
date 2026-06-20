@@ -51,6 +51,7 @@ class MineProtectionPolicyTest {
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.ENTITY_PLACE));
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.ENTITY_INTERACT));
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.ENTITY_DAMAGE));
+		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.PLAYER_PVP));
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.HANGING_MODIFY));
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.BUCKET_FILL));
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.BUCKET_EMPTY));

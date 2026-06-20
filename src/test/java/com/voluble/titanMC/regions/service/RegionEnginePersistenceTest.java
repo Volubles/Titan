@@ -10,6 +10,9 @@ import com.voluble.titanMC.regions.model.RegionGeometry;
 import com.voluble.titanMC.regions.model.RegionDefinition;
 import com.voluble.titanMC.regions.model.RegionKey;
 import com.voluble.titanMC.regions.model.WorldId;
+import com.voluble.titanMC.regions.protection.model.ProtectionAction;
+import com.voluble.titanMC.regions.protection.model.ProtectionDecision;
+import com.voluble.titanMC.regions.protection.model.RegionFlagSet;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -105,6 +108,28 @@ class RegionEnginePersistenceTest {
 		try (RegionEngine reloaded = RegionEngine.open(database)) {
 			assertEquals(polygon, reloaded.find(world, RegionKey.of("custom", "polygon")).geometry());
 			assertEquals(polyhedron, reloaded.find(world, RegionKey.of("custom", "polyhedron")).geometry());
+		}
+	}
+
+	@Test
+	void regionFlagsSurviveUpdatesAndRestart() throws Exception {
+		Path database = temporaryDirectory.resolve("flags.db");
+		WorldId world = new WorldId(UUID.randomUUID());
+		RegionKey key = RegionKey.of("custom", "yard");
+		RegionFlagSet flags = RegionFlagSet.empty()
+			.with(ProtectionAction.PLAYER_PVP, ProtectionDecision.ALLOW)
+			.with(ProtectionAction.BLOCK_BREAK, ProtectionDecision.DENY);
+
+		try (RegionEngine engine = RegionEngine.open(database)) {
+			RegionDefinition created = assertInstanceOf(
+				RegionMutationResult.Success.class,
+				engine.create(key, world, 0, new CuboidGeometry(new BlockBox(0, 0, 0, 16, 16, 16))).join()
+			).region();
+			assertTrue(engine.setFlags(created.id(), created.revision(), flags).join().successful());
+		}
+
+		try (RegionEngine reloaded = RegionEngine.open(database)) {
+			assertEquals(flags, reloaded.find(world, key).flags());
 		}
 	}
 }

@@ -11,6 +11,9 @@ import com.voluble.titanMC.regions.model.RegionGeometry;
 import com.voluble.titanMC.regions.model.RegionId;
 import com.voluble.titanMC.regions.model.RegionKey;
 import com.voluble.titanMC.regions.model.WorldId;
+import com.voluble.titanMC.regions.protection.model.ProtectionAction;
+import com.voluble.titanMC.regions.protection.model.ProtectionDecision;
+import com.voluble.titanMC.regions.protection.model.RegionFlagSet;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,7 +32,7 @@ import java.util.Objects;
 
 public final class SqliteRegionRepository implements RegionRepository {
 
-	private static final int SCHEMA_VERSION = 4;
+	private static final int SCHEMA_VERSION = 5;
 	private final Path databasePath;
 	private Connection connection;
 
@@ -143,6 +146,15 @@ public final class SqliteRegionRepository implements RegionRepository {
 					    FOREIGN KEY(region_id) REFERENCES region_geometries(region_id) ON DELETE CASCADE
 					)
 					""");
+				statement.executeUpdate("""
+					CREATE TABLE IF NOT EXISTS region_flags (
+					    region_id TEXT NOT NULL,
+					    action TEXT NOT NULL,
+					    decision TEXT NOT NULL,
+					    PRIMARY KEY(region_id, action),
+					    FOREIGN KEY(region_id) REFERENCES regions(id) ON DELETE CASCADE
+					)
+					""");
 				statement.execute("PRAGMA user_version = " + SCHEMA_VERSION);
 			}
 		});
@@ -153,6 +165,7 @@ public final class SqliteRegionRepository implements RegionRepository {
 		requireInitialized();
 		Map<RegionId, List<BlockPoint2>> polygonPoints = loadPolygonPoints();
 		Map<RegionId, List<PolyhedronPlane>> polyhedronPlanes = loadPolyhedronPlanes();
+		Map<RegionId, RegionFlagSet> flags = loadFlags();
 		List<RegionDefinition> definitions = new ArrayList<>();
 		try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery("""
 			SELECT r.id, r.world_id, r.namespace, r.name, r.priority, r.revision, r.created_at, r.updated_at,
@@ -176,6 +189,7 @@ public final class SqliteRegionRepository implements RegionRepository {
 					WorldId.parse(result.getString("world_id")),
 					result.getInt("priority"),
 					readGeometry(id, result.getString("geometry_type"), bounds, polygonPoints, polyhedronPlanes),
+					flags.getOrDefault(id, RegionFlagSet.empty()),
 					Instant.ofEpochMilli(result.getLong("created_at")),
 					Instant.ofEpochMilli(result.getLong("updated_at")),
 					result.getLong("revision")
@@ -214,7 +228,12 @@ public final class SqliteRegionRepository implements RegionRepository {
 				statement.setString(1, definition.id().toString());
 				statement.executeUpdate();
 			}
+			try (PreparedStatement statement = connection.prepareStatement("DELETE FROM region_flags WHERE region_id = ?")) {
+				statement.setString(1, definition.id().toString());
+				statement.executeUpdate();
+			}
 			insertGeometry(definition);
+			insertFlags(definition);
 		});
 	}
 
@@ -263,7 +282,10 @@ public final class SqliteRegionRepository implements RegionRepository {
 					regionStatement.addBatch();
 				}
 				regionStatement.executeBatch();
-				for (RegionDefinition definition : saves) insertGeometry(definition);
+				for (RegionDefinition definition : saves) {
+					insertGeometry(definition);
+					insertFlags(definition);
+				}
 			}
 		});
 	}
@@ -298,6 +320,28 @@ public final class SqliteRegionRepository implements RegionRepository {
 			}
 		}
 		return planes;
+	}
+
+	private Map<RegionId, RegionFlagSet> loadFlags() throws SQLException {
+		Map<RegionId, Map<ProtectionAction, ProtectionDecision>> decisions = new LinkedHashMap<>();
+		try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery("""
+			SELECT region_id, action, decision FROM region_flags ORDER BY region_id, action
+			""")) {
+			while (result.next()) {
+				RegionId id = RegionId.parse(result.getString("region_id"));
+				try {
+					ProtectionAction action = ProtectionAction.valueOf(result.getString("action"));
+					ProtectionDecision decision = ProtectionDecision.valueOf(result.getString("decision"));
+					if (!decision.explicit()) throw new IllegalArgumentException("ABSTAIN is not persistent");
+					decisions.computeIfAbsent(id, ignored -> new LinkedHashMap<>()).put(action, decision);
+				} catch (IllegalArgumentException exception) {
+					throw new SQLException("Invalid persisted region flag for " + id, exception);
+				}
+			}
+		}
+		Map<RegionId, RegionFlagSet> flags = new LinkedHashMap<>();
+		decisions.forEach((id, values) -> flags.put(id, RegionFlagSet.of(values)));
+		return flags;
 	}
 
 	private static RegionGeometry readGeometry(
@@ -401,6 +445,22 @@ public final class SqliteRegionRepository implements RegionRepository {
 				statement.setDouble(4, plane.normalY());
 				statement.setDouble(5, plane.normalZ());
 				statement.setDouble(6, plane.maximumDotProduct());
+				statement.addBatch();
+			}
+			statement.executeBatch();
+		}
+	}
+
+	private void insertFlags(RegionDefinition definition) throws SQLException {
+		if (definition.flags().explicitDecisions().isEmpty()) return;
+		try (PreparedStatement statement = connection.prepareStatement("""
+			INSERT INTO region_flags(region_id, action, decision) VALUES (?, ?, ?)
+			""")) {
+			for (Map.Entry<ProtectionAction, ProtectionDecision> entry
+					: definition.flags().explicitDecisions().entrySet()) {
+				statement.setString(1, definition.id().toString());
+				statement.setString(2, entry.getKey().name());
+				statement.setString(3, entry.getValue().name());
 				statement.addBatch();
 			}
 			statement.executeBatch();

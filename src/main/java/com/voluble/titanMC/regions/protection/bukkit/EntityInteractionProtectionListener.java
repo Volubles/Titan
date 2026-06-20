@@ -52,7 +52,10 @@ public final class EntityInteractionProtectionListener implements Listener {
 	public void onEntityDamage(EntityDamageByEntityEvent event) {
 		if (specialized(event.getEntity())) return;
 		Player player = responsiblePlayer(event.getDamager());
-		if (player != null && !allowed(player, ProtectionAction.ENTITY_DAMAGE, event.getEntity())) {
+		ProtectionAction action = event.getEntity() instanceof Player
+			? ProtectionAction.PLAYER_PVP
+			: ProtectionAction.ENTITY_DAMAGE;
+		if (player != null && !allowed(player, action, event.getEntity())) {
 			event.setCancelled(true);
 		}
 	}

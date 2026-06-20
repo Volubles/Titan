@@ -81,6 +81,20 @@ class EntityInteractionProtectionListenerTest extends MockBukkitProtectionTestSu
 		assertRequest(ProtectionAction.ENTITY_DAMAGE);
 	}
 
+	@Test
+	void mapsPlayerDamageToPvpFlag() {
+		Player victim = server.addPlayer();
+		victim.teleport(target.getLocation());
+		EntityDamageByEntityEvent event = new EntityDamageByEntityEvent(
+			player, victim, EntityDamageEvent.DamageCause.ENTITY_ATTACK, 1.0
+		);
+
+		listener.onEntityDamage(event);
+
+		assertTrue(event.isCancelled());
+		assertRequest(ProtectionAction.PLAYER_PVP);
+	}
+
 	private void assertRequest(ProtectionAction action) {
 		assertEquals(1, requests.size());
 		assertEquals(action, requests.getFirst().action());

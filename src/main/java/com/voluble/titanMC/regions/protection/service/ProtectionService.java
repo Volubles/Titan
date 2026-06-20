@@ -159,6 +159,15 @@ public final class ProtectionService {
 			ProtectionDecision levelDecision = ProtectionDecision.ABSTAIN;
 			for (int index = start; index < end; index++) {
 				RegionDefinition region = applicable.get(index);
+				ProtectionDecision flagDecision = region.flags().decision(request.action());
+				if (flagDecision.explicit()) {
+					trace.add(RegionPolicyEvaluation.decided(
+						region.id(), region.key(), priority, "region-flags", flagDecision
+					));
+					if (flagDecision == ProtectionDecision.DENY) levelDecision = ProtectionDecision.DENY;
+					else if (levelDecision == ProtectionDecision.ABSTAIN) levelDecision = ProtectionDecision.ALLOW;
+					continue;
+				}
 				RegionPolicyEvaluationRegistry.Entry entry = evaluation.policies.find(region.key().namespace());
 				if (entry == null) {
 					trace.add(RegionPolicyEvaluation.decided(

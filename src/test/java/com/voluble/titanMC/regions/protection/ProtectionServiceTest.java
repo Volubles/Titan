@@ -14,6 +14,7 @@ import com.voluble.titanMC.regions.protection.model.ProtectionActor;
 import com.voluble.titanMC.regions.protection.model.ProtectionDecision;
 import com.voluble.titanMC.regions.protection.model.ProtectionRequest;
 import com.voluble.titanMC.regions.protection.model.ProtectionResolution;
+import com.voluble.titanMC.regions.protection.model.RegionFlagSet;
 import com.voluble.titanMC.regions.protection.policy.ProtectionBypass;
 import com.voluble.titanMC.regions.protection.policy.RegionPolicyRegistry;
 import com.voluble.titanMC.regions.protection.policy.RegionProtectionPolicy;
@@ -70,6 +71,21 @@ class ProtectionServiceTest {
 
 		assertEquals(ProtectionDecision.DENY, resolution.decision());
 		assertEquals(List.of(cell.id(), mine.id()), resolution.evaluations().stream().map(evaluation -> evaluation.regionId()).toList());
+	}
+
+	@Test
+	void explicitRegionFlagOverridesNamespacePolicy() throws Exception {
+		RegionDefinition region = region(1, "mine", "alpha", 100, RegionFlagSet.empty()
+			.with(ProtectionAction.BLOCK_BREAK, ProtectionDecision.ALLOW));
+		ProtectionService service = service(
+			List.of(region),
+			new FixedPolicy("mine-policy", "mine", ProtectionDecision.DENY)
+		);
+
+		ProtectionResolution resolution = service.resolve(request());
+
+		assertEquals(ProtectionDecision.ALLOW, resolution.decision());
+		assertEquals("region-flags", resolution.evaluations().getFirst().policyId());
 	}
 
 	@Test
@@ -238,12 +254,23 @@ class ProtectionServiceTest {
 	}
 
 	private static RegionDefinition region(long id, String namespace, String name, int priority) {
+		return region(id, namespace, name, priority, RegionFlagSet.empty());
+	}
+
+	private static RegionDefinition region(
+		long id,
+		String namespace,
+		String name,
+		int priority,
+		RegionFlagSet flags
+	) {
 		return new RegionDefinition(
 			new RegionId(new UUID(0L, id)),
 			RegionKey.of(namespace, name),
 			WORLD,
 			priority,
 			new CuboidGeometry(new BlockBox(0, 0, 0, 16, 16, 16)),
+			flags,
 			Instant.EPOCH,
 			Instant.EPOCH
 		);

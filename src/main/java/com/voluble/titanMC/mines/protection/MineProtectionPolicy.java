@@ -20,6 +20,7 @@ public final class MineProtectionPolicy implements RegionProtectionPolicy {
 			ProtectionAction.ENTITY_PLACE,
 			ProtectionAction.ENTITY_INTERACT,
 			ProtectionAction.ENTITY_DAMAGE,
+			ProtectionAction.PLAYER_PVP,
 			ProtectionAction.HANGING_MODIFY,
 			ProtectionAction.BUCKET_FILL,
 			ProtectionAction.BUCKET_EMPTY,
