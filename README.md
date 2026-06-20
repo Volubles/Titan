@@ -1,6 +1,6 @@
 # TitanMC
 
-TitanMC is a custom Paper plugin built for the TitanMC server. It collects the
+TitanMC is a custom Paper plugin built for a prison server. It collects the
 server's mines, custom tools, menus, and region protection in one codebase.
 
 The project is under active development. The region engine and protection core
@@ -17,25 +17,6 @@ being built.
 - Typed protection rules with fail-closed decisions
 - Paper adapters for block breaking, placing, and interaction
 - JUnit and MockBukkit test coverage
-
-## Requirements
-
-- Java 21
-- Paper 1.21.11
-- WorldEdit or FastAsyncWorldEdit for selection-based tools
-- MichelleLib `1.0.0-SNAPSHOT` installed in Maven Local when building
-
-PlaceholderAPI and Vault integrations are optional and only used when their
-respective features need them.
-
-## Building
-
-```bash
-./gradlew test
-./gradlew shadowJar
-```
-
-On Windows, use `gradlew.bat`. The shaded plugin is written to `build/libs`.
 
 ## Protection configuration
 
