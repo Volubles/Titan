@@ -21,8 +21,8 @@ An action is production-ready only when every required column is complete.
 
 | User-facing flag | Protection action | Core | Paper | Mock | Server |
 | --- | --- | --- | --- | --- | --- |
-| block-break | `BLOCK_BREAK` | yes | planned | planned | planned |
-| block-place | `BLOCK_PLACE` | yes | planned | planned | planned |
+| block-break | `BLOCK_BREAK` | yes | yes | yes | planned |
+| block-place | `BLOCK_PLACE` | yes | yes | yes | planned |
 | block-interact | `BLOCK_INTERACT` | yes | planned | planned | planned |
 | container-open | `CONTAINER_OPEN` | yes | future | future | future |
 | entity-interact | `ENTITY_INTERACT` | yes | future | future | future |
