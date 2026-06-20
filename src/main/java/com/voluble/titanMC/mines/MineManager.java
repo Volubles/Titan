@@ -1,6 +1,7 @@
 package com.voluble.titanMC.mines;
 
 import com.voluble.titanMC.TitanMC;
+import com.voluble.titanMC.mines.regions.MineRegionService;
 import com.voluble.titanMC.mines.storage.MineStorage;
 import com.voluble.titanMC.util.RegionUtils;
 import org.bukkit.Location;
@@ -13,13 +14,15 @@ public final class MineManager {
 
 	private final Plugin plugin;
 	private final MineStorage storage;
+	private final MineRegionService regions;
 	private final Map<String, Mine> minesByName = new LinkedHashMap<>();
 	private final Map<RegionUtils.Cuboid, Mine> cuboidToMine = new HashMap<>();
 	private final RegionUtils.RegionIndex regionIndex = new RegionUtils.RegionIndex();
 
-	public MineManager(Plugin plugin) {
+	public MineManager(Plugin plugin, MineRegionService regions) {
 		this.plugin = Objects.requireNonNull(plugin);
 		this.storage = new MineStorage(plugin);
+		this.regions = Objects.requireNonNull(regions, "regions");
 	}
 
 	public void load() {
@@ -28,6 +31,7 @@ public final class MineManager {
 		regionIndex.clear();
 		// Storage
 		Map<String, Mine> loaded = storage.loadAll();
+		regions.reconcile(loaded.values());
 		for (Mine mine : loaded.values()) {
 			registerInternal(mine);
 		}
@@ -46,14 +50,17 @@ public final class MineManager {
 		if (minesByName.containsKey(mine.getName())) throw new IllegalArgumentException("Mine already exists: " + mine.getName());
 		Mine overlap = findOverlap(mine.getCuboid(), null);
 		if (overlap != null) throw new IllegalArgumentException("Mine overlaps: " + overlap.getName());
+		regions.create(mine);
 		registerInternal(mine);
 		storage.saveMine(mine);
 	}
 
 	public boolean delete(String name) {
-		Mine removed = minesByName.remove(name);
-		if (removed == null) return false;
-		unindex(removed);
+		Mine mine = minesByName.get(name);
+		if (mine == null) return false;
+		regions.delete(mine);
+		minesByName.remove(name);
+		unindex(mine);
 		storage.deleteMine(name);
 		TitanMC.getInstance().getMineScheduler().cancelReset(name);
 		return true;
@@ -63,6 +70,7 @@ public final class MineManager {
 		Mine mine = requireMine(name);
 		Mine overlap = findOverlap(newCuboid, name);
 		if (overlap != null) throw new IllegalArgumentException("Mine overlaps: " + overlap.getName());
+		regions.redefine(mine, newCuboid);
 		TitanMC.getInstance().getMineScheduler().cancelReset(name);
 		unindex(mine);
 		mine.setCuboid(newCuboid);

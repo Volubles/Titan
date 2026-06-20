@@ -6,6 +6,9 @@ import com.voluble.titanMC.donatorTools.tools.DonatorToolsConfigManager;
 import com.voluble.titanMC.managers.EconomyManager;
 import com.voluble.titanMC.managers.RegistrationManager;
 import com.voluble.titanMC.mines.MineManager;
+import com.voluble.titanMC.mines.protection.MineProtectionPolicy;
+import com.voluble.titanMC.mines.regions.MineRegionException;
+import com.voluble.titanMC.mines.regions.MineRegionService;
 import com.voluble.titanMC.mines.reset.MineScheduler;
 import com.voluble.titanMC.mines.listeners.MineBlockListener;
 import com.voluble.titanMC.regions.persistence.RegionStorageException;
@@ -65,8 +68,15 @@ public final class TitanMC extends JavaPlugin {
 		registrationManager.registerEvents();
 
 		// Mines
-		mineManager = new MineManager(this);
-		mineManager.load();
+		MineManager loadedMineManager = new MineManager(this, new MineRegionService(regionEngine));
+		try {
+			loadedMineManager.load();
+		} catch (MineRegionException exception) {
+			getLogger().severe("Failed to synchronize mine regions: " + exception.getMessage());
+			getServer().getPluginManager().disablePlugin(this);
+			return;
+		}
+		mineManager = loadedMineManager;
 		getLogger().info("Loaded " + mineManager.getAll().size() + " mines");
 		mineScheduler = new MineScheduler(this, mineManager);
 		mineScheduler.start();
@@ -98,7 +108,9 @@ public final class TitanMC extends JavaPlugin {
 
 		protectionService = ProtectionService.forEngine(
 			regionEngine,
-			RegionPolicyRegistry.builder().build(),
+			RegionPolicyRegistry.builder()
+				.register(new MineProtectionPolicy())
+				.build(),
 			configuration.defaults(),
 			ProtectionBypass.permission(configuration.bypassPermission())
 		);
