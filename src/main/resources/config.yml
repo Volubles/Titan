@@ -4,3 +4,9 @@
 economy:
   enabled: true
 
+protection:
+  enabled: true
+  bypass-permission: titanmc.protection.bypass
+  # Only listed worlds use default DENY. An empty list leaves all worlds open.
+  protected-worlds: []
+
