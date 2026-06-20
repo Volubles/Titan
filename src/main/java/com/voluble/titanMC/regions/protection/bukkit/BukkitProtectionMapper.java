@@ -46,4 +46,26 @@ public final class BukkitProtectionMapper {
 	public static ProtectionRequest request(Player player, ProtectionAction action, Block block) {
 		return ProtectionRequest.at(actor(player), Objects.requireNonNull(action, "action"), position(block));
 	}
+
+	public static ProtectionRequest request(ProtectionActor actor, ProtectionAction action, Block block) {
+		return ProtectionRequest.at(
+			Objects.requireNonNull(actor, "actor"),
+			Objects.requireNonNull(action, "action"),
+			position(block)
+		);
+	}
+
+	public static ProtectionRequest movement(
+		ProtectionActor actor,
+		ProtectionAction action,
+		Block source,
+		Block target
+	) {
+		return ProtectionRequest.moving(
+			Objects.requireNonNull(actor, "actor"),
+			Objects.requireNonNull(action, "action"),
+			position(source),
+			position(target)
+		);
+	}
 }

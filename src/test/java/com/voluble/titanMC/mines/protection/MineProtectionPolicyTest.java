@@ -49,12 +49,14 @@ class MineProtectionPolicyTest {
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.CONTAINER_OPEN));
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.BUCKET_FILL));
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.BUCKET_EMPTY));
+		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.EXPLOSION_BLOCK_DAMAGE));
+		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.PISTON_MOVE));
 	}
 
 	@Test
 	void abstainsFromActionsWithoutMineSemanticsYet() {
 		assertEquals(ProtectionDecision.ABSTAIN, decide(ProtectionAction.BLOCK_INTERACT));
-		assertEquals(ProtectionDecision.ABSTAIN, decide(ProtectionAction.EXPLOSION_BLOCK_DAMAGE));
+		assertEquals(ProtectionDecision.ABSTAIN, decide(ProtectionAction.FLUID_FLOW));
 	}
 
 	private ProtectionDecision decide(ProtectionAction action) {

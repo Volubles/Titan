@@ -17,7 +17,9 @@ public final class MineProtectionPolicy implements RegionProtectionPolicy {
 			ProtectionAction.BLOCK_PLACE,
 			ProtectionAction.CONTAINER_OPEN,
 			ProtectionAction.BUCKET_FILL,
-			ProtectionAction.BUCKET_EMPTY
+			ProtectionAction.BUCKET_EMPTY,
+			ProtectionAction.EXPLOSION_BLOCK_DAMAGE,
+			ProtectionAction.PISTON_MOVE
 		)
 		.build();
 

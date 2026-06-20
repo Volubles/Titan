@@ -15,6 +15,8 @@ import com.voluble.titanMC.regions.persistence.RegionStorageException;
 import com.voluble.titanMC.regions.protection.bukkit.BlockProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.BucketProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.BukkitProtectionConfiguration;
+import com.voluble.titanMC.regions.protection.bukkit.ExplosionProtectionListener;
+import com.voluble.titanMC.regions.protection.bukkit.PistonProtectionListener;
 import com.voluble.titanMC.regions.protection.policy.ProtectionBypass;
 import com.voluble.titanMC.regions.protection.policy.RegionPolicyRegistry;
 import com.voluble.titanMC.regions.protection.service.ProtectionService;
@@ -117,6 +119,8 @@ public final class TitanMC extends JavaPlugin {
 		);
 		getServer().getPluginManager().registerEvents(new BlockProtectionListener(protectionService), this);
 		getServer().getPluginManager().registerEvents(new BucketProtectionListener(protectionService), this);
+		getServer().getPluginManager().registerEvents(new ExplosionProtectionListener(protectionService), this);
+		getServer().getPluginManager().registerEvents(new PistonProtectionListener(protectionService), this);
 		if (configuration.protectedWorlds().isEmpty()) {
 			getLogger().warning("Titan protection is enabled, but protected-worlds is empty; no world is protected");
 		} else {
