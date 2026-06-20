@@ -16,6 +16,8 @@ public interface RegionRepository extends AutoCloseable {
 
 	void delete(RegionId id) throws SQLException;
 
+	void applyBatch(List<RegionDefinition> saves, List<RegionId> deletes) throws SQLException;
+
 	@Override
 	void close() throws SQLException;
 }

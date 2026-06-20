@@ -37,9 +37,10 @@ dependencies {
     }
     implementation("org.xerial:sqlite-jdbc:3.53.2.0")
 
-    testImplementation(platform("org.junit:junit-bom:5.13.4"))
+    testImplementation(platform("org.junit:junit-bom:6.0.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v1.21:4.110.0")
     testImplementation("io.papermc.paper:paper-api:$minecraftVersion-R0.1-SNAPSHOT")
 }
 

@@ -11,4 +11,8 @@ public interface RegionProtectionPolicy {
 	String namespace();
 
 	ProtectionDecision decide(ProtectionRequest request, RegionDefinition region);
+
+	default RegionPolicyEvaluator openEvaluation(ProtectionEvaluationContext context) {
+		return this::decide;
+	}
 }

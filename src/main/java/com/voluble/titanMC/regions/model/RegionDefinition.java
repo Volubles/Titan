@@ -11,7 +11,8 @@ public record RegionDefinition(
 	int priority,
 	List<BlockBox> boxes,
 	Instant createdAt,
-	Instant updatedAt
+	Instant updatedAt,
+	long revision
 ) {
 
 	public RegionDefinition {
@@ -24,11 +25,24 @@ public record RegionDefinition(
 		if (boxes.isEmpty()) throw new IllegalArgumentException("region must contain at least one box");
 		if (boxes.stream().anyMatch(Objects::isNull)) throw new IllegalArgumentException("boxes must not contain null");
 		if (updatedAt.isBefore(createdAt)) throw new IllegalArgumentException("updatedAt must not precede createdAt");
+		if (revision < 1L) throw new IllegalArgumentException("revision must be positive");
+	}
+
+	public RegionDefinition(
+		RegionId id,
+		RegionKey key,
+		WorldId worldId,
+		int priority,
+		List<BlockBox> boxes,
+		Instant createdAt,
+		Instant updatedAt
+	) {
+		this(id, key, worldId, priority, boxes, createdAt, updatedAt, 1L);
 	}
 
 	public static RegionDefinition create(RegionKey key, WorldId worldId, int priority, List<BlockBox> boxes) {
 		Instant now = Instant.now();
-		return new RegionDefinition(RegionId.random(), key, worldId, priority, boxes, now, now);
+		return new RegionDefinition(RegionId.random(), key, worldId, priority, boxes, now, now, 1L);
 	}
 
 	public boolean contains(int x, int y, int z) {

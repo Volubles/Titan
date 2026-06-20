@@ -22,10 +22,13 @@ public sealed interface RegionMutationResult permits RegionMutationResult.Succes
 
 	enum Reason {
 		NOT_FOUND,
+		STALE_REVISION,
 		DUPLICATE_KEY,
 		INVALID_GEOMETRY,
 		STORAGE_FAILURE,
 		ENGINE_CLOSED,
+		QUEUE_FULL,
+		ENGINE_UNHEALTHY,
 		INTERNAL_CONFLICT
 	}
 }

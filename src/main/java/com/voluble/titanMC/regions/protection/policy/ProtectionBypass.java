@@ -7,6 +7,10 @@ public interface ProtectionBypass {
 
 	boolean bypasses(ProtectionRequest request);
 
+	default ProtectionBypass openEvaluation(ProtectionEvaluationContext context) {
+		return this;
+	}
+
 	static ProtectionBypass permission(String permission) {
 		return request -> request.actor().hasPermission(permission);
 	}

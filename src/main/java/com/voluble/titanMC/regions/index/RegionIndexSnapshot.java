@@ -1,6 +1,7 @@
 package com.voluble.titanMC.regions.index;
 
 import com.voluble.titanMC.regions.model.BlockBox;
+import com.voluble.titanMC.regions.model.BlockPosition;
 import com.voluble.titanMC.regions.model.RegionDefinition;
 import com.voluble.titanMC.regions.model.RegionId;
 import com.voluble.titanMC.regions.model.RegionKey;
@@ -136,11 +137,70 @@ public final class RegionIndexSnapshot {
 	}
 
 	public List<RegionDefinition> findAll(WorldId worldId, int x, int y, int z) {
+		List<RegionDefinition> result = new ArrayList<>();
+		visitAll(worldId, x, y, z, null, region -> {
+			result.add(region);
+			return RegionVisitResult.CONTINUE;
+		});
+		return result.isEmpty() ? List.of() : List.copyOf(result);
+	}
+
+	public RegionVisitResult visitAll(
+		WorldId worldId,
+		int x,
+		int y,
+		int z,
+		RegionQueryCursor cursor,
+		RegionVisitor visitor
+	) {
+		Objects.requireNonNull(worldId, "worldId");
+		Objects.requireNonNull(visitor, "visitor");
+		List<RegionDefinition> candidates = candidates(worldId, x >> 4, z >> 4, cursor);
+		for (RegionDefinition region : candidates) {
+			if (region.contains(x, y, z) && visitor.visit(region) == RegionVisitResult.STOP) {
+				return RegionVisitResult.STOP;
+			}
+		}
+		return RegionVisitResult.CONTINUE;
+	}
+
+	public RegionVisitResult visitBatch(
+		Iterable<BlockPosition> positions,
+		RegionQueryCursor cursor,
+		RegionBatchVisitor visitor
+	) {
+		Objects.requireNonNull(positions, "positions");
+		Objects.requireNonNull(visitor, "visitor");
+		for (BlockPosition position : positions) {
+			Objects.requireNonNull(position, "positions must not contain null");
+			List<RegionDefinition> candidates = candidates(
+				position.worldId(), position.x() >> 4, position.z() >> 4, cursor
+			);
+			for (RegionDefinition region : candidates) {
+				if (region.contains(position.x(), position.y(), position.z())
+					&& visitor.visit(position, region) == RegionVisitResult.STOP) {
+					return RegionVisitResult.STOP;
+				}
+			}
+		}
+		return RegionVisitResult.CONTINUE;
+	}
+
+	private List<RegionDefinition> candidates(WorldId worldId, int chunkX, int chunkZ, RegionQueryCursor cursor) {
+		long key = chunkKey(chunkX, chunkZ);
+		if (cursor != null) {
+			if (cursor.snapshotVersion != version) cursor.resetFor(version);
+			if (cursor.cached && worldId.equals(cursor.worldId) && cursor.chunkKey == key) return cursor.candidates;
+		}
 		WorldIndex world = worlds.get(worldId);
-		if (world == null) return List.of();
-		List<RegionDefinition> candidates = world.chunks.get(chunkKey(x >> 4, z >> 4));
-		if (candidates == null) return List.of();
-		return candidates.stream().filter(region -> region.contains(x, y, z)).toList();
+		List<RegionDefinition> candidates = world == null ? List.of() : world.chunks.getOrDefault(key, List.of());
+		if (cursor != null) {
+			cursor.worldId = worldId;
+			cursor.chunkKey = key;
+			cursor.candidates = candidates;
+			cursor.cached = true;
+		}
+		return candidates;
 	}
 
 	public List<RegionDefinition> findIntersecting(WorldId worldId, BlockBox box) {

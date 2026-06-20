@@ -23,7 +23,7 @@ import java.util.Objects;
 
 public final class SqliteRegionRepository implements RegionRepository {
 
-	private static final int SCHEMA_VERSION = 1;
+	private static final int SCHEMA_VERSION = 2;
 	private final Path databasePath;
 	private Connection connection;
 
@@ -46,7 +46,7 @@ public final class SqliteRegionRepository implements RegionRepository {
 		try {
 			configureConnection();
 			verifyIntegrity();
-			migrateSchema();
+			initializeSchema();
 		} catch (SQLException exception) {
 			try {
 				connection.close();
@@ -75,13 +75,15 @@ public final class SqliteRegionRepository implements RegionRepository {
 	}
 	}
 
-	private void migrateSchema() throws SQLException {
+	private void initializeSchema() throws SQLException {
 		int version;
 		try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery("PRAGMA user_version")) {
 			version = result.next() ? result.getInt(1) : 0;
 		}
-		if (version > SCHEMA_VERSION) {
-			throw new SQLException("Region database schema " + version + " is newer than supported schema " + SCHEMA_VERSION);
+		if (version != 0 && version != SCHEMA_VERSION) {
+			throw new SQLException(
+				"Unsupported region database schema " + version + "; expected an empty database or schema " + SCHEMA_VERSION
+			);
 		}
 		if (version == SCHEMA_VERSION) return;
 
@@ -94,6 +96,7 @@ public final class SqliteRegionRepository implements RegionRepository {
 					    namespace TEXT NOT NULL,
 					    name TEXT NOT NULL,
 					    priority INTEGER NOT NULL,
+					    revision INTEGER NOT NULL,
 					    created_at INTEGER NOT NULL,
 					    updated_at INTEGER NOT NULL,
 					    UNIQUE(world_id, namespace, name)
@@ -138,7 +141,7 @@ public final class SqliteRegionRepository implements RegionRepository {
 
 		List<RegionDefinition> definitions = new ArrayList<>();
 		try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery("""
-			SELECT id, world_id, namespace, name, priority, created_at, updated_at
+			SELECT id, world_id, namespace, name, priority, revision, created_at, updated_at
 			FROM regions ORDER BY world_id, namespace, name
 			""")) {
 			while (result.next()) {
@@ -152,7 +155,8 @@ public final class SqliteRegionRepository implements RegionRepository {
 					result.getInt("priority"),
 					regionBoxes,
 					Instant.ofEpochMilli(result.getLong("created_at")),
-					Instant.ofEpochMilli(result.getLong("updated_at"))
+					Instant.ofEpochMilli(result.getLong("updated_at")),
+					result.getLong("revision")
 				));
 			}
 		}
@@ -164,13 +168,14 @@ public final class SqliteRegionRepository implements RegionRepository {
 		requireInitialized();
 		inTransaction(() -> {
 			try (PreparedStatement statement = connection.prepareStatement("""
-				INSERT INTO regions(id, world_id, namespace, name, priority, created_at, updated_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?)
+				INSERT INTO regions(id, world_id, namespace, name, priority, revision, created_at, updated_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 				ON CONFLICT(id) DO UPDATE SET
 				    world_id = excluded.world_id,
 				    namespace = excluded.namespace,
 				    name = excluded.name,
 				    priority = excluded.priority,
+				    revision = excluded.revision,
 				    updated_at = excluded.updated_at
 				""")) {
 				statement.setString(1, definition.id().toString());
@@ -178,8 +183,9 @@ public final class SqliteRegionRepository implements RegionRepository {
 				statement.setString(3, definition.key().namespace());
 				statement.setString(4, definition.key().name());
 				statement.setInt(5, definition.priority());
-				statement.setLong(6, definition.createdAt().toEpochMilli());
-				statement.setLong(7, definition.updatedAt().toEpochMilli());
+				statement.setLong(6, definition.revision());
+				statement.setLong(7, definition.createdAt().toEpochMilli());
+				statement.setLong(8, definition.updatedAt().toEpochMilli());
 				statement.executeUpdate();
 			}
 			try (PreparedStatement statement = connection.prepareStatement("DELETE FROM region_boxes WHERE region_id = ?")) {
@@ -216,6 +222,62 @@ public final class SqliteRegionRepository implements RegionRepository {
 			try (PreparedStatement statement = connection.prepareStatement("DELETE FROM regions WHERE id = ?")) {
 				statement.setString(1, id.toString());
 				statement.executeUpdate();
+			}
+		});
+	}
+
+	@Override
+	public synchronized void applyBatch(List<RegionDefinition> saves, List<RegionId> deletes) throws SQLException {
+		requireInitialized();
+		Objects.requireNonNull(saves, "saves");
+		Objects.requireNonNull(deletes, "deletes");
+		inTransaction(() -> {
+			try (PreparedStatement statement = connection.prepareStatement("DELETE FROM regions WHERE id = ?")) {
+				for (RegionId id : deletes) {
+					statement.setString(1, Objects.requireNonNull(id, "deletes must not contain null").toString());
+					statement.addBatch();
+				}
+				for (RegionDefinition definition : saves) {
+					statement.setString(1, Objects.requireNonNull(definition, "saves must not contain null").id().toString());
+					statement.addBatch();
+				}
+				statement.executeBatch();
+			}
+
+			try (PreparedStatement regionStatement = connection.prepareStatement("""
+				INSERT INTO regions(id, world_id, namespace, name, priority, revision, created_at, updated_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+				"""); PreparedStatement boxStatement = connection.prepareStatement("""
+				INSERT INTO region_boxes(
+				    region_id, box_order, min_x, min_y, min_z,
+				    max_x_exclusive, max_y_exclusive, max_z_exclusive
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+				""")) {
+				for (RegionDefinition definition : saves) {
+					regionStatement.setString(1, definition.id().toString());
+					regionStatement.setString(2, definition.worldId().toString());
+					regionStatement.setString(3, definition.key().namespace());
+					regionStatement.setString(4, definition.key().name());
+					regionStatement.setInt(5, definition.priority());
+					regionStatement.setLong(6, definition.revision());
+					regionStatement.setLong(7, definition.createdAt().toEpochMilli());
+					regionStatement.setLong(8, definition.updatedAt().toEpochMilli());
+					regionStatement.addBatch();
+					for (int index = 0; index < definition.boxes().size(); index++) {
+						BlockBox box = definition.boxes().get(index);
+						boxStatement.setString(1, definition.id().toString());
+						boxStatement.setInt(2, index);
+						boxStatement.setInt(3, box.minX());
+						boxStatement.setInt(4, box.minY());
+						boxStatement.setInt(5, box.minZ());
+						boxStatement.setInt(6, box.maxXExclusive());
+						boxStatement.setInt(7, box.maxYExclusive());
+						boxStatement.setInt(8, box.maxZExclusive());
+						boxStatement.addBatch();
+					}
+				}
+				regionStatement.executeBatch();
+				boxStatement.executeBatch();
 			}
 		});
 	}

@@ -18,6 +18,10 @@ public final class RegionIndex {
 		return current.get();
 	}
 
+	public RegionReadView readView() {
+		return new RegionReadView(current.get());
+	}
+
 	public RegionDefinition find(RegionId id) {
 		return current.get().find(id);
 	}

@@ -21,6 +21,19 @@ public final class RegionPolicyRegistry {
 		return byNamespace.get(Objects.requireNonNull(namespace, "namespace").toLowerCase(Locale.ROOT));
 	}
 
+	public RegionPolicyEvaluationRegistry openEvaluation(ProtectionEvaluationContext context) {
+		Objects.requireNonNull(context, "context");
+		Map<String, RegionPolicyEvaluationRegistry.Entry> evaluations = new LinkedHashMap<>();
+		for (Map.Entry<String, RegionProtectionPolicy> entry : byNamespace.entrySet()) {
+			RegionProtectionPolicy policy = entry.getValue();
+			RegionPolicyEvaluator evaluator = Objects.requireNonNull(
+				policy.openEvaluation(context), "policy returned null evaluator: " + policy.id()
+			);
+			evaluations.put(entry.getKey(), new RegionPolicyEvaluationRegistry.Entry(policy.id(), evaluator));
+		}
+		return new RegionPolicyEvaluationRegistry(evaluations);
+	}
+
 	public static final class Builder {
 		private final Map<String, RegionProtectionPolicy> policies = new LinkedHashMap<>();
 

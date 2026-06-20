@@ -5,3 +5,5 @@ run/
 *.iml
 .idea/workspace.xml
 .idea/
+docs/
+.gitignore
