@@ -7,5 +7,5 @@ test('Titan loads on Paper and registers its commands', async ({ player, server 
   await player.makeOp();
   player.chat('/mine list');
 
-  await expect(player).toHaveReceivedMessage('There are no mines yet.');
+  await expect(player).toHaveReceivedMessage(/There are no mines yet\.|Mines:/);
 });

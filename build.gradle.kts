@@ -54,6 +54,9 @@ paperwright {
     testsDir.set(layout.projectDirectory.dir("src/test/e2e"))
     acceptEula.set(true)
     jvmArgs.set(listOf("-Xmx2G"))
+    downloadPlugins {
+        url("https://hangarcdn.papermc.io/plugins/EngineHub/WorldEdit/versions/7.3.15/PAPER/worldedit-bukkit-7.3.15.jar")
+    }
     writeFiles {
         file("plugins/TitanMC/config.yml", """
             economy:
