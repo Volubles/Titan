@@ -20,7 +20,9 @@ public final class MineProtectionPolicy implements RegionProtectionPolicy {
 			ProtectionAction.BUCKET_FILL,
 			ProtectionAction.BUCKET_EMPTY,
 			ProtectionAction.EXPLOSION_BLOCK_DAMAGE,
-			ProtectionAction.PISTON_MOVE
+			ProtectionAction.PISTON_MOVE,
+			ProtectionAction.VEHICLE_ENTER,
+			ProtectionAction.VEHICLE_MODIFY
 		)
 		.build();
 

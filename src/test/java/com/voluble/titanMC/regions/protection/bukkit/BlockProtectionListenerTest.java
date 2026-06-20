@@ -87,13 +87,13 @@ class BlockProtectionListenerTest extends MockBukkitProtectionTestSupport {
 	}
 
 	@Test
-	void deniesOnlyRightClickBlockInteractions() {
+	void deniesRightClickAndPhysicalBlockInteractions() {
 		register(request -> ProtectionDecision.DENY, ProtectionBypass.none());
 		Block clicked = world.getBlockAt(3, 64, 3);
+		clicked.setType(Material.FARMLAND);
 		PlayerInteractEvent blockInteraction = interactEvent(Action.RIGHT_CLICK_BLOCK, clicked);
 		PlayerInteractEvent physicalInteraction = interactEvent(Action.PHYSICAL, clicked);
 		PlayerInteractEvent airInteraction = interactEvent(Action.RIGHT_CLICK_AIR, null);
-		Event.Result physicalBefore = physicalInteraction.useInteractedBlock();
 		Event.Result airBefore = airInteraction.useInteractedBlock();
 
 		server.getPluginManager().callEvent(blockInteraction);
@@ -101,7 +101,7 @@ class BlockProtectionListenerTest extends MockBukkitProtectionTestSupport {
 		server.getPluginManager().callEvent(airInteraction);
 
 		assertEquals(Event.Result.DENY, blockInteraction.useInteractedBlock());
-		assertEquals(physicalBefore, physicalInteraction.useInteractedBlock());
+		assertTrue(physicalInteraction.isCancelled());
 		assertEquals(airBefore, airInteraction.useInteractedBlock());
 	}
 

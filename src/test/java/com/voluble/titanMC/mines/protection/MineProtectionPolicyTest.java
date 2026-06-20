@@ -51,6 +51,8 @@ class MineProtectionPolicyTest {
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.BUCKET_EMPTY));
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.EXPLOSION_BLOCK_DAMAGE));
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.PISTON_MOVE));
+		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.VEHICLE_ENTER));
+		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.VEHICLE_MODIFY));
 	}
 
 	@Test

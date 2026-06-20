@@ -15,5 +15,6 @@ public enum ProtectionAction {
 	PISTON_MOVE,
 	FLUID_FLOW,
 	FIRE_SPREAD,
+	VEHICLE_ENTER,
 	VEHICLE_MODIFY
 }
