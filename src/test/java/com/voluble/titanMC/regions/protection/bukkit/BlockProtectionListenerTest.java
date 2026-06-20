@@ -11,6 +11,10 @@ import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.Event;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.block.BlockFace;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
@@ -21,6 +25,7 @@ import org.mockbukkit.mockbukkit.MockBukkit;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BlockProtectionListenerTest extends MockBukkitProtectionTestSupport {
@@ -81,6 +86,36 @@ class BlockProtectionListenerTest extends MockBukkitProtectionTestSupport {
 		assertFalse(event.isCancelled());
 	}
 
+	@Test
+	void deniesOnlyRightClickBlockInteractions() {
+		register(request -> ProtectionDecision.DENY, ProtectionBypass.none());
+		Block clicked = world.getBlockAt(3, 64, 3);
+		PlayerInteractEvent blockInteraction = interactEvent(Action.RIGHT_CLICK_BLOCK, clicked);
+		PlayerInteractEvent physicalInteraction = interactEvent(Action.PHYSICAL, clicked);
+		PlayerInteractEvent airInteraction = interactEvent(Action.RIGHT_CLICK_AIR, null);
+		Event.Result physicalBefore = physicalInteraction.useInteractedBlock();
+		Event.Result airBefore = airInteraction.useInteractedBlock();
+
+		server.getPluginManager().callEvent(blockInteraction);
+		server.getPluginManager().callEvent(physicalInteraction);
+		server.getPluginManager().callEvent(airInteraction);
+
+		assertEquals(Event.Result.DENY, blockInteraction.useInteractedBlock());
+		assertEquals(physicalBefore, physicalInteraction.useInteractedBlock());
+		assertEquals(airBefore, airInteraction.useInteractedBlock());
+	}
+
+	@Test
+	void allowsRightClickWhenProtectionAllows() {
+		register(request -> ProtectionDecision.ALLOW, ProtectionBypass.none());
+		PlayerInteractEvent event = interactEvent(Action.RIGHT_CLICK_BLOCK, world.getBlockAt(3, 64, 3));
+		Event.Result before = event.useInteractedBlock();
+
+		server.getPluginManager().callEvent(event);
+
+		assertEquals(before, event.useInteractedBlock());
+	}
+
 	private void register(
 		com.voluble.titanMC.regions.protection.policy.ProtectionDefaults defaults,
 		ProtectionBypass bypass
@@ -109,6 +144,12 @@ class BlockProtectionListenerTest extends MockBukkitProtectionTestSupport {
 			player,
 			true,
 			EquipmentSlot.HAND
+		);
+	}
+
+	private PlayerInteractEvent interactEvent(Action action, Block clicked) {
+		return new PlayerInteractEvent(
+			player, action, new ItemStack(Material.AIR), clicked, BlockFace.UP, EquipmentSlot.HAND
 		);
 	}
 }

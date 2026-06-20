@@ -23,7 +23,7 @@ An action is production-ready only when every required column is complete.
 | --- | --- | --- | --- | --- | --- |
 | block-break | `BLOCK_BREAK` | yes | yes | yes | planned |
 | block-place | `BLOCK_PLACE` | yes | yes | yes | planned |
-| block-interact | `BLOCK_INTERACT` | yes | planned | planned | planned |
+| block-interact | `BLOCK_INTERACT` | yes | yes | yes | planned |
 | container-open | `CONTAINER_OPEN` | yes | future | future | future |
 | entity-interact | `ENTITY_INTERACT` | yes | future | future | future |
 | entity-damage | `ENTITY_DAMAGE` | yes | future | future | future |

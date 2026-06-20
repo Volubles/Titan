@@ -7,6 +7,8 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerInteractEvent;
 
 import java.util.Objects;
 
@@ -33,6 +35,16 @@ public final class BlockProtectionListener implements Listener {
 			event.getPlayer(), ProtectionAction.BLOCK_PLACE, event.getBlockPlaced()
 		))) {
 			event.setCancelled(true);
+		}
+	}
+
+	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+	public void onBlockInteract(PlayerInteractEvent event) {
+		if (event.getAction() != Action.RIGHT_CLICK_BLOCK || event.getClickedBlock() == null) return;
+		if (!protection.allowed(BukkitProtectionMapper.request(
+			event.getPlayer(), ProtectionAction.BLOCK_INTERACT, event.getClickedBlock()
+		))) {
+			event.setUseInteractedBlock(org.bukkit.event.Event.Result.DENY);
 		}
 	}
 }
