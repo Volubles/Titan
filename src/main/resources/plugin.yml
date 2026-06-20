@@ -14,7 +14,7 @@ commands:
     permission: titanmc.mine.admin
   region:
     description: Manage protection regions
-    usage: /region <create|redefine|delete|list|info|priority|flag>
+    usage: /region <create|redefine|delete|list|info|priority|test|flag>
     permission: titanmc.region.admin
 permissions:
   donatortools.give:

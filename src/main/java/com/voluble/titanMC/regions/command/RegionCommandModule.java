@@ -3,6 +3,8 @@ package com.voluble.titanMC.regions.command;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.voluble.titanMC.TitanMC;
 import com.voluble.titanMC.regions.admin.RegionAdminService;
+import com.voluble.titanMC.regions.admin.RegionProtectionTestService;
+import com.voluble.titanMC.regions.model.BlockPosition;
 import com.voluble.titanMC.regions.model.ConvexPolyhedronGeometry;
 import com.voluble.titanMC.regions.model.CuboidGeometry;
 import com.voluble.titanMC.regions.model.PolygonPrismGeometry;
@@ -11,6 +13,8 @@ import com.voluble.titanMC.regions.model.RegionGeometry;
 import com.voluble.titanMC.regions.model.WorldId;
 import com.voluble.titanMC.regions.protection.model.ProtectionAction;
 import com.voluble.titanMC.regions.protection.model.ProtectionDecision;
+import com.voluble.titanMC.regions.protection.model.ProtectionResolution;
+import com.voluble.titanMC.regions.protection.bukkit.BukkitProtectionMapper;
 import com.voluble.titanMC.regions.selection.SelectedRegion;
 import com.voluble.titanMC.regions.selection.SelectionException;
 import com.voluble.titanMC.regions.selection.WorldEditRegionSelection;
@@ -30,9 +34,11 @@ import java.util.stream.Collectors;
 
 public final class RegionCommandModule implements CommandModule {
 
+	private final TitanMC plugin;
 	private final RegionAdminService regions;
 
 	public RegionCommandModule(TitanMC plugin) {
+		this.plugin = plugin;
 		this.regions = new RegionAdminService(plugin.getRegionEngine());
 	}
 
@@ -84,6 +90,10 @@ public final class RegionCommandModule implements CommandModule {
 						.argument("priority", Args.integer(), value -> value
 							.suggests(currentPriority)
 							.executes(this::handlePriority))))
+				.literal("test", test -> test
+					.argument("flag", Args.word(), flag -> flag
+						.suggestStrings(actions)
+						.executes(this::handleTest)))
 				.literal("flag", flag -> flag
 					.argument("name", Args.word(), name -> name
 						.suggests(names)
@@ -98,7 +108,7 @@ public final class RegionCommandModule implements CommandModule {
 
 	private int handleRoot(MichelleCommandContext context) throws CommandSyntaxException {
 		context.playerExecutor().sendMessage(
-			"Usage: /region <create|redefine|delete|list|info|priority|flag>"
+			"Usage: /region <create|redefine|delete|list|info|priority|test|flag>"
 		);
 		return CommandTree.ok();
 	}
@@ -232,6 +242,71 @@ public final class RegionCommandModule implements CommandModule {
 			player.sendMessage(exception.getMessage());
 		}
 		return CommandTree.ok();
+	}
+
+	private int handleTest(MichelleCommandContext context) throws CommandSyntaxException {
+		Player player = context.playerExecutor();
+		ProtectionAction action;
+		try {
+			action = ProtectionAction.valueOf(
+				context.arg("flag", String.class).toUpperCase(Locale.ROOT)
+			);
+		} catch (IllegalArgumentException exception) {
+			player.sendMessage("Unknown region flag.");
+			return CommandTree.ok();
+		}
+		BlockPosition position = BukkitProtectionMapper.position(player.getLocation());
+		if (plugin.getProtectionService() == null) {
+			player.sendMessage("Titan region protection is disabled.");
+			return CommandTree.ok();
+		}
+		RegionProtectionTestService protectionTests = new RegionProtectionTestService(
+			plugin.getRegionEngine(),
+			plugin.getProtectionService()
+		);
+		RegionProtectionTestService.Result test = protectionTests.test(
+			BukkitProtectionMapper.actor(player),
+			action,
+			position
+		);
+		ProtectionResolution resolution = test.resolution();
+		player.sendMessage(
+			"Test " + action.name().toLowerCase(Locale.ROOT)
+				+ " at " + position.x() + ", " + position.y() + ", " + position.z()
+				+ ": " + resolution.decision().name()
+				+ " (" + reasonName(resolution.reason()) + ")"
+		);
+		if (test.matchingRegions().isEmpty()) {
+			player.sendMessage("Matching regions: none");
+		} else {
+			player.sendMessage("Matching regions: " + test.matchingRegions().stream()
+				.map(region -> region.key() + "@" + region.priority())
+				.collect(Collectors.joining(", ")));
+		}
+		if (resolution.evaluations().isEmpty()) {
+			if (resolution.reason() == ProtectionResolution.Reason.BYPASS) {
+				player.sendMessage("Trace: protection bypassed by your permission.");
+			} else {
+				player.sendMessage("Trace: no region rule decided; world default applied.");
+			}
+		} else {
+			for (var evaluation : resolution.evaluations()) {
+				player.sendMessage(
+					"Trace: " + evaluation.regionKey() + "@" + evaluation.priority()
+						+ " -> " + evaluation.decision().name()
+						+ " via " + evaluation.policyId()
+						+ evaluation.error().map(error -> " (" + error + ")").orElse("")
+				);
+			}
+		}
+		resolution.decidingPriority().ifPresent(priority ->
+			player.sendMessage("Winning priority: " + priority)
+		);
+		return CommandTree.ok();
+	}
+
+	private static String reasonName(ProtectionResolution.Reason reason) {
+		return reason.name().toLowerCase(Locale.ROOT).replace('_', ' ');
 	}
 
 	private static SelectedRegion selection(Player player) {
