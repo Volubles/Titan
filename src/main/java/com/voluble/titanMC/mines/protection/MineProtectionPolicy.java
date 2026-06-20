@@ -27,6 +27,13 @@ public final class MineProtectionPolicy implements RegionProtectionPolicy {
 			ProtectionAction.PISTON_MOVE,
 			ProtectionAction.FLUID_FLOW,
 			ProtectionAction.FIRE_SPREAD,
+			ProtectionAction.BLOCK_AUTOMATION,
+			ProtectionAction.REDSTONE_CHANGE,
+			ProtectionAction.TNT_PRIME,
+			ProtectionAction.BLOCK_GROWTH,
+			ProtectionAction.BLOCK_DECAY,
+			ProtectionAction.MOB_GRIEF,
+			ProtectionAction.PORTAL_CREATE,
 			ProtectionAction.VEHICLE_PLACE,
 			ProtectionAction.VEHICLE_ENTER,
 			ProtectionAction.VEHICLE_MODIFY
