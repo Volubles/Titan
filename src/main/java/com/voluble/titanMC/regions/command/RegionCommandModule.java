@@ -11,6 +11,7 @@ import com.voluble.titanMC.regions.model.PolygonPrismGeometry;
 import com.voluble.titanMC.regions.model.RegionDefinition;
 import com.voluble.titanMC.regions.model.RegionGeometry;
 import com.voluble.titanMC.regions.model.WorldId;
+import com.voluble.titanMC.regions.model.RegionTextFlag;
 import com.voluble.titanMC.regions.protection.model.ProtectionAction;
 import com.voluble.titanMC.regions.protection.model.ProtectionDecision;
 import com.voluble.titanMC.regions.protection.model.ProtectionResolution;
@@ -47,6 +48,13 @@ public final class RegionCommandModule implements CommandModule {
 		var names = Suggest.fromContext(source -> regions.names());
 		var actions = Arrays.stream(ProtectionAction.values())
 			.map(action -> action.name().toLowerCase(Locale.ROOT))
+			.toList();
+		var testActions = Arrays.stream(ProtectionAction.values())
+			.filter(action -> action != ProtectionAction.ENTRY)
+			.map(action -> action.name().toLowerCase(Locale.ROOT))
+			.toList();
+		var textFlags = Arrays.stream(RegionTextFlag.values())
+			.map(flag -> flag.name().toLowerCase(Locale.ROOT))
 			.toList();
 		var currentPriority = Suggest.contextual((context, args) -> {
 			if (!(context.getSource().getExecutor() instanceof Player player)) return List.of();
@@ -92,8 +100,16 @@ public final class RegionCommandModule implements CommandModule {
 							.executes(this::handlePriority))))
 				.literal("test", test -> test
 					.argument("flag", Args.word(), flag -> flag
-						.suggestStrings(actions)
+						.suggestStrings(testActions)
 						.executes(this::handleTest)))
+				.literal("message", message -> message
+					.argument("name", Args.word(), name -> name
+						.suggests(names)
+						.argument("type", Args.word(), type -> type
+							.suggestStrings(textFlags)
+							.argument("value", Args.greedyString(), value -> value
+								.suggestStrings(List.of("unset"))
+								.executes(this::handleMessage)))))
 				.literal("flag", flag -> flag
 					.argument("name", Args.word(), name -> name
 						.suggests(names)
@@ -108,7 +124,7 @@ public final class RegionCommandModule implements CommandModule {
 
 	private int handleRoot(MichelleCommandContext context) throws CommandSyntaxException {
 		context.playerExecutor().sendMessage(
-			"Usage: /region <create|redefine|delete|list|info|priority|test|flag>"
+			"Usage: /region <create|redefine|delete|list|info|priority|test|flag|message>"
 		);
 		return CommandTree.ok();
 	}
@@ -199,6 +215,14 @@ public final class RegionCommandModule implements CommandModule {
 					+ entry.getValue().name().toLowerCase(Locale.ROOT))
 				.collect(Collectors.joining(", ")));
 		}
+		if (region.text().explicitValues().isEmpty()) {
+			player.sendMessage("Messages: none");
+		} else {
+			player.sendMessage("Messages:");
+			region.text().explicitValues().forEach((flag, value) ->
+				player.sendMessage("- " + flag.name().toLowerCase(Locale.ROOT) + " = " + value)
+			);
+		}
 		return CommandTree.ok();
 	}
 
@@ -251,6 +275,10 @@ public final class RegionCommandModule implements CommandModule {
 			action = ProtectionAction.valueOf(
 				context.arg("flag", String.class).toUpperCase(Locale.ROOT)
 			);
+			if (action == ProtectionAction.ENTRY) {
+				player.sendMessage("Entry is transition-based and cannot be tested at a single position.");
+				return CommandTree.ok();
+			}
 		} catch (IllegalArgumentException exception) {
 			player.sendMessage("Unknown region flag.");
 			return CommandTree.ok();
@@ -302,6 +330,28 @@ public final class RegionCommandModule implements CommandModule {
 		resolution.decidingPriority().ifPresent(priority ->
 			player.sendMessage("Winning priority: " + priority)
 		);
+		return CommandTree.ok();
+	}
+
+	private int handleMessage(MichelleCommandContext context) throws CommandSyntaxException {
+		Player player = context.playerExecutor();
+		String name = context.arg("name", String.class);
+		try {
+			RegionTextFlag flag = RegionTextFlag.valueOf(
+				context.arg("type", String.class).toUpperCase(Locale.ROOT)
+			);
+			String input = context.arg("value", String.class);
+			String value = input.equalsIgnoreCase("unset") ? null : input;
+			sendResult(
+				player,
+				regions.setText(name, world(player), flag, value),
+				value == null
+					? "Unset " + flag.name().toLowerCase(Locale.ROOT) + " for '" + name + "'."
+					: "Set " + flag.name().toLowerCase(Locale.ROOT) + " for '" + name + "'."
+			);
+		} catch (IllegalArgumentException exception) {
+			player.sendMessage(exception.getMessage());
+		}
 		return CommandTree.ok();
 	}
 

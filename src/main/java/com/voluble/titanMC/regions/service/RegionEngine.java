@@ -14,6 +14,7 @@ import com.voluble.titanMC.regions.persistence.RegionRepository;
 import com.voluble.titanMC.regions.persistence.RegionStorageException;
 import com.voluble.titanMC.regions.persistence.SqliteRegionRepository;
 import com.voluble.titanMC.regions.protection.model.RegionFlagSet;
+import com.voluble.titanMC.regions.model.RegionTextSet;
 
 import java.nio.file.Path;
 import java.sql.SQLException;
@@ -154,7 +155,7 @@ public final class RegionEngine implements AutoCloseable {
 			try {
 				updated = new RegionDefinition(
 					id, key, worldId, priority, geometry, existing.flags(),
-					existing.createdAt(), Instant.now(), existing.revision() + 1L
+					existing.text(), existing.createdAt(), Instant.now(), existing.revision() + 1L
 				);
 			} catch (RuntimeException exception) {
 				return failure(RegionMutationResult.Reason.INVALID_GEOMETRY, exception.getMessage());
@@ -178,7 +179,28 @@ public final class RegionEngine implements AutoCloseable {
 			}
 			RegionDefinition updated = new RegionDefinition(
 				existing.id(), existing.key(), existing.worldId(), existing.priority(), existing.geometry(), flags,
-				existing.createdAt(), Instant.now(), existing.revision() + 1L
+				existing.text(), existing.createdAt(), Instant.now(), existing.revision() + 1L
+			);
+			return saveMutation(updated, false);
+		});
+	}
+
+	public CompletableFuture<RegionMutationResult> setText(
+		RegionId id,
+		long expectedRevision,
+		RegionTextSet text
+	) {
+		Objects.requireNonNull(text, "text");
+		return submit(() -> {
+			RegionDefinition existing = index.find(id);
+			if (existing == null) return failure(RegionMutationResult.Reason.NOT_FOUND, "Region does not exist: " + id);
+			if (existing.revision() != expectedRevision) {
+				return failure(RegionMutationResult.Reason.STALE_REVISION,
+					"Expected revision " + expectedRevision + " but found " + existing.revision());
+			}
+			RegionDefinition updated = new RegionDefinition(
+				existing.id(), existing.key(), existing.worldId(), existing.priority(), existing.geometry(),
+				existing.flags(), text, existing.createdAt(), Instant.now(), existing.revision() + 1L
 			);
 			return saveMutation(updated, false);
 		});
@@ -249,7 +271,7 @@ public final class RegionEngine implements AutoCloseable {
 				try {
 					updated = new RegionDefinition(
 						existing.id(), update.key(), update.worldId(), update.priority(), update.geometry(),
-						existing.flags(), existing.createdAt(), timestamp, existing.revision() + 1L
+						existing.flags(), existing.text(), existing.createdAt(), timestamp, existing.revision() + 1L
 					);
 				} catch (RuntimeException exception) {
 					return batchFailure(operationIndex, RegionMutationResult.Reason.INVALID_GEOMETRY, exception.getMessage());

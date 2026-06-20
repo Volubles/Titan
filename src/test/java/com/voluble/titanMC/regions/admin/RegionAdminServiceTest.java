@@ -8,6 +8,7 @@ import com.voluble.titanMC.regions.model.PolygonPrismGeometry;
 import com.voluble.titanMC.regions.model.RegionDefinition;
 import com.voluble.titanMC.regions.model.RegionKey;
 import com.voluble.titanMC.regions.model.WorldId;
+import com.voluble.titanMC.regions.model.RegionTextFlag;
 import com.voluble.titanMC.regions.protection.model.ProtectionAction;
 import com.voluble.titanMC.regions.protection.model.ProtectionActor;
 import com.voluble.titanMC.regions.protection.model.ProtectionDecision;
@@ -44,6 +45,9 @@ class RegionAdminServiceTest {
 			assertTrue(admin.setFlag(
 				"yard", world, ProtectionAction.PLAYER_PVP, ProtectionDecision.ALLOW
 			).successful());
+			assertTrue(admin.setText(
+				"yard", world, RegionTextFlag.ENTRY_MESSAGE, "Welcome"
+			).successful());
 			assertTrue(admin.redefine(
 				"yard", world, new CuboidGeometry(new BlockBox(20, 0, 20, 30, 10, 30))
 			).successful());
@@ -51,6 +55,7 @@ class RegionAdminServiceTest {
 			assertEquals(RegionKey.of("custom", "yard"), region.key());
 			assertEquals(250, region.priority());
 			assertEquals(ProtectionDecision.ALLOW, region.flags().decision(ProtectionAction.PLAYER_PVP));
+			assertEquals("Welcome", region.text().value(RegionTextFlag.ENTRY_MESSAGE).orElseThrow());
 			assertEquals(1, admin.list(world).size());
 		}
 	}

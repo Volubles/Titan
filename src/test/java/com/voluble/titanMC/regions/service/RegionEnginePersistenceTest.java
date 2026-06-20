@@ -13,10 +13,13 @@ import com.voluble.titanMC.regions.model.WorldId;
 import com.voluble.titanMC.regions.protection.model.ProtectionAction;
 import com.voluble.titanMC.regions.protection.model.ProtectionDecision;
 import com.voluble.titanMC.regions.protection.model.RegionFlagSet;
+import com.voluble.titanMC.regions.model.RegionTextFlag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.sql.DriverManager;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -130,6 +133,124 @@ class RegionEnginePersistenceTest {
 
 		try (RegionEngine reloaded = RegionEngine.open(database)) {
 			assertEquals(flags, reloaded.find(world, key).flags());
+		}
+	}
+
+	@Test
+	void regionTextFlagsSurviveUpdatesAndRestart() throws Exception {
+		Path database = temporaryDirectory.resolve("text-flags.db");
+		WorldId world = new WorldId(UUID.randomUUID());
+		RegionKey key = RegionKey.of("custom", "lobby");
+
+		try (RegionEngine engine = RegionEngine.open(database)) {
+			RegionDefinition created = assertInstanceOf(
+				RegionMutationResult.Success.class,
+				engine.create(key, world, 0, new CuboidGeometry(new BlockBox(0, 0, 0, 16, 16, 16))).join()
+			).region();
+			assertTrue(engine.setText(
+				created.id(),
+				created.revision(),
+				created.text()
+					.with(RegionTextFlag.ENTRY_MESSAGE, "<green>Welcome</green>")
+					.with(RegionTextFlag.EXIT_MESSAGE, "Goodbye")
+			).join().successful());
+		}
+
+		try (RegionEngine reloaded = RegionEngine.open(database)) {
+			RegionDefinition stored = reloaded.find(world, key);
+			assertEquals(
+				"<green>Welcome</green>",
+				stored.text().value(RegionTextFlag.ENTRY_MESSAGE).orElseThrow()
+			);
+			assertEquals("Goodbye", stored.text().value(RegionTextFlag.EXIT_MESSAGE).orElseThrow());
+		}
+	}
+
+	@Test
+	void schemaFiveDatabaseMigratesWithoutLosingExistingRegions() throws Exception {
+		Path database = temporaryDirectory.resolve("schema-five.db");
+		createEmptySchemaFiveDatabase(database);
+
+		try (RegionEngine engine = RegionEngine.open(database)) {
+			assertTrue(engine.snapshot().definitions().isEmpty());
+			assertTrue(engine.create(
+				RegionKey.of("custom", "after_migration"),
+				new WorldId(UUID.randomUUID()),
+				100,
+				new CuboidGeometry(new BlockBox(0, 0, 0, 16, 16, 16))
+			).join().successful());
+		}
+
+		try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database);
+			 Statement statement = connection.createStatement();
+			 var result = statement.executeQuery("PRAGMA user_version")) {
+			assertTrue(result.next());
+			assertEquals(6, result.getInt(1));
+		}
+	}
+
+	private static void createEmptySchemaFiveDatabase(Path database) throws Exception {
+		Class.forName("org.sqlite.JDBC");
+		try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database);
+			 Statement statement = connection.createStatement()) {
+			statement.executeUpdate("""
+				CREATE TABLE regions (
+				    id TEXT PRIMARY KEY NOT NULL,
+				    world_id TEXT NOT NULL,
+				    namespace TEXT NOT NULL,
+				    name TEXT NOT NULL,
+				    priority INTEGER NOT NULL,
+				    revision INTEGER NOT NULL,
+				    created_at INTEGER NOT NULL,
+				    updated_at INTEGER NOT NULL,
+				    UNIQUE(world_id, namespace, name)
+				)
+				""");
+			statement.executeUpdate("""
+				CREATE TABLE region_geometries (
+				    region_id TEXT PRIMARY KEY NOT NULL,
+				    geometry_type TEXT NOT NULL,
+				    min_x INTEGER NOT NULL,
+				    min_y INTEGER NOT NULL,
+				    min_z INTEGER NOT NULL,
+				    max_x_exclusive INTEGER NOT NULL,
+				    max_y_exclusive INTEGER NOT NULL,
+				    max_z_exclusive INTEGER NOT NULL,
+				    FOREIGN KEY(region_id) REFERENCES regions(id) ON DELETE CASCADE
+				)
+				""");
+			statement.executeUpdate("""
+				CREATE TABLE region_polygon_points (
+				    region_id TEXT NOT NULL,
+				    point_order INTEGER NOT NULL,
+				    x INTEGER NOT NULL,
+				    z INTEGER NOT NULL,
+				    PRIMARY KEY(region_id, point_order),
+				    FOREIGN KEY(region_id) REFERENCES region_geometries(region_id) ON DELETE CASCADE
+				)
+				""");
+			statement.executeUpdate("""
+				CREATE TABLE region_polyhedron_planes (
+				    region_id TEXT NOT NULL,
+				    plane_order INTEGER NOT NULL,
+				    normal_x REAL NOT NULL,
+				    normal_y REAL NOT NULL,
+				    normal_z REAL NOT NULL,
+				    maximum_dot_product REAL NOT NULL,
+				    PRIMARY KEY(region_id, plane_order),
+				    FOREIGN KEY(region_id) REFERENCES region_geometries(region_id) ON DELETE CASCADE
+				)
+				""");
+			statement.executeUpdate("""
+				CREATE TABLE region_flags (
+				    region_id TEXT NOT NULL,
+				    action TEXT NOT NULL,
+				    decision TEXT NOT NULL,
+				    PRIMARY KEY(region_id, action),
+				    FOREIGN KEY(region_id) REFERENCES regions(id) ON DELETE CASCADE
+				)
+				""");
+			statement.execute("PRAGMA user_version = 5");
 		}
 	}
 }

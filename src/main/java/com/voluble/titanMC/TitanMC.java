@@ -31,9 +31,11 @@ import com.voluble.titanMC.regions.protection.bukkit.PistonProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.PortalProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.TrustedFluidFlow;
 import com.voluble.titanMC.regions.protection.bukkit.VehicleProtectionListener;
+import com.voluble.titanMC.regions.protection.bukkit.RegionEntryProtectionListener;
 import com.voluble.titanMC.regions.protection.policy.ProtectionBypass;
 import com.voluble.titanMC.regions.protection.policy.RegionPolicyRegistry;
 import com.voluble.titanMC.regions.protection.service.ProtectionService;
+import com.voluble.titanMC.regions.protection.service.RegionEntryService;
 import com.voluble.titanMC.regions.service.RegionEngine;
 import io.voluble.michellelib.commands.CommandKit;
 import io.voluble.michellelib.menu.MenuService;
@@ -124,13 +126,20 @@ public final class TitanMC extends JavaPlugin {
 			return true;
 		}
 
+		ProtectionBypass protectionBypass = BukkitProtectionBypass.permission(
+			getServer(), configuration.bypassPermission()
+		);
 		protectionService = ProtectionService.forEngine(
 			regionEngine,
 			RegionPolicyRegistry.builder()
 				.register(new MineProtectionPolicy())
 				.build(),
 			configuration.defaults(),
-			BukkitProtectionBypass.permission(getServer(), configuration.bypassPermission())
+			protectionBypass
+		);
+		getServer().getPluginManager().registerEvents(
+			new RegionEntryProtectionListener(new RegionEntryService(regionEngine, protectionBypass)),
+			this
 		);
 		getServer().getPluginManager().registerEvents(new BlockProtectionListener(protectionService), this);
 		TrustedFluidFlow trustedFluidFlow = new TrustedFluidFlow();

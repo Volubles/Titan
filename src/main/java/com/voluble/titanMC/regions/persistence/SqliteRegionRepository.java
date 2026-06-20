@@ -11,6 +11,8 @@ import com.voluble.titanMC.regions.model.RegionGeometry;
 import com.voluble.titanMC.regions.model.RegionId;
 import com.voluble.titanMC.regions.model.RegionKey;
 import com.voluble.titanMC.regions.model.WorldId;
+import com.voluble.titanMC.regions.model.RegionTextFlag;
+import com.voluble.titanMC.regions.model.RegionTextSet;
 import com.voluble.titanMC.regions.protection.model.ProtectionAction;
 import com.voluble.titanMC.regions.protection.model.ProtectionDecision;
 import com.voluble.titanMC.regions.protection.model.RegionFlagSet;
@@ -32,7 +34,7 @@ import java.util.Objects;
 
 public final class SqliteRegionRepository implements RegionRepository {
 
-	private static final int SCHEMA_VERSION = 5;
+	private static final int SCHEMA_VERSION = 6;
 	private final Path databasePath;
 	private Connection connection;
 
@@ -89,9 +91,9 @@ public final class SqliteRegionRepository implements RegionRepository {
 		try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery("PRAGMA user_version")) {
 			version = result.next() ? result.getInt(1) : 0;
 		}
-		if (version != 0 && version != SCHEMA_VERSION) {
+		if (version != 0 && version != 5 && version != SCHEMA_VERSION) {
 			throw new SQLException(
-				"Unsupported region database schema " + version + "; expected an empty database or schema " + SCHEMA_VERSION
+				"Unsupported region database schema " + version + "; expected an empty database or schema 5-" + SCHEMA_VERSION
 			);
 		}
 		if (version == SCHEMA_VERSION) return;
@@ -155,6 +157,15 @@ public final class SqliteRegionRepository implements RegionRepository {
 					    FOREIGN KEY(region_id) REFERENCES regions(id) ON DELETE CASCADE
 					)
 					""");
+				statement.executeUpdate("""
+					CREATE TABLE IF NOT EXISTS region_text_flags (
+					    region_id TEXT NOT NULL,
+					    text_flag TEXT NOT NULL,
+					    value TEXT NOT NULL,
+					    PRIMARY KEY(region_id, text_flag),
+					    FOREIGN KEY(region_id) REFERENCES regions(id) ON DELETE CASCADE
+					)
+					""");
 				statement.execute("PRAGMA user_version = " + SCHEMA_VERSION);
 			}
 		});
@@ -166,6 +177,7 @@ public final class SqliteRegionRepository implements RegionRepository {
 		Map<RegionId, List<BlockPoint2>> polygonPoints = loadPolygonPoints();
 		Map<RegionId, List<PolyhedronPlane>> polyhedronPlanes = loadPolyhedronPlanes();
 		Map<RegionId, RegionFlagSet> flags = loadFlags();
+		Map<RegionId, RegionTextSet> text = loadTextFlags();
 		List<RegionDefinition> definitions = new ArrayList<>();
 		try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery("""
 			SELECT r.id, r.world_id, r.namespace, r.name, r.priority, r.revision, r.created_at, r.updated_at,
@@ -190,6 +202,7 @@ public final class SqliteRegionRepository implements RegionRepository {
 					result.getInt("priority"),
 					readGeometry(id, result.getString("geometry_type"), bounds, polygonPoints, polyhedronPlanes),
 					flags.getOrDefault(id, RegionFlagSet.empty()),
+					text.getOrDefault(id, RegionTextSet.empty()),
 					Instant.ofEpochMilli(result.getLong("created_at")),
 					Instant.ofEpochMilli(result.getLong("updated_at")),
 					result.getLong("revision")
@@ -232,8 +245,13 @@ public final class SqliteRegionRepository implements RegionRepository {
 				statement.setString(1, definition.id().toString());
 				statement.executeUpdate();
 			}
+			try (PreparedStatement statement = connection.prepareStatement("DELETE FROM region_text_flags WHERE region_id = ?")) {
+				statement.setString(1, definition.id().toString());
+				statement.executeUpdate();
+			}
 			insertGeometry(definition);
 			insertFlags(definition);
+			insertTextFlags(definition);
 		});
 	}
 
@@ -285,6 +303,7 @@ public final class SqliteRegionRepository implements RegionRepository {
 				for (RegionDefinition definition : saves) {
 					insertGeometry(definition);
 					insertFlags(definition);
+					insertTextFlags(definition);
 				}
 			}
 		});
@@ -342,6 +361,27 @@ public final class SqliteRegionRepository implements RegionRepository {
 		Map<RegionId, RegionFlagSet> flags = new LinkedHashMap<>();
 		decisions.forEach((id, values) -> flags.put(id, RegionFlagSet.of(values)));
 		return flags;
+	}
+
+	private Map<RegionId, RegionTextSet> loadTextFlags() throws SQLException {
+		Map<RegionId, Map<RegionTextFlag, String>> values = new LinkedHashMap<>();
+		try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery("""
+			SELECT region_id, text_flag, value FROM region_text_flags ORDER BY region_id, text_flag
+			""")) {
+			while (result.next()) {
+				RegionId id = RegionId.parse(result.getString("region_id"));
+				try {
+					RegionTextFlag flag = RegionTextFlag.valueOf(result.getString("text_flag"));
+					values.computeIfAbsent(id, ignored -> new LinkedHashMap<>())
+						.put(flag, result.getString("value"));
+				} catch (IllegalArgumentException exception) {
+					throw new SQLException("Invalid persisted region text flag for " + id, exception);
+				}
+			}
+		}
+		Map<RegionId, RegionTextSet> text = new LinkedHashMap<>();
+		values.forEach((id, regionValues) -> text.put(id, RegionTextSet.of(regionValues)));
+		return text;
 	}
 
 	private static RegionGeometry readGeometry(
@@ -461,6 +501,21 @@ public final class SqliteRegionRepository implements RegionRepository {
 				statement.setString(1, definition.id().toString());
 				statement.setString(2, entry.getKey().name());
 				statement.setString(3, entry.getValue().name());
+				statement.addBatch();
+			}
+			statement.executeBatch();
+		}
+	}
+
+	private void insertTextFlags(RegionDefinition definition) throws SQLException {
+		if (definition.text().explicitValues().isEmpty()) return;
+		try (PreparedStatement statement = connection.prepareStatement("""
+			INSERT INTO region_text_flags(region_id, text_flag, value) VALUES (?, ?, ?)
+			""")) {
+			for (Map.Entry<RegionTextFlag, String> entry : definition.text().explicitValues().entrySet()) {
+				statement.setString(1, definition.id().toString());
+				statement.setString(2, entry.getKey().name());
+				statement.setString(3, entry.getValue());
 				statement.addBatch();
 			}
 			statement.executeBatch();

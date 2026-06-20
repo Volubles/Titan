@@ -12,6 +12,7 @@ public record RegionDefinition(
 	int priority,
 	RegionGeometry geometry,
 	RegionFlagSet flags,
+	RegionTextSet text,
 	Instant createdAt,
 	Instant updatedAt,
 	long revision
@@ -23,6 +24,7 @@ public record RegionDefinition(
 		Objects.requireNonNull(worldId, "worldId");
 		Objects.requireNonNull(geometry, "geometry");
 		Objects.requireNonNull(flags, "flags");
+		Objects.requireNonNull(text, "text");
 		Objects.requireNonNull(createdAt, "createdAt");
 		Objects.requireNonNull(updatedAt, "updatedAt");
 		if (updatedAt.isBefore(createdAt)) throw new IllegalArgumentException("updatedAt must not precede createdAt");
@@ -38,7 +40,7 @@ public record RegionDefinition(
 		Instant createdAt,
 		Instant updatedAt
 	) {
-		this(id, key, worldId, priority, geometry, RegionFlagSet.empty(), createdAt, updatedAt, 1L);
+		this(id, key, worldId, priority, geometry, RegionFlagSet.empty(), RegionTextSet.empty(), createdAt, updatedAt, 1L);
 	}
 
 	public RegionDefinition(
@@ -51,13 +53,28 @@ public record RegionDefinition(
 		Instant createdAt,
 		Instant updatedAt
 	) {
-		this(id, key, worldId, priority, geometry, flags, createdAt, updatedAt, 1L);
+		this(id, key, worldId, priority, geometry, flags, RegionTextSet.empty(), createdAt, updatedAt, 1L);
+	}
+
+	public RegionDefinition(
+		RegionId id,
+		RegionKey key,
+		WorldId worldId,
+		int priority,
+		RegionGeometry geometry,
+		RegionFlagSet flags,
+		RegionTextSet text,
+		Instant createdAt,
+		Instant updatedAt
+	) {
+		this(id, key, worldId, priority, geometry, flags, text, createdAt, updatedAt, 1L);
 	}
 
 	public static RegionDefinition create(RegionKey key, WorldId worldId, int priority, RegionGeometry geometry) {
 		Instant now = Instant.now();
 		return new RegionDefinition(
-			RegionId.random(), key, worldId, priority, geometry, RegionFlagSet.empty(), now, now, 1L
+			RegionId.random(), key, worldId, priority, geometry, RegionFlagSet.empty(),
+			RegionTextSet.empty(), now, now, 1L
 		);
 	}
 

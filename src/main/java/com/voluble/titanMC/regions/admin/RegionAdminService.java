@@ -4,6 +4,7 @@ import com.voluble.titanMC.regions.model.RegionDefinition;
 import com.voluble.titanMC.regions.model.RegionGeometry;
 import com.voluble.titanMC.regions.model.RegionKey;
 import com.voluble.titanMC.regions.model.WorldId;
+import com.voluble.titanMC.regions.model.RegionTextFlag;
 import com.voluble.titanMC.regions.protection.model.ProtectionAction;
 import com.voluble.titanMC.regions.protection.model.ProtectionDecision;
 import com.voluble.titanMC.regions.service.RegionEngine;
@@ -74,6 +75,19 @@ public final class RegionAdminService {
 			existing.worldId(),
 			priority,
 			existing.geometry()
+		).join();
+	}
+
+	public RegionMutationResult setText(
+		String name,
+		WorldId worldId,
+		RegionTextFlag flag,
+		String value
+	) {
+		RegionDefinition existing = find(worldId, name);
+		if (existing == null) return notFound(name);
+		return regions.setText(
+			existing.id(), existing.revision(), existing.text().with(flag, value)
 		).join();
 	}
 

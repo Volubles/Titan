@@ -28,6 +28,10 @@ class BukkitProtectionConfigurationTest extends MockBukkitProtectionTestSupport 
 		BukkitProtectionConfiguration configuration = BukkitProtectionConfiguration.load(yaml, server);
 
 		assertEquals(ProtectionDecision.DENY, configuration.defaults().decide(request(protectedWorld)));
+		assertEquals(
+			ProtectionDecision.ALLOW,
+			configuration.defaults().decide(request(protectedWorld, ProtectionAction.ENTRY))
+		);
 		assertEquals(ProtectionDecision.ALLOW, configuration.defaults().decide(request(openWorld)));
 	}
 
@@ -48,9 +52,13 @@ class BukkitProtectionConfigurationTest extends MockBukkitProtectionTestSupport 
 	}
 
 	private static ProtectionRequest request(World world) {
+		return request(world, ProtectionAction.BLOCK_BREAK);
+	}
+
+	private static ProtectionRequest request(World world, ProtectionAction action) {
 		return ProtectionRequest.at(
 			ProtectionActor.system("configuration-test", Set.of()),
-			ProtectionAction.BLOCK_BREAK,
+			action,
 			new BlockPosition(new WorldId(world.getUID()), 0, 64, 0)
 		);
 	}

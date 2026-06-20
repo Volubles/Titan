@@ -2,6 +2,7 @@ package com.voluble.titanMC.regions.protection.bukkit;
 
 import com.voluble.titanMC.regions.model.WorldId;
 import com.voluble.titanMC.regions.protection.model.ProtectionDecision;
+import com.voluble.titanMC.regions.protection.model.ProtectionAction;
 import com.voluble.titanMC.regions.protection.policy.WorldProtectionDefaults;
 import org.bukkit.Server;
 import org.bukkit.World;
@@ -45,7 +46,10 @@ public record BukkitProtectionConfiguration(
 	public WorldProtectionDefaults defaults() {
 		WorldProtectionDefaults.Builder builder = WorldProtectionDefaults.builder()
 			.fallback(ProtectionDecision.ALLOW);
-		for (WorldId world : protectedWorlds) builder.worldDefault(world, ProtectionDecision.DENY);
+		for (WorldId world : protectedWorlds) {
+			builder.worldDefault(world, ProtectionDecision.DENY)
+				.action(world, ProtectionAction.ENTRY, ProtectionDecision.ALLOW);
+		}
 		return builder.build();
 	}
 }

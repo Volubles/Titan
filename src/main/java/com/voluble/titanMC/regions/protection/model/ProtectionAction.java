@@ -1,6 +1,7 @@
 package com.voluble.titanMC.regions.protection.model;
 
 public enum ProtectionAction {
+	ENTRY,
 	BLOCK_BREAK,
 	BLOCK_PLACE,
 	BLOCK_INTERACT,
