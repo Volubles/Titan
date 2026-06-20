@@ -36,7 +36,6 @@ respective features need them.
 ```
 
 On Windows, use `gradlew.bat`. The shaded plugin is written to `build/libs`.
-Local deployment and debugger setup are described in [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Protection configuration
 
