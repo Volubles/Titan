@@ -53,10 +53,3 @@ protection:
 Listed worlds use default deny. Concrete region policies, such as cells and
 mines, selectively allow actions inside their regions. Leave the list empty
 while setting up a server that should remain open.
-
-## Documentation
-
-- [Region architecture](docs/regions/ARCHITECTURE.md)
-- [Protection resolution](docs/regions/PROTECTION_CORE.md)
-- [Protection flags and roadmap](docs/regions/PROTECTION_FLAGS.md)
-- [Protection testing strategy](docs/regions/PROTECTION_TESTING.md)

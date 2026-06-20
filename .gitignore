@@ -4,6 +4,7 @@ out/
 run/
 *.iml
 .idea/
+docs/
 *.ipr
 *.iws
 *.log
