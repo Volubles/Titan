@@ -12,6 +12,10 @@ commands:
     description: Manage mines
     usage: /mine <list|create|redefine|setinterval|addblock|removeblock|forcereset|delete>
     permission: titanmc.mine.admin
+  region:
+    description: Manage protection regions
+    usage: /region <create|redefine|delete|list|info|flag>
+    permission: titanmc.region.admin
 permissions:
   donatortools.give:
     description: Allows giving donator tools
@@ -21,6 +25,9 @@ permissions:
     default: op
   titanmc.mine.admin:
     description: Allows managing mines
+    default: op
+  titanmc.region.admin:
+    description: Allows managing protection regions
     default: op
   titanmc.protection.bypass:
     description: Bypasses Titan region protection

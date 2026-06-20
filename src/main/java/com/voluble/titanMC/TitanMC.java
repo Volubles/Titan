@@ -20,6 +20,7 @@ import com.voluble.titanMC.regions.protection.bukkit.BukkitProtectionConfigurati
 import com.voluble.titanMC.regions.protection.bukkit.ExplosionProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.EntityContainerProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.EntityInteractionProtectionListener;
+import com.voluble.titanMC.regions.command.RegionCommandModule;
 import com.voluble.titanMC.regions.protection.bukkit.FireProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.FluidFlowProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.HangingProtectionListener;
@@ -102,6 +103,7 @@ public final class TitanMC extends JavaPlugin {
 		new CommandKit(this)
 			.addModule(new DonatorToolsCommandModule())
 			.addModule(new MineCommandModule(this))
+			.addModule(new RegionCommandModule(this))
 			.install();
 
 		getLogger().info("TitanMC has been enabled!");
