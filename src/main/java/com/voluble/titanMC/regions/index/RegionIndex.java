@@ -1,6 +1,5 @@
 package com.voluble.titanMC.regions.index;
 
-import com.voluble.titanMC.regions.model.BlockBox;
 import com.voluble.titanMC.regions.model.RegionDefinition;
 import com.voluble.titanMC.regions.model.RegionId;
 import com.voluble.titanMC.regions.model.RegionKey;
@@ -32,10 +31,6 @@ public final class RegionIndex {
 
 	public List<RegionDefinition> findAll(WorldId worldId, int x, int y, int z) {
 		return current.get().findAll(worldId, x, y, z);
-	}
-
-	public List<RegionDefinition> findIntersecting(WorldId worldId, BlockBox box) {
-		return current.get().findIntersecting(worldId, box);
 	}
 
 	public boolean publish(RegionIndexSnapshot expected, RegionIndexSnapshot replacement) {

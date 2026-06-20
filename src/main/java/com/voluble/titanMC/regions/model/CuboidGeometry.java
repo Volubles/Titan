@@ -14,11 +14,6 @@ public record CuboidGeometry(BlockBox bounds) implements RegionGeometry {
 	}
 
 	@Override
-	public boolean intersects(BlockBox box) {
-		return bounds.intersects(Objects.requireNonNull(box, "box"));
-	}
-
-	@Override
 	public int complexity() {
 		return 1;
 	}

@@ -5,7 +5,6 @@ import com.voluble.titanMC.regions.index.RegionIndexBuildException;
 import com.voluble.titanMC.regions.index.RegionIndexOptions;
 import com.voluble.titanMC.regions.index.RegionIndexSnapshot;
 import com.voluble.titanMC.regions.index.RegionReadView;
-import com.voluble.titanMC.regions.model.BlockBox;
 import com.voluble.titanMC.regions.model.RegionDefinition;
 import com.voluble.titanMC.regions.model.RegionGeometry;
 import com.voluble.titanMC.regions.model.RegionId;
@@ -116,10 +115,6 @@ public final class RegionEngine implements AutoCloseable {
 
 	public List<RegionDefinition> findAll(WorldId worldId, int x, int y, int z) {
 		return index.findAll(worldId, x, y, z);
-	}
-
-	public List<RegionDefinition> findIntersecting(WorldId worldId, BlockBox box) {
-		return index.findIntersecting(worldId, box);
 	}
 
 	public CompletableFuture<RegionMutationResult> create(

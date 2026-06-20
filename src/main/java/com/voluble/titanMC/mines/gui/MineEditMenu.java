@@ -4,7 +4,7 @@ import com.voluble.titanMC.TitanMC;
 import com.voluble.titanMC.mines.Mine;
 import com.voluble.titanMC.mines.MineManager;
 import com.voluble.titanMC.mines.MineValidation;
-import com.voluble.titanMC.mines.selection.SelectionException;
+import com.voluble.titanMC.regions.selection.SelectionException;
 import com.voluble.titanMC.mines.selection.WorldEditSelection;
 import com.voluble.titanMC.util.ChatUtils;
 import com.voluble.titanMC.util.RegionUtils;

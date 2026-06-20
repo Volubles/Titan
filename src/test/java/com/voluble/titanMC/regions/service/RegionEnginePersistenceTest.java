@@ -1,7 +1,12 @@
 package com.voluble.titanMC.regions.service;
 
 import com.voluble.titanMC.regions.model.BlockBox;
+import com.voluble.titanMC.regions.model.BlockPoint2;
+import com.voluble.titanMC.regions.model.ConvexPolyhedronGeometry;
 import com.voluble.titanMC.regions.model.CuboidGeometry;
+import com.voluble.titanMC.regions.model.PolygonPrismGeometry;
+import com.voluble.titanMC.regions.model.PolyhedronPlane;
+import com.voluble.titanMC.regions.model.RegionGeometry;
 import com.voluble.titanMC.regions.model.RegionDefinition;
 import com.voluble.titanMC.regions.model.RegionKey;
 import com.voluble.titanMC.regions.model.WorldId;
@@ -68,6 +73,38 @@ class RegionEnginePersistenceTest {
 			assertEquals(1, reloaded.snapshot().definitions().size());
 			RegionDefinition stored = reloaded.find(world, key);
 			assertEquals(new CuboidGeometry(new BlockBox(0, 0, 0, 16, 16, 16)), stored.geometry());
+		}
+	}
+
+	@Test
+	void polygonAndPolyhedronGeometrySurviveRestart() throws Exception {
+		Path database = temporaryDirectory.resolve("shapes.db");
+		WorldId world = new WorldId(UUID.randomUUID());
+		RegionGeometry polygon = new PolygonPrismGeometry(
+			List.of(new BlockPoint2(0, 0), new BlockPoint2(12, 0), new BlockPoint2(0, 12)),
+			-10,
+			20
+		);
+		RegionGeometry polyhedron = new ConvexPolyhedronGeometry(
+			new BlockBox(20, 0, 20, 31, 11, 31),
+			List.of(
+				new PolyhedronPlane(1, 0, 0, 30),
+				new PolyhedronPlane(-1, 0, 0, -20),
+				new PolyhedronPlane(0, 1, 0, 10),
+				new PolyhedronPlane(0, -1, 0, 0),
+				new PolyhedronPlane(0, 0, 1, 30),
+				new PolyhedronPlane(0, 0, -1, -20)
+			)
+		);
+
+		try (RegionEngine engine = RegionEngine.open(database)) {
+			assertTrue(engine.create(RegionKey.of("custom", "polygon"), world, 0, polygon).join().successful());
+			assertTrue(engine.create(RegionKey.of("custom", "polyhedron"), world, 0, polyhedron).join().successful());
+		}
+
+		try (RegionEngine reloaded = RegionEngine.open(database)) {
+			assertEquals(polygon, reloaded.find(world, RegionKey.of("custom", "polygon")).geometry());
+			assertEquals(polyhedron, reloaded.find(world, RegionKey.of("custom", "polyhedron")).geometry());
 		}
 	}
 }

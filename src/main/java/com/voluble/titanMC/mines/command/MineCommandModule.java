@@ -7,7 +7,7 @@ import com.voluble.titanMC.mines.MineMessages;
 import com.voluble.titanMC.mines.MineValidation;
 import com.voluble.titanMC.mines.WeightedPalette;
 import com.voluble.titanMC.mines.gui.MineListMenu;
-import com.voluble.titanMC.mines.selection.SelectionException;
+import com.voluble.titanMC.regions.selection.SelectionException;
 import com.voluble.titanMC.mines.selection.WorldEditSelection;
 import com.voluble.titanMC.util.RegionUtils;
 import io.voluble.michellelib.commands.CommandModule;

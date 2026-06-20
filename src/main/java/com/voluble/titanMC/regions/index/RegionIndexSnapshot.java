@@ -199,35 +199,6 @@ public final class RegionIndexSnapshot {
 		return candidates;
 	}
 
-	public List<RegionDefinition> findIntersecting(WorldId worldId, BlockBox box) {
-		WorldIndex world = worlds.get(worldId);
-		if (world == null) return List.of();
-		long chunkWidth = (long) box.maxChunkX() - box.minChunkX() + 1L;
-		long chunkDepth = (long) box.maxChunkZ() - box.minChunkZ() + 1L;
-		long queryChunks;
-		try {
-			queryChunks = Math.multiplyExact(chunkWidth, chunkDepth);
-		} catch (ArithmeticException exception) {
-			queryChunks = Long.MAX_VALUE;
-		}
-		if (queryChunks > Math.max(64L, (long) world.chunks.size() * 2L)) {
-			return world.regions.stream().filter(region -> region.intersects(box)).toList();
-		}
-		Set<RegionDefinition> candidates = new LinkedHashSet<>();
-		for (int chunkX = box.minChunkX(); chunkX <= box.maxChunkX(); chunkX++) {
-			for (int chunkZ = box.minChunkZ(); chunkZ <= box.maxChunkZ(); chunkZ++) {
-				List<RegionDefinition> chunkCandidates = world.chunks.get(chunkKey(chunkX, chunkZ));
-				if (chunkCandidates != null) candidates.addAll(chunkCandidates);
-			}
-		}
-		List<RegionDefinition> result = new ArrayList<>();
-		for (RegionDefinition candidate : candidates) {
-			if (candidate.intersects(box)) result.add(candidate);
-		}
-		result.sort(QUERY_ORDER);
-		return List.copyOf(result);
-	}
-
 	private static long chunkKey(int chunkX, int chunkZ) {
 		return ((long) chunkX << 32) ^ (chunkZ & 0xffffffffL);
 	}

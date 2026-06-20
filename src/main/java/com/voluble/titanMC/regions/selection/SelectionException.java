@@ -1,4 +1,4 @@
-package com.voluble.titanMC.mines.selection;
+package com.voluble.titanMC.regions.selection;
 
 public final class SelectionException extends Exception {
 

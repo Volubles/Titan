@@ -46,7 +46,4 @@ public record RegionDefinition(
 		return geometry.contains(x, y, z);
 	}
 
-	public boolean intersects(BlockBox box) {
-		return geometry.intersects(box);
-	}
 }

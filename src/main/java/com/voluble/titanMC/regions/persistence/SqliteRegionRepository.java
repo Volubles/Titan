@@ -1,7 +1,11 @@
 package com.voluble.titanMC.regions.persistence;
 
 import com.voluble.titanMC.regions.model.BlockBox;
+import com.voluble.titanMC.regions.model.BlockPoint2;
+import com.voluble.titanMC.regions.model.ConvexPolyhedronGeometry;
 import com.voluble.titanMC.regions.model.CuboidGeometry;
+import com.voluble.titanMC.regions.model.PolygonPrismGeometry;
+import com.voluble.titanMC.regions.model.PolyhedronPlane;
 import com.voluble.titanMC.regions.model.RegionDefinition;
 import com.voluble.titanMC.regions.model.RegionGeometry;
 import com.voluble.titanMC.regions.model.RegionId;
@@ -18,12 +22,14 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 public final class SqliteRegionRepository implements RegionRepository {
 
-	private static final int SCHEMA_VERSION = 3;
+	private static final int SCHEMA_VERSION = 4;
 	private final Path databasePath;
 	private Connection connection;
 
@@ -103,8 +109,9 @@ public final class SqliteRegionRepository implements RegionRepository {
 					)
 					""");
 				statement.executeUpdate("""
-					CREATE TABLE IF NOT EXISTS region_cuboids (
+					CREATE TABLE IF NOT EXISTS region_geometries (
 					    region_id TEXT PRIMARY KEY NOT NULL,
+					    geometry_type TEXT NOT NULL,
 					    min_x INTEGER NOT NULL,
 					    min_y INTEGER NOT NULL,
 					    min_z INTEGER NOT NULL,
@@ -112,6 +119,28 @@ public final class SqliteRegionRepository implements RegionRepository {
 					    max_y_exclusive INTEGER NOT NULL,
 					    max_z_exclusive INTEGER NOT NULL,
 					    FOREIGN KEY(region_id) REFERENCES regions(id) ON DELETE CASCADE
+					)
+					""");
+				statement.executeUpdate("""
+					CREATE TABLE IF NOT EXISTS region_polygon_points (
+					    region_id TEXT NOT NULL,
+					    point_order INTEGER NOT NULL,
+					    x INTEGER NOT NULL,
+					    z INTEGER NOT NULL,
+					    PRIMARY KEY(region_id, point_order),
+					    FOREIGN KEY(region_id) REFERENCES region_geometries(region_id) ON DELETE CASCADE
+					)
+					""");
+				statement.executeUpdate("""
+					CREATE TABLE IF NOT EXISTS region_polyhedron_planes (
+					    region_id TEXT NOT NULL,
+					    plane_order INTEGER NOT NULL,
+					    normal_x REAL NOT NULL,
+					    normal_y REAL NOT NULL,
+					    normal_z REAL NOT NULL,
+					    maximum_dot_product REAL NOT NULL,
+					    PRIMARY KEY(region_id, plane_order),
+					    FOREIGN KEY(region_id) REFERENCES region_geometries(region_id) ON DELETE CASCADE
 					)
 					""");
 				statement.execute("PRAGMA user_version = " + SCHEMA_VERSION);
@@ -122,27 +151,31 @@ public final class SqliteRegionRepository implements RegionRepository {
 	@Override
 	public synchronized List<RegionDefinition> loadAll() throws SQLException {
 		requireInitialized();
+		Map<RegionId, List<BlockPoint2>> polygonPoints = loadPolygonPoints();
+		Map<RegionId, List<PolyhedronPlane>> polyhedronPlanes = loadPolyhedronPlanes();
 		List<RegionDefinition> definitions = new ArrayList<>();
 		try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery("""
 			SELECT r.id, r.world_id, r.namespace, r.name, r.priority, r.revision, r.created_at, r.updated_at,
-			       c.min_x, c.min_y, c.min_z, c.max_x_exclusive, c.max_y_exclusive, c.max_z_exclusive
+			       g.geometry_type, g.min_x, g.min_y, g.min_z,
+			       g.max_x_exclusive, g.max_y_exclusive, g.max_z_exclusive
 			FROM regions r
-			LEFT JOIN region_cuboids c ON c.region_id = r.id
+			LEFT JOIN region_geometries g ON g.region_id = r.id
 			ORDER BY r.world_id, r.namespace, r.name
 			""")) {
 			while (result.next()) {
 				RegionId id = RegionId.parse(result.getString("id"));
 				if (result.getObject("min_x") == null) throw new SQLException("Region has no geometry: " + id);
+				BlockBox bounds = new BlockBox(
+					result.getInt("min_x"), result.getInt("min_y"), result.getInt("min_z"),
+					result.getInt("max_x_exclusive"), result.getInt("max_y_exclusive"),
+					result.getInt("max_z_exclusive")
+				);
 				definitions.add(new RegionDefinition(
 					id,
 					RegionKey.of(result.getString("namespace"), result.getString("name")),
 					WorldId.parse(result.getString("world_id")),
 					result.getInt("priority"),
-					new CuboidGeometry(new BlockBox(
-						result.getInt("min_x"), result.getInt("min_y"), result.getInt("min_z"),
-						result.getInt("max_x_exclusive"), result.getInt("max_y_exclusive"),
-						result.getInt("max_z_exclusive")
-					)),
+					readGeometry(id, result.getString("geometry_type"), bounds, polygonPoints, polyhedronPlanes),
 					Instant.ofEpochMilli(result.getLong("created_at")),
 					Instant.ofEpochMilli(result.getLong("updated_at")),
 					result.getLong("revision")
@@ -177,19 +210,11 @@ public final class SqliteRegionRepository implements RegionRepository {
 				statement.setLong(8, definition.updatedAt().toEpochMilli());
 				statement.executeUpdate();
 			}
-			try (PreparedStatement statement = connection.prepareStatement("DELETE FROM region_cuboids WHERE region_id = ?")) {
+			try (PreparedStatement statement = connection.prepareStatement("DELETE FROM region_geometries WHERE region_id = ?")) {
 				statement.setString(1, definition.id().toString());
 				statement.executeUpdate();
 			}
-			try (PreparedStatement statement = connection.prepareStatement("""
-				INSERT INTO region_cuboids(
-				    region_id, min_x, min_y, min_z,
-				    max_x_exclusive, max_y_exclusive, max_z_exclusive
-				) VALUES (?, ?, ?, ?, ?, ?, ?)
-				""")) {
-				bindCuboid(statement, definition);
-				statement.executeUpdate();
-			}
+			insertGeometry(definition);
 		});
 	}
 
@@ -225,11 +250,6 @@ public final class SqliteRegionRepository implements RegionRepository {
 			try (PreparedStatement regionStatement = connection.prepareStatement("""
 				INSERT INTO regions(id, world_id, namespace, name, priority, revision, created_at, updated_at)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-				"""); PreparedStatement boxStatement = connection.prepareStatement("""
-				INSERT INTO region_cuboids(
-				    region_id, min_x, min_y, min_z,
-				    max_x_exclusive, max_y_exclusive, max_z_exclusive
-				) VALUES (?, ?, ?, ?, ?, ?, ?)
 				""")) {
 				for (RegionDefinition definition : saves) {
 					regionStatement.setString(1, definition.id().toString());
@@ -241,28 +261,150 @@ public final class SqliteRegionRepository implements RegionRepository {
 					regionStatement.setLong(7, definition.createdAt().toEpochMilli());
 					regionStatement.setLong(8, definition.updatedAt().toEpochMilli());
 					regionStatement.addBatch();
-					bindCuboid(boxStatement, definition);
-					boxStatement.addBatch();
 				}
 				regionStatement.executeBatch();
-				boxStatement.executeBatch();
+				for (RegionDefinition definition : saves) insertGeometry(definition);
 			}
 		});
 	}
 
-	private static void bindCuboid(PreparedStatement statement, RegionDefinition definition) throws SQLException {
-		RegionGeometry geometry = definition.geometry();
-		if (!(geometry instanceof CuboidGeometry cuboid)) {
-			throw new SQLException("Unsupported region geometry: " + geometry.getClass().getSimpleName());
+	private Map<RegionId, List<BlockPoint2>> loadPolygonPoints() throws SQLException {
+		Map<RegionId, List<BlockPoint2>> points = new LinkedHashMap<>();
+		try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery("""
+			SELECT region_id, x, z FROM region_polygon_points ORDER BY region_id, point_order
+			""")) {
+			while (result.next()) {
+				RegionId id = RegionId.parse(result.getString("region_id"));
+				points.computeIfAbsent(id, ignored -> new ArrayList<>()).add(
+					new BlockPoint2(result.getInt("x"), result.getInt("z"))
+				);
+			}
 		}
-		BlockBox box = cuboid.bounds();
-		statement.setString(1, definition.id().toString());
-		statement.setInt(2, box.minX());
-		statement.setInt(3, box.minY());
-		statement.setInt(4, box.minZ());
-		statement.setInt(5, box.maxXExclusive());
-		statement.setInt(6, box.maxYExclusive());
-		statement.setInt(7, box.maxZExclusive());
+		return points;
+	}
+
+	private Map<RegionId, List<PolyhedronPlane>> loadPolyhedronPlanes() throws SQLException {
+		Map<RegionId, List<PolyhedronPlane>> planes = new LinkedHashMap<>();
+		try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery("""
+			SELECT region_id, normal_x, normal_y, normal_z, maximum_dot_product
+			FROM region_polyhedron_planes ORDER BY region_id, plane_order
+			""")) {
+			while (result.next()) {
+				RegionId id = RegionId.parse(result.getString("region_id"));
+				planes.computeIfAbsent(id, ignored -> new ArrayList<>()).add(new PolyhedronPlane(
+					result.getDouble("normal_x"), result.getDouble("normal_y"),
+					result.getDouble("normal_z"), result.getDouble("maximum_dot_product")
+				));
+			}
+		}
+		return planes;
+	}
+
+	private static RegionGeometry readGeometry(
+		RegionId id,
+		String typeName,
+		BlockBox bounds,
+		Map<RegionId, List<BlockPoint2>> polygonPoints,
+		Map<RegionId, List<PolyhedronPlane>> polyhedronPlanes
+	) throws SQLException {
+		GeometryType type;
+		try {
+			type = GeometryType.valueOf(typeName);
+		} catch (IllegalArgumentException exception) {
+			throw new SQLException("Unknown region geometry type for " + id + ": " + typeName, exception);
+		}
+		return switch (type) {
+			case CUBOID -> new CuboidGeometry(bounds);
+			case POLYGON_PRISM -> new PolygonPrismGeometry(
+				requiredParts(id, "polygon points", polygonPoints.get(id)),
+				bounds.minY(), bounds.maxYExclusive() - 1
+			);
+			case CONVEX_POLYHEDRON -> new ConvexPolyhedronGeometry(
+				bounds, requiredParts(id, "polyhedron planes", polyhedronPlanes.get(id))
+			);
+		};
+	}
+
+	private static <T> List<T> requiredParts(RegionId id, String description, List<T> parts) throws SQLException {
+		if (parts == null || parts.isEmpty()) throw new SQLException("Region has no " + description + ": " + id);
+		return parts;
+	}
+
+	private void insertGeometry(RegionDefinition definition) throws SQLException {
+		RegionGeometry geometry = definition.geometry();
+		GeometryType type = geometryType(geometry);
+		try (PreparedStatement statement = connection.prepareStatement("""
+			INSERT INTO region_geometries(
+			    region_id, geometry_type, min_x, min_y, min_z,
+			    max_x_exclusive, max_y_exclusive, max_z_exclusive
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			""")) {
+			bindGeometry(statement, definition.id(), type, geometry.bounds());
+			statement.executeUpdate();
+		}
+		if (geometry instanceof PolygonPrismGeometry polygon) insertPolygonPoints(definition.id(), polygon);
+		else if (geometry instanceof ConvexPolyhedronGeometry polyhedron) {
+			insertPolyhedronPlanes(definition.id(), polyhedron);
+		}
+	}
+
+	private static GeometryType geometryType(RegionGeometry geometry) throws SQLException {
+		if (geometry instanceof CuboidGeometry) return GeometryType.CUBOID;
+		if (geometry instanceof PolygonPrismGeometry) return GeometryType.POLYGON_PRISM;
+		if (geometry instanceof ConvexPolyhedronGeometry) return GeometryType.CONVEX_POLYHEDRON;
+		throw new SQLException("Unsupported region geometry: " + geometry.getClass().getSimpleName());
+	}
+
+	private static void bindGeometry(
+		PreparedStatement statement,
+		RegionId id,
+		GeometryType type,
+		BlockBox box
+	) throws SQLException {
+		statement.setString(1, id.toString());
+		statement.setString(2, type.name());
+		statement.setInt(3, box.minX());
+		statement.setInt(4, box.minY());
+		statement.setInt(5, box.minZ());
+		statement.setInt(6, box.maxXExclusive());
+		statement.setInt(7, box.maxYExclusive());
+		statement.setInt(8, box.maxZExclusive());
+	}
+
+	private void insertPolygonPoints(RegionId id, PolygonPrismGeometry polygon) throws SQLException {
+		try (PreparedStatement statement = connection.prepareStatement("""
+			INSERT INTO region_polygon_points(region_id, point_order, x, z) VALUES (?, ?, ?, ?)
+			""")) {
+			for (int index = 0; index < polygon.points().size(); index++) {
+				BlockPoint2 point = polygon.points().get(index);
+				statement.setString(1, id.toString());
+				statement.setInt(2, index);
+				statement.setInt(3, point.x());
+				statement.setInt(4, point.z());
+				statement.addBatch();
+			}
+			statement.executeBatch();
+		}
+	}
+
+	private void insertPolyhedronPlanes(RegionId id, ConvexPolyhedronGeometry polyhedron) throws SQLException {
+		try (PreparedStatement statement = connection.prepareStatement("""
+			INSERT INTO region_polyhedron_planes(
+			    region_id, plane_order, normal_x, normal_y, normal_z, maximum_dot_product
+			) VALUES (?, ?, ?, ?, ?, ?)
+			""")) {
+			for (int index = 0; index < polyhedron.planes().size(); index++) {
+				PolyhedronPlane plane = polyhedron.planes().get(index);
+				statement.setString(1, id.toString());
+				statement.setInt(2, index);
+				statement.setDouble(3, plane.normalX());
+				statement.setDouble(4, plane.normalY());
+				statement.setDouble(5, plane.normalZ());
+				statement.setDouble(6, plane.maximumDotProduct());
+				statement.addBatch();
+			}
+			statement.executeBatch();
+		}
 	}
 
 	@Override
@@ -297,5 +439,11 @@ public final class SqliteRegionRepository implements RegionRepository {
 	@FunctionalInterface
 	private interface SqlAction {
 		void run() throws SQLException;
+	}
+
+	private enum GeometryType {
+		CUBOID,
+		POLYGON_PRISM,
+		CONVEX_POLYHEDRON
 	}
 }
