@@ -9,6 +9,8 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.block.Container;
+import org.bukkit.block.EnderChest;
 
 import java.util.Objects;
 
@@ -41,10 +43,18 @@ public final class BlockProtectionListener implements Listener {
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onBlockInteract(PlayerInteractEvent event) {
 		if (event.getAction() != Action.RIGHT_CLICK_BLOCK || event.getClickedBlock() == null) return;
+		ProtectionAction action = isContainer(event.getClickedBlock())
+			? ProtectionAction.CONTAINER_OPEN
+			: ProtectionAction.BLOCK_INTERACT;
 		if (!protection.allowed(BukkitProtectionMapper.request(
-			event.getPlayer(), ProtectionAction.BLOCK_INTERACT, event.getClickedBlock()
+			event.getPlayer(), action, event.getClickedBlock()
 		))) {
 			event.setUseInteractedBlock(org.bukkit.event.Event.Result.DENY);
 		}
+	}
+
+	private static boolean isContainer(org.bukkit.block.Block block) {
+		var state = block.getState();
+		return state instanceof Container || state instanceof EnderChest;
 	}
 }

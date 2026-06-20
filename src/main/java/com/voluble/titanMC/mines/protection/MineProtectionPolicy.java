@@ -13,7 +13,12 @@ public final class MineProtectionPolicy implements RegionProtectionPolicy {
 
 	private static final ActionRuleSet RULES = ActionRuleSet.builder()
 		.allow(ProtectionAction.BLOCK_BREAK)
-		.deny(ProtectionAction.BLOCK_PLACE)
+		.deny(
+			ProtectionAction.BLOCK_PLACE,
+			ProtectionAction.CONTAINER_OPEN,
+			ProtectionAction.BUCKET_FILL,
+			ProtectionAction.BUCKET_EMPTY
+		)
 		.build();
 
 	@Override

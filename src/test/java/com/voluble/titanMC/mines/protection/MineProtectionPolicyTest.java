@@ -46,6 +46,9 @@ class MineProtectionPolicyTest {
 	void allowsMiningAndDeniesPlacement() {
 		assertEquals(ProtectionDecision.ALLOW, decide(ProtectionAction.BLOCK_BREAK));
 		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.BLOCK_PLACE));
+		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.CONTAINER_OPEN));
+		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.BUCKET_FILL));
+		assertEquals(ProtectionDecision.DENY, decide(ProtectionAction.BUCKET_EMPTY));
 	}
 
 	@Test

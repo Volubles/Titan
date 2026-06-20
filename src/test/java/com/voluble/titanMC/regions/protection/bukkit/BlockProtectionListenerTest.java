@@ -116,6 +116,28 @@ class BlockProtectionListenerTest extends MockBukkitProtectionTestSupport {
 		assertEquals(before, event.useInteractedBlock());
 	}
 
+	@Test
+	void mapsContainersSeparatelyFromOrdinaryBlockInteractions() {
+		register(
+			request -> request.action() == ProtectionAction.CONTAINER_OPEN
+				? ProtectionDecision.DENY
+				: ProtectionDecision.ALLOW,
+			ProtectionBypass.none()
+		);
+		Block chest = world.getBlockAt(4, 64, 4);
+		chest.setType(Material.CHEST);
+		Block stone = world.getBlockAt(5, 64, 5);
+		stone.setType(Material.STONE);
+		PlayerInteractEvent containerEvent = interactEvent(Action.RIGHT_CLICK_BLOCK, chest);
+		PlayerInteractEvent blockEvent = interactEvent(Action.RIGHT_CLICK_BLOCK, stone);
+
+		server.getPluginManager().callEvent(containerEvent);
+		server.getPluginManager().callEvent(blockEvent);
+
+		assertEquals(Event.Result.DENY, containerEvent.useInteractedBlock());
+		assertFalse(blockEvent.useInteractedBlock() == Event.Result.DENY);
+	}
+
 	private void register(
 		com.voluble.titanMC.regions.protection.policy.ProtectionDefaults defaults,
 		ProtectionBypass bypass
