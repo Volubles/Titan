@@ -56,6 +56,31 @@ class RegionAdminServiceTest {
 	}
 
 	@Test
+	void changesPriorityWithoutLosingGeometryOrFlags() throws Exception {
+		WorldId world = new WorldId(UUID.randomUUID());
+		CuboidGeometry geometry = new CuboidGeometry(new BlockBox(0, 0, 0, 10, 10, 10));
+		try (RegionEngine engine = RegionEngine.open(temporaryDirectory.resolve("priority.db"))) {
+			RegionAdminService admin = new RegionAdminService(engine);
+			assertTrue(admin.create("yard", world, 100, geometry).successful());
+			assertTrue(admin.setFlag(
+				"yard", world, ProtectionAction.BLOCK_INTERACT, ProtectionDecision.ALLOW
+			).successful());
+			long revision = admin.find(world, "yard").revision();
+
+			assertTrue(admin.setPriority("yard", world, 350).successful());
+
+			RegionDefinition updated = admin.find(world, "yard");
+			assertEquals(350, updated.priority());
+			assertEquals(geometry, updated.geometry());
+			assertEquals(
+				ProtectionDecision.ALLOW,
+				updated.flags().decision(ProtectionAction.BLOCK_INTERACT)
+			);
+			assertEquals(revision + 1L, updated.revision());
+		}
+	}
+
+	@Test
 	void blockPlaceAllowWorksInSeparateCuboidAndPolygonRegions() throws Exception {
 		WorldId world = new WorldId(UUID.randomUUID());
 		ProtectionActor player = ProtectionActor.player(UUID.randomUUID(), Set.of());

@@ -64,6 +64,19 @@ public final class RegionAdminService {
 		).join();
 	}
 
+	public RegionMutationResult setPriority(String name, WorldId worldId, int priority) {
+		RegionDefinition existing = find(worldId, name);
+		if (existing == null) return notFound(name);
+		return regions.update(
+			existing.id(),
+			existing.revision(),
+			existing.key(),
+			existing.worldId(),
+			priority,
+			existing.geometry()
+		).join();
+	}
+
 	public RegionDefinition find(WorldId worldId, String name) {
 		return regions.find(worldId, key(name));
 	}

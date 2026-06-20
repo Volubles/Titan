@@ -42,6 +42,17 @@ public final class RegionCommandModule implements CommandModule {
 		var actions = Arrays.stream(ProtectionAction.values())
 			.map(action -> action.name().toLowerCase(Locale.ROOT))
 			.toList();
+		var currentPriority = Suggest.contextual((context, args) -> {
+			if (!(context.getSource().getExecutor() instanceof Player player)) return List.of();
+			String name = args.opt("name", String.class).orElse(null);
+			if (name == null) return List.of();
+			try {
+				RegionDefinition region = regions.find(world(player), name);
+				return region == null ? List.of() : List.of(Integer.toString(region.priority()));
+			} catch (IllegalArgumentException exception) {
+				return List.of();
+			}
+		});
 
 		registration.register(
 			CommandTree.root("region")
@@ -67,6 +78,12 @@ public final class RegionCommandModule implements CommandModule {
 					.argument("name", Args.word(), name -> name
 						.suggests(names)
 						.executes(this::handleInfo)))
+				.literal("priority", priority -> priority
+					.argument("name", Args.word(), name -> name
+						.suggests(names)
+						.argument("priority", Args.integer(), value -> value
+							.suggests(currentPriority)
+							.executes(this::handlePriority))))
 				.literal("flag", flag -> flag
 					.argument("name", Args.word(), name -> name
 						.suggests(names)
@@ -81,7 +98,7 @@ public final class RegionCommandModule implements CommandModule {
 
 	private int handleRoot(MichelleCommandContext context) throws CommandSyntaxException {
 		context.playerExecutor().sendMessage(
-			"Usage: /region <create|redefine|delete|list|info|flag>"
+			"Usage: /region <create|redefine|delete|list|info|priority|flag>"
 		);
 		return CommandTree.ok();
 	}
@@ -194,6 +211,22 @@ public final class RegionCommandModule implements CommandModule {
 				result,
 				"Set " + action.name().toLowerCase(Locale.ROOT) + " to "
 					+ context.arg("value", String.class).toLowerCase(Locale.ROOT) + " for '" + name + "'."
+			);
+		} catch (IllegalArgumentException exception) {
+			player.sendMessage(exception.getMessage());
+		}
+		return CommandTree.ok();
+	}
+
+	private int handlePriority(MichelleCommandContext context) throws CommandSyntaxException {
+		Player player = context.playerExecutor();
+		String name = context.arg("name", String.class);
+		int priority = context.arg("priority", Integer.class);
+		try {
+			sendResult(
+				player,
+				regions.setPriority(name, world(player), priority),
+				"Set priority to " + priority + " for '" + name + "'."
 			);
 		} catch (IllegalArgumentException exception) {
 			player.sendMessage(exception.getMessage());
