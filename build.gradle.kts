@@ -26,7 +26,7 @@ repositories {
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:$targetMinecraftVersion-R0.1-SNAPSHOT")
-    compileOnly("com.sk89q.worldedit:worldedit-bukkit:7.3.15")
+    compileOnly("com.sk89q.worldedit:worldedit-bukkit:7.4.2")
     compileOnly("com.github.MilkBowl:VaultAPI:1.7")
     compileOnly("me.clip:placeholderapi:2.11.6")
 
@@ -55,7 +55,7 @@ paperwright {
     acceptEula.set(true)
     jvmArgs.set(listOf("-Xmx2G"))
     downloadPlugins {
-        url("https://hangarcdn.papermc.io/plugins/EngineHub/WorldEdit/versions/7.3.15/PAPER/worldedit-bukkit-7.3.15.jar")
+        url("https://hangarcdn.papermc.io/plugins/EngineHub/WorldEdit/versions/7.4.2/PAPER/worldedit-bukkit-7.4.2.jar")
     }
     writeFiles {
         file("plugins/TitanMC/config.yml", """
