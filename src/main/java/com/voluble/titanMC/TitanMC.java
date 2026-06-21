@@ -152,9 +152,11 @@ public final class TitanMC extends JavaPlugin {
 		CellRentalService cellRentals = new CellRentalService(this, cellManager, economyManager.getEconomy(), cellSignRenderer);
 		CellManagementService cellManagement = new CellManagementService(this, cellManager, cellResets, cellSignRenderer, cellsConfiguration, economyManager.getEconomy());
 		CellSignService cellSigns = new CellSignService(this, cellManager, cellSignRenderer);
-		cellSigns.menus(new CellMenuService(menuService, cellManager, cellRentals, cellManagement, cellsConfiguration));
+		CellMenuService cellMenus = new CellMenuService(this, menuService, cellManager, cellRentals, cellManagement, cellsConfiguration);
+		cellSigns.menus(cellMenus);
 		getServer().getPluginManager().registerEvents(new CellTrackingListener(cellManager), this);
 		getServer().getPluginManager().registerEvents(cellSigns, this);
+		getServer().getPluginManager().registerEvents(cellMenus, this);
 		cellSignRenderer.start();
 		cellResets.resume();
 		cellLeaseScheduler = new CellLeaseScheduler(this, cellManager, cellResets);
