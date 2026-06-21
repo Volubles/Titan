@@ -1,7 +1,7 @@
 # Donator Tools Configuration
 
 # Enable/disable donator tools
-enabled: false
+enabled: true
 
 # List of blocks that can trigger donator tool effects
 # If empty, all blocks will trigger the effects
