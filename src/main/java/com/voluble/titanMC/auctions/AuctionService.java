@@ -262,7 +262,9 @@ public final class AuctionService implements AutoCloseable {
 	}
 
 	private void validateStoredAssignments() {
+		for (AuctionPosition position : positions.values()) ranks.requireWard(position.wardId());
 		for (AuctionLot lot : auctions.values()) {
+			ranks.requireWard(lot.wardId());
 			if (lot.positionId() == null) continue;
 			AuctionPosition position = positions.get(lot.positionId());
 			if (position == null) {
