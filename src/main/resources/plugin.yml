@@ -20,7 +20,7 @@ commands:
   cell:
     aliases: [cells]
     description: Manage rentable cells
-    usage: /cell <create|delete|list|info|displayname|reset|sign|member>
+    usage: /cell <create|delete|list|info|displayname|ward|reset|sign|member>
     permission: titanmc.cell.admin
   auction:
     aliases: [ah]

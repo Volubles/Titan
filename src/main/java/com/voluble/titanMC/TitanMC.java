@@ -213,7 +213,9 @@ public final class TitanMC extends JavaPlugin {
 			.addModule(new DonatorToolsCommandModule(donatorTools))
 			.addModule(new MineCommandModule(this))
 			.addModule(new RegionCommandModule(this))
-			.addModule(new CellCommandModule(cellManager, cellResets, cellSigns, cellSignRenderer))
+			.addModule(new CellCommandModule(
+				cellManager, cellResets, cellSigns, cellSignRenderer, rankConfiguration.catalog()
+			))
 			.addModule(new AuctionCommandModule(auctionService))
 			.addModule(new RankCommandModule(rankConfiguration.catalog(), rankService, rankupService))
 			.install();

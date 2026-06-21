@@ -10,6 +10,7 @@ import com.voluble.titanMC.regions.model.CuboidGeometry;
 import com.voluble.titanMC.regions.selection.SelectionException;
 import com.voluble.titanMC.regions.selection.WorldEditRegionSelection;
 import com.voluble.titanMC.ranks.model.WardId;
+import com.voluble.titanMC.ranks.service.RankCatalog;
 import com.voluble.titanMC.util.RegionUtils;
 import io.voluble.michellelib.commands.CommandModule;
 import io.voluble.michellelib.commands.CommandRegistration;
@@ -32,22 +33,26 @@ public final class CellCommandModule implements CommandModule {
 	private final CellResetService resets;
 	private final CellSignService signs;
 	private final CellSignRenderer renderer;
+	private final RankCatalog ranks;
 
 	public CellCommandModule(
 		CellManager cells,
 		CellResetService resets,
 		CellSignService signs,
-		CellSignRenderer renderer
+		CellSignRenderer renderer,
+		RankCatalog ranks
 	) {
 		this.cells = cells;
 		this.resets = resets;
 		this.signs = signs;
 		this.renderer = renderer;
+		this.ranks = ranks;
 	}
 
 	@Override
 	public void register(CommandRegistration registration) {
 		var names = Suggest.fromContext(source -> cells.cells().stream().map(CellDefinition::id).toList());
+		var wards = Suggest.fromContext(source -> ranks.wards().stream().map(ward -> ward.id().value()).toList());
 		registration.register(CommandTree.root("cell")
 			.aliases("cells")
 			.description("Manage rentable cells")
@@ -57,13 +62,16 @@ public final class CellCommandModule implements CommandModule {
 			.literalExec("list", this::list)
 			.literal("create", node -> node
 				.argument("name", Args.word(), name -> name
-					.argument("price", Args.longArg(), price -> price
-						.argument("duration", Args.word(), duration -> duration
-							.argument("max_duration", Args.word(), maximum -> maximum.executes(this::create))))))
+					.argument("ward", Args.word(), ward -> ward.suggests(wards)
+						.argument("price", Args.longArg(), price -> price
+							.argument("duration", Args.word(), duration -> duration
+								.argument("max_duration", Args.word(), maximum -> maximum.executes(this::create)))))))
 			.literal("delete", node -> node.argument("name", Args.word(), name -> name.suggests(names).executes(this::delete)))
 			.literal("info", node -> node.argument("name", Args.word(), name -> name.suggests(names).executes(this::info)))
 			.literal("displayname", node -> node.argument("name", Args.word(), name -> name.suggests(names)
 				.argument("display_name", Args.greedyString(), value -> value.executes(this::displayName))))
+			.literal("ward", node -> node.argument("name", Args.word(), name -> name.suggests(names)
+				.argument("ward", Args.word(), ward -> ward.suggests(wards).executes(this::setWard))))
 			.literal("reset", node -> node.argument("name", Args.word(), name -> name.suggests(names).executes(this::reset)))
 			.literal("member", node -> node
 				.literal("add", add -> add.argument("name", Args.word(), name -> name.suggests(names)
@@ -76,7 +84,7 @@ public final class CellCommandModule implements CommandModule {
 	}
 
 	private int root(MichelleCommandContext context) throws CommandSyntaxException {
-		context.playerExecutor().sendMessage("Usage: /cell <create|delete|list|info|displayname|reset|sign|member>");
+		context.playerExecutor().sendMessage("Usage: /cell <create|delete|list|info|displayname|ward|reset|sign|member>");
 		return CommandTree.ok();
 	}
 
@@ -94,7 +102,7 @@ public final class CellCommandModule implements CommandModule {
 			var bounds = cuboid.bounds();
 			CellDefinition cell = new CellDefinition(
 				context.arg("name", String.class),
-				WardId.of("e"),
+				parseWard(context),
 				new RegionUtils.Cuboid(
 					selected.worldId(),
 					bounds.minX(), bounds.minY(), bounds.minZ(),
@@ -106,11 +114,17 @@ public final class CellCommandModule implements CommandModule {
 				true
 			);
 			cells.create(cell);
-			player.sendMessage("Created cell '" + cell.id() + "'.");
+			player.sendMessage("Created cell '" + cell.id() + "' in " + cell.wardId().value() + " ward.");
 		} catch (SelectionException | RuntimeException exception) {
 			player.sendMessage(exception.getMessage());
 		}
 		return CommandTree.ok();
+	}
+
+	private WardId parseWard(MichelleCommandContext context) {
+		WardId wardId = WardId.of(context.arg("ward", String.class));
+		ranks.requireWard(wardId);
+		return wardId;
 	}
 
 	private Duration parseDuration(MichelleCommandContext context, String argument) {
@@ -144,10 +158,24 @@ public final class CellCommandModule implements CommandModule {
 		var lease = cells.lease(cell.id());
 		context.playerExecutor().sendMessage(
 			cell.displayName() + " (" + cell.id() + ") | $" + cell.rentPrice()
+				+ " | ward " + cell.wardId().value()
 				+ " | duration " + cell.rentDurationSeconds() + "s"
 				+ " | maximum " + cell.maxRentDurationSeconds() + "s"
 				+ " | " + (lease == null ? "available" : "rented by " + lease.ownerId())
 		);
+		return CommandTree.ok();
+	}
+
+	private int setWard(MichelleCommandContext context) throws CommandSyntaxException {
+		try {
+			String id = context.arg("name", String.class);
+			WardId wardId = parseWard(context);
+			cells.setWard(id, wardId);
+			renderer.refresh(cells.get(id));
+			context.playerExecutor().sendMessage("Moved cell '" + id + "' to " + wardId.value() + " ward.");
+		} catch (RuntimeException exception) {
+			context.playerExecutor().sendMessage(exception.getMessage());
+		}
 		return CommandTree.ok();
 	}
 
