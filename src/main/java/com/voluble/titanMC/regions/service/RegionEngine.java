@@ -154,7 +154,7 @@ public final class RegionEngine implements AutoCloseable {
 			RegionDefinition updated;
 			try {
 				updated = new RegionDefinition(
-					id, key, worldId, priority, geometry, existing.flags(),
+					id, key, worldId, priority, geometry, existing.access(), existing.flags(),
 					existing.text(), existing.createdAt(), Instant.now(), existing.revision() + 1L
 				);
 			} catch (RuntimeException exception) {
@@ -178,7 +178,8 @@ public final class RegionEngine implements AutoCloseable {
 					"Expected revision " + expectedRevision + " but found " + existing.revision());
 			}
 			RegionDefinition updated = new RegionDefinition(
-				existing.id(), existing.key(), existing.worldId(), existing.priority(), existing.geometry(), flags,
+				existing.id(), existing.key(), existing.worldId(), existing.priority(), existing.geometry(),
+				existing.access(), flags,
 				existing.text(), existing.createdAt(), Instant.now(), existing.revision() + 1L
 			);
 			return saveMutation(updated, false);
@@ -200,7 +201,7 @@ public final class RegionEngine implements AutoCloseable {
 			}
 			RegionDefinition updated = new RegionDefinition(
 				existing.id(), existing.key(), existing.worldId(), existing.priority(), existing.geometry(),
-				existing.flags(), text, existing.createdAt(), Instant.now(), existing.revision() + 1L
+				existing.access(), existing.flags(), text, existing.createdAt(), Instant.now(), existing.revision() + 1L
 			);
 			return saveMutation(updated, false);
 		});
@@ -271,7 +272,8 @@ public final class RegionEngine implements AutoCloseable {
 				try {
 					updated = new RegionDefinition(
 						existing.id(), update.key(), update.worldId(), update.priority(), update.geometry(),
-						existing.flags(), existing.text(), existing.createdAt(), timestamp, existing.revision() + 1L
+						existing.access(), existing.flags(), existing.text(), existing.createdAt(), timestamp,
+						existing.revision() + 1L
 					);
 				} catch (RuntimeException exception) {
 					return batchFailure(operationIndex, RegionMutationResult.Reason.INVALID_GEOMETRY, exception.getMessage());

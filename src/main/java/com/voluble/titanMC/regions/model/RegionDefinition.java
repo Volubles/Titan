@@ -11,6 +11,7 @@ public record RegionDefinition(
 	WorldId worldId,
 	int priority,
 	RegionGeometry geometry,
+	RegionAccessSet access,
 	RegionFlagSet flags,
 	RegionTextSet text,
 	Instant createdAt,
@@ -23,6 +24,7 @@ public record RegionDefinition(
 		Objects.requireNonNull(key, "key");
 		Objects.requireNonNull(worldId, "worldId");
 		Objects.requireNonNull(geometry, "geometry");
+		Objects.requireNonNull(access, "access");
 		Objects.requireNonNull(flags, "flags");
 		Objects.requireNonNull(text, "text");
 		Objects.requireNonNull(createdAt, "createdAt");
@@ -40,7 +42,7 @@ public record RegionDefinition(
 		Instant createdAt,
 		Instant updatedAt
 	) {
-		this(id, key, worldId, priority, geometry, RegionFlagSet.empty(), RegionTextSet.empty(), createdAt, updatedAt, 1L);
+		this(id, key, worldId, priority, geometry, RegionAccessSet.empty(), RegionFlagSet.empty(), RegionTextSet.empty(), createdAt, updatedAt, 1L);
 	}
 
 	public RegionDefinition(
@@ -53,7 +55,7 @@ public record RegionDefinition(
 		Instant createdAt,
 		Instant updatedAt
 	) {
-		this(id, key, worldId, priority, geometry, flags, RegionTextSet.empty(), createdAt, updatedAt, 1L);
+		this(id, key, worldId, priority, geometry, RegionAccessSet.empty(), flags, RegionTextSet.empty(), createdAt, updatedAt, 1L);
 	}
 
 	public RegionDefinition(
@@ -67,13 +69,31 @@ public record RegionDefinition(
 		Instant createdAt,
 		Instant updatedAt
 	) {
-		this(id, key, worldId, priority, geometry, flags, text, createdAt, updatedAt, 1L);
+		this(id, key, worldId, priority, geometry, RegionAccessSet.empty(), flags, text, createdAt, updatedAt, 1L);
+	}
+
+	public RegionDefinition(
+		RegionId id,
+		RegionKey key,
+		WorldId worldId,
+		int priority,
+		RegionGeometry geometry,
+		RegionFlagSet flags,
+		RegionTextSet text,
+		Instant createdAt,
+		Instant updatedAt,
+		long revision
+	) {
+		this(
+			id, key, worldId, priority, geometry, RegionAccessSet.empty(),
+			flags, text, createdAt, updatedAt, revision
+		);
 	}
 
 	public static RegionDefinition create(RegionKey key, WorldId worldId, int priority, RegionGeometry geometry) {
 		Instant now = Instant.now();
 		return new RegionDefinition(
-			RegionId.random(), key, worldId, priority, geometry, RegionFlagSet.empty(),
+			RegionId.random(), key, worldId, priority, geometry, RegionAccessSet.empty(), RegionFlagSet.empty(),
 			RegionTextSet.empty(), now, now, 1L
 		);
 	}
