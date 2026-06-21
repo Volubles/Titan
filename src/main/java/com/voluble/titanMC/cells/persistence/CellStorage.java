@@ -3,6 +3,7 @@ package com.voluble.titanMC.cells.persistence;
 import com.voluble.titanMC.cells.model.CellDefinition;
 import com.voluble.titanMC.cells.model.CellLease;
 import com.voluble.titanMC.cells.model.TrackedCellBlock;
+import com.voluble.titanMC.cells.model.CellResetJob;
 import com.voluble.titanMC.util.RegionUtils;
 
 import java.nio.file.Files;
@@ -109,6 +110,15 @@ public final class CellStorage implements AutoCloseable {
 				    FOREIGN KEY(lot_id) REFERENCES cell_recovery_lots(id) ON DELETE CASCADE
 				)
 				""");
+			statement.executeUpdate("""
+				CREATE TABLE IF NOT EXISTS cell_reset_jobs (
+				    cell_id TEXT PRIMARY KEY NOT NULL,
+				    lease_generation INTEGER NOT NULL,
+				    owner_uuid TEXT NOT NULL,
+				    phase TEXT NOT NULL,
+				    recovery_lot_id INTEGER
+				)
+				""");
 			statement.execute("PRAGMA user_version = " + SCHEMA_VERSION);
 		}
 	}
@@ -147,6 +157,7 @@ public final class CellStorage implements AutoCloseable {
 		}
 		return blocks;
 	}
+	public synchronized Map<String,CellResetJob> loadResetJobs() throws SQLException { Map<String,CellResetJob> jobs=new LinkedHashMap<>(); try(Statement s=connection.createStatement();ResultSet r=s.executeQuery("SELECT * FROM cell_reset_jobs")){while(r.next()){Object value=r.getObject("recovery_lot_id");Long lot=value instanceof Number number?number.longValue():null; CellResetJob j=new CellResetJob(r.getString("cell_id"),r.getLong("lease_generation"),UUID.fromString(r.getString("owner_uuid")),CellResetJob.Phase.valueOf(r.getString("phase")),lot);jobs.put(j.cellId(),j);}}return jobs; }
 
 	public CompletableFuture<Void> saveCell(CellDefinition cell) { return write(() -> upsertCell(cell)); }
 	public CompletableFuture<Void> deleteCell(String id) { return write(() -> execute("DELETE FROM cells WHERE id = ?", id)); }
@@ -155,6 +166,9 @@ public final class CellStorage implements AutoCloseable {
 	public CompletableFuture<Void> addBlocks(Collection<TrackedCellBlock> blocks) { return write(() -> insertBlocks(blocks)); }
 	public CompletableFuture<Void> removeBlocks(Collection<TrackedCellBlock> blocks) { return write(() -> deleteBlocks(blocks)); }
 	public CompletableFuture<Void> deleteBlocks(String cellId, long generation) { return write(() -> execute("DELETE FROM cell_blocks WHERE cell_id = ? AND lease_generation = ?", cellId, generation)); }
+	public CompletableFuture<Void> beginReset(CellLease lease) { return write(() -> execute("INSERT OR REPLACE INTO cell_reset_jobs VALUES(?,?,?,?,NULL)",lease.cellId(),lease.generation(),lease.ownerId().toString(),CellResetJob.Phase.COLLECTING.name())); }
+	public CompletableFuture<Void> markResetPrepared(String cellId,long lotId) { return write(() -> execute("UPDATE cell_reset_jobs SET phase=?, recovery_lot_id=? WHERE cell_id=?",CellResetJob.Phase.PREPARED.name(),lotId,cellId)); }
+	public CompletableFuture<Void> completeReset(String cellId,long generation,long lotId) { return write(() -> completeResetTransaction(cellId,generation,lotId)); }
 
 	public CompletableFuture<Long> createRecoveryLot(CellLease lease, List<byte[]> items) {
 		return CompletableFuture.supplyAsync(() -> {
@@ -213,10 +227,12 @@ public final class CellStorage implements AutoCloseable {
 				try (ResultSet keys = s.getGeneratedKeys()) { if (!keys.next()) throw new SQLException("No recovery lot id"); lotId = keys.getLong(1); }
 			}
 			try (PreparedStatement s = connection.prepareStatement("INSERT INTO cell_recovery_items(lot_id,sort_index,item_data) VALUES(?,?,?)")) { int index=0; for (byte[] item : items) { s.setLong(1, lotId); s.setInt(2,index++); s.setBytes(3,item); s.addBatch(); } s.executeBatch(); }
+			execute("UPDATE cell_reset_jobs SET phase=?, recovery_lot_id=? WHERE cell_id=?",CellResetJob.Phase.PREPARED.name(),lotId,lease.cellId());
 			connection.commit(); return lotId;
 		} catch (SQLException e) { connection.rollback(); throw e; }
 		finally { connection.setAutoCommit(old); }
 	}
+	private void completeResetTransaction(String cellId,long generation,long lotId) throws SQLException { boolean old=connection.getAutoCommit();connection.setAutoCommit(false);try{execute("DELETE FROM cell_blocks WHERE cell_id=? AND lease_generation=?",cellId,generation);execute("DELETE FROM cell_leases WHERE cell_id=?",cellId);execute("UPDATE cell_recovery_lots SET status='READY' WHERE id=?",lotId);execute("DELETE FROM cell_reset_jobs WHERE cell_id=?",cellId);connection.commit();}catch(SQLException e){connection.rollback();throw e;}finally{connection.setAutoCommit(old);} }
 
 	private void execute(String sql, Object... values) throws SQLException {
 		try (PreparedStatement s = connection.prepareStatement(sql)) { for (int i=0;i<values.length;i++) s.setObject(i+1, values[i]); s.executeUpdate(); }
