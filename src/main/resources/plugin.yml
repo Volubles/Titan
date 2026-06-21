@@ -17,6 +17,11 @@ commands:
     aliases: [rg]
     usage: /region <create|redefine|delete|list|info|priority|test|flag|message>
     permission: titanmc.region.admin
+  cell:
+    aliases: [cells]
+    description: Manage rentable cells
+    usage: /cell <create|delete|list|info|reset|sign>
+    permission: titanmc.cell.admin
 permissions:
   donatortools.give:
     description: Allows giving donator tools
@@ -31,6 +36,11 @@ permissions:
       titanmc.protection.bypass: true
   titanmc.region.admin:
     description: Allows managing protection regions
+    default: op
+    children:
+      titanmc.protection.bypass: true
+  titanmc.cell.admin:
+    description: Allows managing rentable cells
     default: op
     children:
       titanmc.protection.bypass: true

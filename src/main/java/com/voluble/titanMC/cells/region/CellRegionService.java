@@ -37,6 +37,7 @@ public final class CellRegionService {
 
 	public void setAccess(CellDefinition cell, RegionAccessSet access) {
 		RegionDefinition existing = Objects.requireNonNull(find(cell), "Missing cell region: " + cell.id());
+		if (existing.access().equals(access)) return;
 		requireSuccess(regions.setAccess(existing.id(), existing.revision(), access).join());
 	}
 

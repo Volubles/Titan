@@ -1,5 +1,15 @@
 package com.voluble.titanMC;
 
+import com.voluble.titanMC.cells.CellLeaseScheduler;
+import com.voluble.titanMC.cells.CellManager;
+import com.voluble.titanMC.cells.CellRentalService;
+import com.voluble.titanMC.cells.CellResetService;
+import com.voluble.titanMC.cells.CellSignService;
+import com.voluble.titanMC.cells.CellTrackingListener;
+import com.voluble.titanMC.cells.command.CellCommandModule;
+import com.voluble.titanMC.cells.persistence.CellStorage;
+import com.voluble.titanMC.cells.region.CellProtectionPolicy;
+import com.voluble.titanMC.cells.region.CellRegionService;
 import com.voluble.titanMC.managers.ConfigManager;
 import com.voluble.titanMC.donatortools.DonatorToolsService;
 import com.voluble.titanMC.donatortools.command.DonatorToolsCommandModule;
@@ -58,6 +68,8 @@ public final class TitanMC extends JavaPlugin {
 	private RegionEngine regionEngine;
 	private ProtectionService protectionService;
 	private RegionGroupProvider regionGroups = RegionGroupProvider.none();
+	private CellManager cellManager;
+	private CellLeaseScheduler cellLeaseScheduler;
 
 	@Override
 	public void onEnable() {
@@ -78,6 +90,8 @@ public final class TitanMC extends JavaPlugin {
 		// Initialize general config
 		configManager = new ConfigManager(this);
 		configManager.initialize();
+		economyManager = new EconomyManager(this);
+		if (!economyManager.initialize()) getLogger().warning("No Vault economy provider found; cell renting is disabled");
 		if (!initializeProtection()) return;
 
 		// Register component configs
@@ -113,11 +127,32 @@ public final class TitanMC extends JavaPlugin {
 			protectionService
 		);
 
+		try {
+			cellManager = new CellManager(
+				new CellStorage(getDataFolder().toPath().resolve("cells.db")),
+				new CellRegionService(regionEngine)
+			);
+			cellManager.load();
+		} catch (Exception exception) {
+			getLogger().severe("Failed to initialize Cells: " + exception.getMessage());
+			getServer().getPluginManager().disablePlugin(this);
+			return;
+		}
+		CellResetService cellResets = new CellResetService(this, cellManager);
+		CellRentalService cellRentals = new CellRentalService(this, cellManager, economyManager.getEconomy());
+		CellSignService cellSigns = new CellSignService(this, cellManager, cellRentals);
+		getServer().getPluginManager().registerEvents(new CellTrackingListener(cellManager), this);
+		getServer().getPluginManager().registerEvents(cellSigns, this);
+		cellResets.resume();
+		cellLeaseScheduler = new CellLeaseScheduler(this, cellManager, cellResets);
+		cellLeaseScheduler.start();
+
 		// MichelleLib commands (dtools, mine)
 		new CommandKit(this)
 			.addModule(new DonatorToolsCommandModule(donatorTools))
 			.addModule(new MineCommandModule(this))
 			.addModule(new RegionCommandModule(this))
+			.addModule(new CellCommandModule(cellManager, cellResets, cellSigns))
 			.install();
 
 		getLogger().info("TitanMC has been enabled!");
@@ -159,6 +194,7 @@ public final class TitanMC extends JavaPlugin {
 			regionEngine,
 			RegionPolicyRegistry.builder()
 				.register(new MineProtectionPolicy())
+				.register(new CellProtectionPolicy())
 				.build(),
 			configuration.defaults(),
 			protectionBypass,
@@ -198,7 +234,12 @@ public final class TitanMC extends JavaPlugin {
 	public void onDisable() {
 		if (menuService != null) menuService.shutdown();
 		if (mineScheduler != null) mineScheduler.stop();
+		if (cellLeaseScheduler != null) cellLeaseScheduler.stop();
 		if (mineManager != null) mineManager.close();
+		if (cellManager != null) {
+			try { cellManager.close(); }
+			catch (Exception exception) { getLogger().severe("Failed to close Cells cleanly: " + exception.getMessage()); }
+		}
 		if (regionEngine != null) {
 			try {
 				regionEngine.close();
@@ -223,4 +264,5 @@ public final class TitanMC extends JavaPlugin {
 	public RegionEngine getRegionEngine() { return regionEngine; }
 	public RegionGroupProvider getRegionGroups() { return regionGroups; }
 	public ProtectionService getProtectionService() { return protectionService; }
+	public CellManager getCellManager() { return cellManager; }
 }
