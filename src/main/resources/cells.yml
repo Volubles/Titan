@@ -1,3 +1,11 @@
+rent-requirements:
+  minimum-rank-by-ward:
+    E: E3
+    D: D3
+    C: C3
+    B: B3
+    A: A3
+
 signs:
   refresh-seconds: 30
   available:

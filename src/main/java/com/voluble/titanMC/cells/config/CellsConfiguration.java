@@ -1,5 +1,7 @@
 package com.voluble.titanMC.cells.config;
 
+import com.voluble.titanMC.ranks.model.RankId;
+import com.voluble.titanMC.ranks.model.WardId;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -14,6 +16,7 @@ public record CellsConfiguration(
 	List<String> rentedSign,
 	List<String> resettingSign,
 	Map<String, CellMenuTemplate> menus,
+	Map<WardId, RankId> minimumRanksByWard,
 	int sellbackRefundPercent
 ) {
 	public CellsConfiguration {
@@ -21,6 +24,7 @@ public record CellsConfiguration(
 		rentedSign = lines(rentedSign, "rented");
 		resettingSign = lines(resettingSign, "resetting");
 		menus = Map.copyOf(menus);
+		minimumRanksByWard = Map.copyOf(minimumRanksByWard);
 		if (signRefreshTicks < 20L) throw new IllegalArgumentException("sign refresh must be at least one second");
 		if (sellbackRefundPercent < 0 || sellbackRefundPercent > 100) {
 			throw new IllegalArgumentException("sellback refund must be 0-100");
@@ -35,8 +39,30 @@ public record CellsConfiguration(
 			yaml.getStringList("signs.rented"),
 			yaml.getStringList("signs.resetting"),
 			menus,
+			minimumRanks(yaml),
 			yaml.getInt("sellback.refund-percent", 0)
 		);
+	}
+
+	private static Map<WardId, RankId> minimumRanks(FileConfiguration yaml) {
+		Map<WardId, RankId> requirements = new LinkedHashMap<>();
+		ConfigurationSection section = yaml.getConfigurationSection("rent-requirements.minimum-rank-by-ward");
+		if (section == null) {
+			requirements.put(WardId.of("e"), RankId.of("e3"));
+			requirements.put(WardId.of("d"), RankId.of("d3"));
+			requirements.put(WardId.of("c"), RankId.of("c3"));
+			requirements.put(WardId.of("b"), RankId.of("b3"));
+			requirements.put(WardId.of("a"), RankId.of("a3"));
+			return requirements;
+		}
+		for (String ward : section.getKeys(false)) {
+			String rank = section.getString(ward);
+			if (rank == null || rank.isBlank()) {
+				throw new IllegalArgumentException("Missing minimum cell rank for ward " + ward);
+			}
+			requirements.put(WardId.of(ward), RankId.of(rank));
+		}
+		return requirements;
 	}
 
 	public CellMenuTemplate menu(String key) {
