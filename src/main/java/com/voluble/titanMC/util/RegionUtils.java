@@ -109,6 +109,11 @@ public final class RegionUtils {
 	 * @return The distance in blocks, or Double.MAX_VALUE if worlds don't match
 	 */
 	public double distanceTo(Location location) {
+		double squared = distanceSquaredTo(location);
+		return squared == Double.MAX_VALUE ? squared : Math.sqrt(squared);
+	}
+
+	public double distanceSquaredTo(Location location) {
 		if (location == null) return Double.MAX_VALUE;
 		World lw = location.getWorld();
 		if (lw == null || !lw.getUID().equals(worldId)) return Double.MAX_VALUE;
@@ -132,7 +137,7 @@ public final class RegionUtils {
 		double dy = y - closestY;
 		double dz = z - closestZ;
 
-		return Math.sqrt(dx * dx + dy * dy + dz * dz);
+		return dx * dx + dy * dy + dz * dz;
 	}
 
 		public int minChunkX() { return minX >> 4; }

@@ -18,7 +18,11 @@ public final class MineScheduler {
 	private final MineManager manager;
 	private final MineResetQueue resetQueue = new MineResetQueue();
 	private final Map<String, Long> resetTimes = new HashMap<>(); // Track when depletion resets are triggered
-	private BukkitTask task;
+	private BukkitTask resetTask;
+	private BukkitTask scheduleTask;
+	private long totalScannedBlocks;
+	private long totalChangedBlocks;
+	private long lastResetTickNanos;
 	private static final int COUNTDOWN_WARNING_RADIUS = 20; // blocks
 
 	public MineScheduler(Plugin plugin, MineManager manager) {
@@ -27,37 +31,23 @@ public final class MineScheduler {
 	}
 
 	public void start() {
-		if (task != null) return;
-		task = plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
-			long now = System.currentTimeMillis();
-			// Check for time-based resets and show countdowns
-			for (Mine mine : manager.getAll()) {
-				if (!mine.isEnabled()) continue;
-				if (resetQueue.contains(mine.getName())) continue;
-				
-				long remainingMs = mine.getNextResetEpochMs() - now;
-				long remainingSeconds = remainingMs / 1000L;
-				
-				// Show countdown for time-based resets
-				if (remainingSeconds >= 0 && remainingSeconds <= 10) {
-					broadcastCountdown(mine, remainingSeconds, "Time");
-				}
-				
-				if (now >= mine.getNextResetEpochMs()) {
-					resetQueue.replace(new MineResetRunner(plugin, mine));
-				}
-			}
-			resetQueue.processTick(RESET_BUDGET_NANOS, manager::completeReset);
-			
-			// Also tick depletion countdowns
-			tickDepletionCountdown();
-		}, 1L, 1L);
+		if (resetTask != null || scheduleTask != null) return;
+		resetTask = plugin.getServer().getScheduler().runTaskTimer(
+			plugin, this::tickResetWork, 1L, 1L
+		);
+		scheduleTask = plugin.getServer().getScheduler().runTaskTimer(
+			plugin, this::tickSchedules, 20L, 20L
+		);
 	}
 
 	public void stop() {
-		if (task != null) {
-			task.cancel();
-			task = null;
+		if (resetTask != null) {
+			resetTask.cancel();
+			resetTask = null;
+		}
+		if (scheduleTask != null) {
+			scheduleTask.cancel();
+			scheduleTask = null;
 		}
 		resetQueue.clear();
 		resetTimes.clear();
@@ -83,7 +73,7 @@ public final class MineScheduler {
 		resetTimes.remove(name);
 	}
 
-	private void broadcastCountdown(Mine mine, long seconds, String reason) {
+	private void broadcastCountdown(Mine mine, long seconds) {
 		World world = Bukkit.getWorld(mine.getCuboid().worldId);
 		if (world == null) return;
 
@@ -91,14 +81,38 @@ public final class MineScheduler {
 		String message = color + "Resetting mine " + mine.getName() + " in " + seconds + " seconds";
 
 		for (Player player : world.getPlayers()) {
-			double distance = mine.getCuboid().distanceTo(player.getLocation());
-			if (distance <= COUNTDOWN_WARNING_RADIUS) {
+			double distanceSquared = mine.getCuboid().distanceSquaredTo(player.getLocation());
+			if (distanceSquared <= COUNTDOWN_WARNING_RADIUS * COUNTDOWN_WARNING_RADIUS) {
 				ChatUtils.sendActionBar(player, message);
 			}
 		}
 	}
 
-	public void tickDepletionCountdown() {
+	private void tickResetWork() {
+		long started = System.nanoTime();
+		MineResetTick tick = resetQueue.processTick(RESET_BUDGET_NANOS, manager::completeReset);
+		lastResetTickNanos = System.nanoTime() - started;
+		totalScannedBlocks += tick.scannedBlocks();
+		totalChangedBlocks += tick.changedBlocks();
+	}
+
+	private void tickSchedules() {
+		long now = System.currentTimeMillis();
+		for (Mine mine : manager.getAll()) {
+			if (!mine.isEnabled() || resetQueue.contains(mine.getName())) continue;
+			long remainingMs = mine.getNextResetEpochMs() - now;
+			long remainingSeconds = Math.max(0L, (remainingMs + 999L) / 1000L);
+			if (remainingMs > 0L && remainingSeconds <= 10L) {
+				broadcastCountdown(mine, remainingSeconds);
+			}
+			if (remainingMs <= 0L) {
+				resetQueue.replace(new MineResetRunner(plugin, mine));
+			}
+		}
+		tickDepletionCountdown(now);
+	}
+
+	private void tickDepletionCountdown(long now) {
 		// Check for depletion countdowns
 		Iterator<Map.Entry<String, Long>> it = resetTimes.entrySet().iterator();
 		while (it.hasNext()) {
@@ -112,9 +126,8 @@ public final class MineScheduler {
 				continue;
 			}
 
-			long now = System.currentTimeMillis();
 			long remainingMs = resetTime - now;
-			long remainingSeconds = remainingMs / 1000L;
+			long remainingSeconds = Math.max(0L, (remainingMs + 999L) / 1000L);
 
 			if (remainingSeconds <= 0) {
 				// Time's up! Trigger the actual reset
@@ -129,10 +142,20 @@ public final class MineScheduler {
 			if (remainingSeconds <= 10) {
 				Mine mine = manager.get(mineName);
 				if (mine != null) {
-					broadcastCountdown(mine, remainingSeconds, "Depleted");
+					broadcastCountdown(mine, remainingSeconds);
 				}
 			}
 		}
+	}
+
+	public MineSchedulerStats stats() {
+		return new MineSchedulerStats(
+			resetQueue.size(),
+			resetTimes.size(),
+			totalScannedBlocks,
+			totalChangedBlocks,
+			lastResetTickNanos
+		);
 	}
 }
 

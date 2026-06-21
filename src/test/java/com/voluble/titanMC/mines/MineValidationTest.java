@@ -4,6 +4,11 @@ import com.voluble.titanMC.util.RegionUtils;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
+import org.bukkit.Location;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -12,6 +17,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class MineValidationTest {
 
 	private static final UUID WORLD_ID = UUID.randomUUID();
+	private ServerMock server;
+
+	@BeforeEach
+	void startServer() {
+		server = MockBukkit.mock();
+	}
+
+	@AfterEach
+	void stopServer() {
+		MockBukkit.unmock();
+	}
 
 	@Test
 	void validatesNamesUsedAsStorageKeys() {
@@ -39,5 +55,17 @@ class MineValidationTest {
 		assertTrue(first.intersects(touching));
 		assertFalse(first.intersects(separate));
 		assertFalse(first.intersects(otherWorld));
+	}
+
+	@Test
+	void squaredDistanceMatchesDistanceWithoutRequiringSquareRootAtCallSites() {
+		var world = server.addSimpleWorld("distance");
+		RegionUtils.Cuboid cuboid = new RegionUtils.Cuboid(
+			world.getUID(), 0, 0, 0, 10, 10, 10
+		);
+		Location location = new Location(world, 13, 14, 10);
+
+		assertTrue(cuboid.distanceSquaredTo(location) == 25.0);
+		assertTrue(cuboid.distanceTo(location) == 5.0);
 	}
 }

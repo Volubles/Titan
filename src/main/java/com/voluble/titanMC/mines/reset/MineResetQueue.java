@@ -48,27 +48,34 @@ public final class MineResetQueue {
 		return active.size();
 	}
 
-	public void processTick(long budgetNanos, Consumer<String> completed) {
+	public MineResetTick processTick(long budgetNanos, Consumer<String> completed) {
 		if (budgetNanos <= 0L) throw new IllegalArgumentException("budgetNanos must be positive");
 		Objects.requireNonNull(completed, "completed");
 		long deadline = nanoTime.getAsLong() + budgetNanos;
 		int available = order.size();
+		int scanned = 0;
+		int changed = 0;
+		int completedCount = 0;
 		for (int visit = 0; visit < available; visit++) {
 			String name = order.pollFirst();
-			if (name == null) return;
+			if (name == null) break;
 			MineResetTask task = active.get(name);
 			if (task == null) continue;
 			if (visit > 0 && nanoTime.getAsLong() >= deadline) {
 				order.addFirst(name);
-				return;
+				break;
 			}
 			MineResetWork work = task.process(task.maxBlocksPerSlice(), deadline);
+			scanned += work.scannedBlocks();
+			changed += work.changedBlocks();
 			if (work.finished()) {
 				active.remove(name);
 				completed.accept(name);
+				completedCount++;
 			} else {
 				order.addLast(name);
 			}
 		}
+		return new MineResetTick(scanned, changed, completedCount);
 	}
 }

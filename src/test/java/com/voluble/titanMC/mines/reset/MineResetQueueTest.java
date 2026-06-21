@@ -39,10 +39,11 @@ class MineResetQueueTest {
 			@Override public void cancel() {}
 		});
 
-		queue.processTick(100, completed::add);
+		MineResetTick tick = queue.processTick(100, completed::add);
 
 		assertEquals(List.of("done"), completed);
 		assertEquals(0, queue.size());
+		assertEquals(new MineResetTick(1, 1, 1), tick);
 	}
 
 	private static MineResetTask task(
