@@ -3,9 +3,11 @@ package com.voluble.titanMC.ranks.model;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RankModelTest {
 	@Test
@@ -35,5 +37,20 @@ class RankModelTest {
 
 		assertEquals("E Ward", ward.displayName());
 		assertEquals("E4", rank.displayName());
+	}
+
+	@Test
+	void rankWithoutRequirementIsStarter() {
+		PrisonRank rank = new PrisonRank(RankId.of("e4"), WardId.of("e"), "E4");
+
+		assertTrue(rank.rankup().isEmpty());
+	}
+
+	@Test
+	void rankCarriesAttachedRequirement() {
+		RankupRequirement requirement = RankupRequirement.of(1_500L);
+		PrisonRank rank = new PrisonRank(RankId.of("e3"), WardId.of("e"), "E3").withRankup(requirement);
+
+		assertEquals(Optional.of(requirement), rank.rankup());
 	}
 }
