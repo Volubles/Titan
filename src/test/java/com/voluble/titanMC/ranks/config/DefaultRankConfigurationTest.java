@@ -28,6 +28,10 @@ class DefaultRankConfigurationTest {
 			assertEquals(RankId.of("a1"), catalog.ranks().getLast().id());
 			assertEquals(WardId.of("e"), catalog.requireRank(RankId.of("e3")).wardId());
 			assertTrue(catalog.meetsRequirement(RankId.of("a1"), RankId.of("e4")));
+			assertTrue(catalog.requireRank(RankId.of("e4")).rankup().isEmpty());
+			assertTrue(catalog.requireRank(RankId.of("e3")).rankup().orElseThrow().cost() > 0);
+			assertTrue(catalog.requireRank(RankId.of("a1")).rankup().orElseThrow().cost()
+				> catalog.requireRank(RankId.of("b1")).rankup().orElseThrow().cost());
 		}
 	}
 }
