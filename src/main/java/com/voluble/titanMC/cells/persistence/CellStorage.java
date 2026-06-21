@@ -58,6 +58,12 @@ public final class CellStorage implements AutoCloseable {
 
 	private void initializeSchema() throws SQLException {
 		try (Statement statement = connection.createStatement()) {
+			try (ResultSet result = statement.executeQuery("PRAGMA user_version")) {
+				int version = result.next() ? result.getInt(1) : 0;
+				if (version > SCHEMA_VERSION) {
+					throw new SQLException("Unsupported Cells database schema " + version);
+				}
+			}
 			statement.executeUpdate("""
 				CREATE TABLE IF NOT EXISTS cells (
 				    id TEXT PRIMARY KEY NOT NULL,
