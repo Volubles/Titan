@@ -48,9 +48,13 @@ public final class RankCommandModule implements CommandModule {
 			.requiresAnyPermission(USE_PERMISSION, ADMIN_PERMISSION)
 			.executes(this::showOwnRank)
 			.literalExec("list", this::list)
-			.literal("info", node -> node.argument("player", Args.word(), name -> name.executes(this::info)))
-			.literal("set", node -> node.argument("player", Args.word(), name -> name
-				.argument("rank", Args.word(), rank -> rank.suggests(rankIds).executes(this::set))))
+			.literal("info", node -> node
+				.requiresPermission(ADMIN_PERMISSION)
+				.argument("player", Args.word(), name -> name.executes(this::info)))
+			.literal("set", node -> node
+				.requiresPermission(ADMIN_PERMISSION)
+				.argument("player", Args.word(), name -> name
+					.argument("rank", Args.word(), rank -> rank.suggests(rankIds).executes(this::set))))
 			.spec());
 		registration.register(CommandTree.root("rankup")
 			.description("Purchase the next prison rank")
@@ -97,10 +101,6 @@ public final class RankCommandModule implements CommandModule {
 
 	private int info(MichelleCommandContext context) throws CommandSyntaxException {
 		CommandSender sender = context.sender();
-		if (!sender.hasPermission(ADMIN_PERMISSION)) {
-			sender.sendMessage("You do not have permission to view other players' ranks.");
-			return CommandTree.ok();
-		}
 		OfflinePlayer target = resolvePlayer(context.arg("player", String.class));
 		if (target == null) {
 			sender.sendMessage("Unknown player. Use a cached name or UUID.");
@@ -118,10 +118,6 @@ public final class RankCommandModule implements CommandModule {
 
 	private int set(MichelleCommandContext context) throws CommandSyntaxException {
 		CommandSender sender = context.sender();
-		if (!sender.hasPermission(ADMIN_PERMISSION)) {
-			sender.sendMessage("You do not have permission to change ranks.");
-			return CommandTree.ok();
-		}
 		OfflinePlayer target = resolvePlayer(context.arg("player", String.class));
 		if (target == null) {
 			sender.sendMessage("Unknown player. Use a cached name or UUID.");
