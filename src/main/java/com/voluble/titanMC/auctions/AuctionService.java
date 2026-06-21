@@ -3,6 +3,7 @@ package com.voluble.titanMC.auctions;
 import com.voluble.titanMC.auctions.config.AuctionConfiguration;
 import com.voluble.titanMC.auctions.config.AuctionConfigurationManager;
 import com.voluble.titanMC.cells.persistence.CellStorage;
+import com.voluble.titanMC.ranks.model.WardId;
 import com.voluble.titanMC.util.ChatUtils;
 import net.kyori.adventure.text.Component;
 import net.milkbowl.vault.economy.Economy;
@@ -80,7 +81,7 @@ public final class AuctionService implements AutoCloseable {
 			}
 		}
 		AuctionPosition position = new AuctionPosition(
-			normalized, location.getWorld().getUID(), location.getBlockX(), location.getBlockY(), location.getBlockZ(), facing
+			normalized, WardId.of("e"), location.getWorld().getUID(), location.getBlockX(), location.getBlockY(), location.getBlockZ(), facing
 		);
 		try {
 			storage.savePosition(position);
@@ -341,7 +342,7 @@ public final class AuctionService implements AutoCloseable {
 	}
 
 	private static AuctionLot copyWithItems(AuctionLot lot, List<byte[]> items) {
-		return new AuctionLot(lot.id(), lot.sourceLotId(), lot.batchIndex(), lot.positionId(), lot.price(), lot.state(), lot.buyerId(), lot.buyerName(), lot.saleExpiresAt(), lot.claimExpiresAt(), items);
+		return new AuctionLot(lot.id(), lot.sourceLotId(), lot.batchIndex(), lot.wardId(), lot.positionId(), lot.price(), lot.state(), lot.buyerId(), lot.buyerName(), lot.saleExpiresAt(), lot.claimExpiresAt(), items);
 	}
 
 	private static boolean matches(Block block, AuctionPosition position, boolean sign) {

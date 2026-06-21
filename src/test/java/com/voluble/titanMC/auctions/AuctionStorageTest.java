@@ -22,7 +22,7 @@ class AuctionStorageTest {
 	@Test
 	void positionsAndQueuedBatchesSurviveRestart() throws Exception {
 		Path database = directory.resolve("auctions.db");
-		AuctionPosition position = new AuctionPosition("north_1", UUID.randomUUID(), 1, 64, 2, BlockFace.SOUTH);
+		AuctionPosition position = new AuctionPosition("north_1", WardId.of("e"), UUID.randomUUID(), 1, 64, 2, BlockFace.SOUTH);
 		List<byte[]> items = new ArrayList<>();
 		for (int index = 0; index < 30; index++) items.add(new byte[]{(byte) index});
 
@@ -46,7 +46,7 @@ class AuctionStorageTest {
 	@Test
 	void stateAndRemainingItemsAreDurable() throws Exception {
 		Path database = directory.resolve("state.db");
-		AuctionPosition position = new AuctionPosition("slot", UUID.randomUUID(), 3, 70, 4, BlockFace.NORTH);
+		AuctionPosition position = new AuctionPosition("slot", WardId.of("e"), UUID.randomUUID(), 3, 70, 4, BlockFace.NORTH);
 		try (AuctionStorage storage = new AuctionStorage(database)) {
 			storage.savePosition(position);
 			storage.ingest(new CellRecoveryLot(7, UUID.randomUUID(), WardId.of("e"), List.of(new byte[]{1}, new byte[]{2})), () -> 500);

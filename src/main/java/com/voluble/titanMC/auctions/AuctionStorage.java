@@ -1,6 +1,7 @@
 package com.voluble.titanMC.auctions;
 
 import com.voluble.titanMC.cells.model.CellRecoveryLot;
+import com.voluble.titanMC.ranks.model.WardId;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -69,7 +70,7 @@ public final class AuctionStorage implements AutoCloseable {
 			 ResultSet result = statement.executeQuery("SELECT * FROM auction_positions ORDER BY id")) {
 			while (result.next()) {
 				AuctionPosition position = new AuctionPosition(
-					result.getString("id"), UUID.fromString(result.getString("world_id")),
+					result.getString("id"), WardId.of("e"), UUID.fromString(result.getString("world_id")),
 					result.getInt("x"), result.getInt("y"), result.getInt("z"),
 					org.bukkit.block.BlockFace.valueOf(result.getString("facing"))
 				);
@@ -92,7 +93,7 @@ public final class AuctionStorage implements AutoCloseable {
 				AuctionBuilder builder = builders.get(id);
 				if (builder == null) {
 					builder = new AuctionBuilder(new AuctionLot(
-						id, result.getLong("source_lot_id"), result.getInt("batch_index"),
+						id, result.getLong("source_lot_id"), result.getInt("batch_index"), WardId.of("e"),
 						result.getString("position_id"), result.getLong("price"),
 						AuctionState.valueOf(result.getString("state")),
 						uuid(result.getString("buyer_id")), result.getString("buyer_name"),
@@ -242,7 +243,7 @@ public final class AuctionStorage implements AutoCloseable {
 
 		private AuctionLot build() {
 			return new AuctionLot(
-				lot.id(), lot.sourceLotId(), lot.batchIndex(), lot.positionId(), lot.price(), lot.state(),
+				lot.id(), lot.sourceLotId(), lot.batchIndex(), lot.wardId(), lot.positionId(), lot.price(), lot.state(),
 				lot.buyerId(), lot.buyerName(), lot.saleExpiresAt(), lot.claimExpiresAt(), items
 			);
 		}
