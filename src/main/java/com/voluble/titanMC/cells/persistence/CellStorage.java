@@ -30,7 +30,7 @@ import java.util.concurrent.Executors;
 
 public final class CellStorage implements AutoCloseable {
 
-	private static final int SCHEMA_VERSION = 4;
+	private static final int SCHEMA_VERSION = 5;
 	private final Connection connection;
 	private final ExecutorService writer = Executors.newSingleThreadExecutor(
 			Thread.ofPlatform().name("titan-cell-writer").factory()
@@ -130,12 +130,22 @@ public final class CellStorage implements AutoCloseable {
 					CREATE TABLE IF NOT EXISTS cell_recovery_lots (
 					    id INTEGER PRIMARY KEY AUTOINCREMENT,
 					    cell_id TEXT NOT NULL,
+					    ward_id TEXT NOT NULL,
 					    owner_uuid TEXT NOT NULL,
 					    lease_generation INTEGER NOT NULL,
 					    created_at INTEGER NOT NULL,
 					    status TEXT NOT NULL
 					)
 					""");
+			if (version > 0 && version < 5) {
+				if (!hasColumn("cell_recovery_lots", "ward_id")) {
+					statement.executeUpdate("ALTER TABLE cell_recovery_lots ADD COLUMN ward_id TEXT NOT NULL DEFAULT 'e'");
+				}
+				statement.executeUpdate("""
+					UPDATE cell_recovery_lots
+					SET ward_id=COALESCE((SELECT ward_id FROM cells WHERE cells.id=cell_recovery_lots.cell_id), 'e')
+					""");
+			}
 			statement.executeUpdate("""
 					CREATE TABLE IF NOT EXISTS cell_recovery_items (
 					    id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -304,10 +314,10 @@ public final class CellStorage implements AutoCloseable {
 		return write(() -> execute("DELETE FROM cell_signs WHERE world_id=? AND x=? AND y=? AND z=?", sign.worldId().toString(), sign.x(), sign.y(), sign.z()));
 	}
 
-	public CompletableFuture<Long> createRecoveryLot(CellLease lease, List<byte[]> items) {
+	public CompletableFuture<Long> createRecoveryLot(CellLease lease, WardId wardId, List<byte[]> items) {
 		return CompletableFuture.supplyAsync(() -> {
 			try {
-				return insertRecoveryLot(lease, items);
+				return insertRecoveryLot(lease, wardId, items);
 			} catch (SQLException exception) {
 				throw new IllegalStateException("Failed to persist cell recovery lot", exception);
 			}
@@ -327,7 +337,7 @@ public final class CellStorage implements AutoCloseable {
 	private List<CellRecoveryLot> readReadyRecoveryLots() throws SQLException {
 		Map<Long, RecoveryBuilder> lots = new LinkedHashMap<>();
 		try (PreparedStatement statement = connection.prepareStatement("""
-			SELECT lot.id, lot.owner_uuid, item.item_data
+			SELECT lot.id, lot.owner_uuid, lot.ward_id, item.item_data
 			FROM cell_recovery_lots lot
 			LEFT JOIN cell_recovery_items item ON item.lot_id = lot.id
 			WHERE lot.status = 'READY'
@@ -337,7 +347,10 @@ public final class CellStorage implements AutoCloseable {
 				long id = result.getLong("id");
 				RecoveryBuilder builder = lots.get(id);
 				if (builder == null) {
-					builder = new RecoveryBuilder(UUID.fromString(result.getString("owner_uuid")));
+					builder = new RecoveryBuilder(
+						UUID.fromString(result.getString("owner_uuid")),
+						WardId.of(result.getString("ward_id"))
+					);
 					lots.put(id, builder);
 				}
 				byte[] item = result.getBytes("item_data");
@@ -345,7 +358,9 @@ public final class CellStorage implements AutoCloseable {
 			}
 		}
 		return lots.entrySet().stream()
-			.map(entry -> new CellRecoveryLot(entry.getKey(), entry.getValue().ownerId, entry.getValue().items))
+			.map(entry -> new CellRecoveryLot(
+				entry.getKey(), entry.getValue().ownerId, entry.getValue().wardId, entry.getValue().items
+			))
 			.toList();
 	}
 
@@ -370,10 +385,12 @@ public final class CellStorage implements AutoCloseable {
 
 	private static final class RecoveryBuilder {
 		private final UUID ownerId;
+		private final WardId wardId;
 		private final List<byte[]> items = new ArrayList<>();
 
-		private RecoveryBuilder(UUID ownerId) {
+		private RecoveryBuilder(UUID ownerId, WardId wardId) {
 			this.ownerId = ownerId;
+			this.wardId = wardId;
 		}
 	}
 
@@ -455,17 +472,18 @@ public final class CellStorage implements AutoCloseable {
 		}
 	}
 
-	private long insertRecoveryLot(CellLease lease, List<byte[]> items) throws SQLException {
+	private long insertRecoveryLot(CellLease lease, WardId wardId, List<byte[]> items) throws SQLException {
 		boolean old = connection.getAutoCommit();
 		connection.setAutoCommit(false);
 		try {
 			long lotId;
-			try (PreparedStatement s = connection.prepareStatement("INSERT INTO cell_recovery_lots(cell_id,owner_uuid,lease_generation,created_at,status) VALUES(?,?,?,?,?)", Statement.RETURN_GENERATED_KEYS)) {
+			try (PreparedStatement s = connection.prepareStatement("INSERT INTO cell_recovery_lots(cell_id,ward_id,owner_uuid,lease_generation,created_at,status) VALUES(?,?,?,?,?,?)", Statement.RETURN_GENERATED_KEYS)) {
 				s.setString(1, lease.cellId());
-				s.setString(2, lease.ownerId().toString());
-				s.setLong(3, lease.generation());
-				s.setLong(4, System.currentTimeMillis());
-				s.setString(5, "PREPARED");
+				s.setString(2, wardId.value());
+				s.setString(3, lease.ownerId().toString());
+				s.setLong(4, lease.generation());
+				s.setLong(5, System.currentTimeMillis());
+				s.setString(6, "PREPARED");
 				s.executeUpdate();
 				try (ResultSet keys = s.getGeneratedKeys()) {
 					if (!keys.next()) throw new SQLException("No recovery lot id");

@@ -1,6 +1,7 @@
 package com.voluble.titanMC.auctions;
 
 import com.voluble.titanMC.cells.model.CellRecoveryLot;
+import com.voluble.titanMC.ranks.model.WardId;
 import org.bukkit.block.BlockFace;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -27,8 +28,8 @@ class AuctionStorageTest {
 
 		try (AuctionStorage storage = new AuctionStorage(database)) {
 			storage.savePosition(position);
-			assertTrue(storage.ingest(new CellRecoveryLot(42, UUID.randomUUID(), items), () -> 1200));
-			assertFalse(storage.ingest(new CellRecoveryLot(42, UUID.randomUUID(), items), () -> 9999));
+			assertTrue(storage.ingest(new CellRecoveryLot(42, UUID.randomUUID(), WardId.of("e"), items), () -> 1200));
+			assertFalse(storage.ingest(new CellRecoveryLot(42, UUID.randomUUID(), WardId.of("e"), items), () -> 9999));
 		}
 
 		try (AuctionStorage storage = new AuctionStorage(database)) {
@@ -48,7 +49,7 @@ class AuctionStorageTest {
 		AuctionPosition position = new AuctionPosition("slot", UUID.randomUUID(), 3, 70, 4, BlockFace.NORTH);
 		try (AuctionStorage storage = new AuctionStorage(database)) {
 			storage.savePosition(position);
-			storage.ingest(new CellRecoveryLot(7, UUID.randomUUID(), List.of(new byte[]{1}, new byte[]{2})), () -> 500);
+			storage.ingest(new CellRecoveryLot(7, UUID.randomUUID(), WardId.of("e"), List.of(new byte[]{1}, new byte[]{2})), () -> 500);
 			AuctionLot queued = storage.loadAuctions().getFirst();
 			AuctionLot forSale = queued.atPosition(position.id(), 12345);
 			storage.saveAuction(forSale);

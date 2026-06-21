@@ -137,7 +137,7 @@ public final class CellResetService {
 				else recovered.addAll(block.getDrops());
 			}
 			List<byte[]> serialized = recovered.stream().map(ItemStack::serializeAsBytes).toList();
-			cells.storage().createRecoveryLot(lease, serialized).whenComplete((lot, error) -> Bukkit.getScheduler().runTask(plugin, () -> {
+			cells.storage().createRecoveryLot(lease, cell.wardId(), serialized).whenComplete((lot, error) -> Bukkit.getScheduler().runTask(plugin, () -> {
 				if (error != null) {
 					plugin.getLogger().severe("Failed to prepare reset for " + cell.id() + ": " + error.getMessage());
 					release();
