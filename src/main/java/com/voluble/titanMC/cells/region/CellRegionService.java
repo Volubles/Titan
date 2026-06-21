@@ -17,7 +17,26 @@ public final class CellRegionService {
 	public static final int PRIORITY = 200;
 	private final RegionEngine regions;
 
-	public CellRegionService(RegionEngine regions) { this.regions = Objects.requireNonNull(regions, "regions"); }
+	public CellRegionService(RegionEngine regions) {
+		this.regions = Objects.requireNonNull(regions, "regions");
+	}
+
+	private static RegionKey key(String id) {
+		return RegionKey.of(CellProtectionPolicy.NAMESPACE, id);
+	}
+
+	private static WorldId world(CellDefinition cell) {
+		return new WorldId(cell.cuboid().worldId);
+	}
+
+	private static CuboidGeometry geometry(RegionUtils.Cuboid c) {
+		return new CuboidGeometry(BlockBox.inclusive(c.minX, c.minY, c.minZ, c.maxX, c.maxY, c.maxZ));
+	}
+
+	private static void requireSuccess(RegionMutationResult result) {
+		if (result instanceof RegionMutationResult.Failure f)
+			throw new IllegalStateException("Cell region operation failed: " + f.message());
+	}
 
 	public void reconcile(CellDefinition cell) {
 		RegionDefinition existing = find(cell);
@@ -41,9 +60,7 @@ public final class CellRegionService {
 		requireSuccess(regions.setAccess(existing.id(), existing.revision(), access).join());
 	}
 
-	public RegionDefinition find(CellDefinition cell) { return regions.find(world(cell), key(cell.id())); }
-	private static RegionKey key(String id) { return RegionKey.of(CellProtectionPolicy.NAMESPACE, id); }
-	private static WorldId world(CellDefinition cell) { return new WorldId(cell.cuboid().worldId); }
-	private static CuboidGeometry geometry(RegionUtils.Cuboid c) { return new CuboidGeometry(BlockBox.inclusive(c.minX,c.minY,c.minZ,c.maxX,c.maxY,c.maxZ)); }
-	private static void requireSuccess(RegionMutationResult result) { if (result instanceof RegionMutationResult.Failure f) throw new IllegalStateException("Cell region operation failed: " + f.message()); }
+	public RegionDefinition find(CellDefinition cell) {
+		return regions.find(world(cell), key(cell.id()));
+	}
 }

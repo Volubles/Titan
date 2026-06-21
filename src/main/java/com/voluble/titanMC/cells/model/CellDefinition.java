@@ -7,12 +7,12 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 public record CellDefinition(
-	String id,
-	String displayName,
-	RegionUtils.Cuboid cuboid,
-	long rentPrice,
-	long rentDurationSeconds,
-	boolean enabled
+		String id,
+		String displayName,
+		RegionUtils.Cuboid cuboid,
+		long rentPrice,
+		long rentDurationSeconds,
+		boolean enabled
 ) {
 	private static final Pattern ID = Pattern.compile("[a-z0-9][a-z0-9_-]{0,31}");
 

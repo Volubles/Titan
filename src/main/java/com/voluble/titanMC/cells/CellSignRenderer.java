@@ -24,7 +24,18 @@ public final class CellSignRenderer {
 	private BukkitTask refreshTask;
 
 	public CellSignRenderer(Plugin plugin, CellManager cells, CellsConfigurationManager configuration) {
-		this.plugin = plugin; this.cells = cells; this.configuration = configuration;
+		this.plugin = plugin;
+		this.cells = cells;
+		this.configuration = configuration;
+	}
+
+	private static String duration(long millis) {
+		Duration value = Duration.ofMillis(millis);
+		long days = value.toDays();
+		if (days > 0) return days + "d " + value.minusDays(days).toHours() + "h";
+		long hours = value.toHours();
+		if (hours > 0) return hours + "h " + value.minusHours(hours).toMinutes() + "m";
+		return Math.max(0L, value.toMinutes()) + "m";
 	}
 
 	public void start() {
@@ -33,20 +44,28 @@ public final class CellSignRenderer {
 		refreshTask = Bukkit.getScheduler().runTaskTimer(plugin, this::refreshLoaded, period, period);
 	}
 
-	public void stop() { if (refreshTask != null) { refreshTask.cancel(); refreshTask = null; } }
+	public void stop() {
+		if (refreshTask != null) {
+			refreshTask.cancel();
+			refreshTask = null;
+		}
+	}
 
 	public void refresh(CellDefinition cell) {
 		for (CellSign sign : cells.signs()) if (sign.cellId().equals(cell.id())) renderIfLoaded(sign);
 	}
 
-	public void refreshLoaded() { for (CellSign sign : cells.signs()) renderIfLoaded(sign); }
+	public void refreshLoaded() {
+		for (CellSign sign : cells.signs()) renderIfLoaded(sign);
+	}
 
 	public void render(Sign sign, CellDefinition cell) {
 		CellLease lease = cells.lease(cell.id());
 		List<String> template = cells.resetJobs().stream().anyMatch(job -> job.cellId().equals(cell.id()))
-			? configuration.current().resettingSign()
-			: lease == null ? configuration.current().availableSign() : configuration.current().rentedSign();
-		for (int line = 0; line < 4; line++) sign.getSide(Side.FRONT).line(line, render(template.get(line), cell, lease));
+				? configuration.current().resettingSign()
+				: lease == null ? configuration.current().availableSign() : configuration.current().rentedSign();
+		for (int line = 0; line < 4; line++)
+			sign.getSide(Side.FRONT).line(line, render(template.get(line), cell, lease));
 		sign.update(true, false);
 	}
 
@@ -66,18 +85,12 @@ public final class CellSignRenderer {
 			parsed = parsed.replace("{" + key + "}", "<" + key + ">");
 		}
 		return MiniMessage.miniMessage().deserialize(parsed,
-			Placeholder.unparsed("id", cell.id()), Placeholder.unparsed("display_name", cell.displayName()),
-			Placeholder.unparsed("price", Long.toString(cell.rentPrice())),
-			Placeholder.unparsed("duration", duration(cell.rentDurationSeconds() * 1000L)),
-			Placeholder.unparsed("owner", owner),
-			Placeholder.unparsed("time_left", lease == null ? "" : duration(Math.max(0L, lease.expiresAtEpochMillis() - System.currentTimeMillis()))),
-			Placeholder.unparsed("member_count", Integer.toString(cells.members(cell.id()).size()))
+				Placeholder.unparsed("id", cell.id()), Placeholder.unparsed("display_name", cell.displayName()),
+				Placeholder.unparsed("price", Long.toString(cell.rentPrice())),
+				Placeholder.unparsed("duration", duration(cell.rentDurationSeconds() * 1000L)),
+				Placeholder.unparsed("owner", owner),
+				Placeholder.unparsed("time_left", lease == null ? "" : duration(Math.max(0L, lease.expiresAtEpochMillis() - System.currentTimeMillis()))),
+				Placeholder.unparsed("member_count", Integer.toString(cells.members(cell.id()).size()))
 		);
-	}
-
-	private static String duration(long millis) {
-		Duration value = Duration.ofMillis(millis); long days = value.toDays(); if (days > 0) return days + "d " + value.minusDays(days).toHours() + "h";
-		long hours = value.toHours(); if (hours > 0) return hours + "h " + value.minusHours(hours).toMinutes() + "m";
-		return Math.max(0L, value.toMinutes()) + "m";
 	}
 }

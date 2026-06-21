@@ -30,20 +30,25 @@ public final class DonatorToolsCommandModule implements CommandModule {
 		this.tools = service.registry();
 	}
 
+	private static void send(CommandSender sender, Component message) {
+		if (sender instanceof Player player) player.sendMessage(message);
+		else sender.sendMessage(ChatUtils.serialize(message));
+	}
+
 	@Override
 	public void register(CommandRegistration registration) {
 		registration.register(
-			CommandTree.root("dtools")
-				.description("Give a donator tool")
-				.requiresAnyPermission("donatortools.give", "donatortools.reload")
-				.executes(this::sendHelp)
-				.literalExec("reload", this::reload)
-				.argument("tool", Args.word(), tool -> tool
-					.suggestStrings(tools.ids())
-					.executes(this::giveToSelf)
-					.argument("player", Args.player(), player -> player
-						.executes(this::giveToPlayer)))
-				.spec()
+				CommandTree.root("dtools")
+						.description("Give a donator tool")
+						.requiresAnyPermission("donatortools.give", "donatortools.reload")
+						.executes(this::sendHelp)
+						.literalExec("reload", this::reload)
+						.argument("tool", Args.word(), tool -> tool
+								.suggestStrings(tools.ids())
+								.executes(this::giveToSelf)
+								.argument("player", Args.player(), player -> player
+										.executes(this::giveToPlayer)))
+						.spec()
 		);
 	}
 
@@ -53,8 +58,8 @@ public final class DonatorToolsCommandModule implements CommandModule {
 		send(context.sender(), Component.text("/dtools reload", NamedTextColor.AQUA));
 		for (DonatorToolType type : DonatorToolType.values()) {
 			send(context.sender(), Component.text(
-				type.id() + " - " + type.description(),
-				type.color()
+					type.id() + " - " + type.description(),
+					type.color()
 			));
 		}
 		return CommandTree.ok();
@@ -70,8 +75,8 @@ public final class DonatorToolsCommandModule implements CommandModule {
 			send(context.sender(), Component.text("Donator tools reloaded.", NamedTextColor.GREEN));
 		} catch (IllegalArgumentException | IllegalStateException exception) {
 			send(context.sender(), Component.text(
-				"Donator tools reload failed: " + exception.getMessage(),
-				NamedTextColor.RED
+					"Donator tools reload failed: " + exception.getMessage(),
+					NamedTextColor.RED
 			));
 		}
 		return CommandTree.ok();
@@ -95,8 +100,8 @@ public final class DonatorToolsCommandModule implements CommandModule {
 		DonatorToolType type = tools.find(input).orElse(null);
 		if (type == null) {
 			send(context.sender(), Component.text(
-				"Unknown tool. Available: " + String.join(", ", tools.ids()),
-				NamedTextColor.RED
+					"Unknown tool. Available: " + String.join(", ", tools.ids()),
+					NamedTextColor.RED
 			));
 			return CommandTree.ok();
 		}
@@ -105,26 +110,21 @@ public final class DonatorToolsCommandModule implements CommandModule {
 		if (!remaining.isEmpty()) {
 			target.getWorld().dropItemNaturally(target.getLocation(), item);
 			target.sendMessage(Component.text(
-				"Your inventory was full, so the " + type.displayName() + " was dropped.",
-				NamedTextColor.YELLOW
+					"Your inventory was full, so the " + type.displayName() + " was dropped.",
+					NamedTextColor.YELLOW
 			));
 		} else {
 			target.sendMessage(Component.text(
-				"You received a " + type.displayName() + ".",
-				type.color()
+					"You received a " + type.displayName() + ".",
+					type.color()
 			));
 		}
 		if (!target.equals(context.sender())) {
 			send(context.sender(), Component.text(
-				"Gave " + type.displayName() + " to " + target.getName() + ".",
-				NamedTextColor.GREEN
+					"Gave " + type.displayName() + " to " + target.getName() + ".",
+					NamedTextColor.GREEN
 			));
 		}
 		return CommandTree.ok();
-	}
-
-	private static void send(CommandSender sender, Component message) {
-		if (sender instanceof Player player) player.sendMessage(message);
-		else sender.sendMessage(ChatUtils.serialize(message));
 	}
 }
