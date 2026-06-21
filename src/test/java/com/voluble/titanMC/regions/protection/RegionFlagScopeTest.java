@@ -39,4 +39,20 @@ class RegionFlagScopeTest {
 			).orElseThrow().decision()
 		);
 	}
+
+	@Test
+	void nonPlayerActorsOnlyMatchEveryoneRules() {
+		RegionFlagSet flags = RegionFlagSet.empty()
+			.with(ProtectionAction.BLOCK_AUTOMATION, RegionSubject.NONMEMBERS, ProtectionDecision.DENY);
+
+		assertEquals(
+			java.util.Optional.empty(),
+			flags.resolve(
+				ProtectionAction.BLOCK_AUTOMATION,
+				RegionAccessSet.empty(),
+				null,
+				ignored -> false
+			)
+		);
+	}
 }

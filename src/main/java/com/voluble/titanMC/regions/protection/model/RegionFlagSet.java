@@ -156,8 +156,8 @@ public final class RegionFlagSet {
 			case EVERYONE -> true;
 			case OWNERS -> access.isOwner(playerId);
 			case MEMBERS -> access.isMember(playerId);
-			case NONOWNERS -> !access.isOwner(playerId);
-			case NONMEMBERS -> !access.isMember(playerId);
+			case NONOWNERS -> playerId != null && !access.isOwner(playerId);
+			case NONMEMBERS -> playerId != null && !access.isMember(playerId);
 			case GROUP -> playerId != null && groupMembership.test(subject.value());
 		};
 	}

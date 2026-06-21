@@ -7,6 +7,7 @@ import net.milkbowl.vault.permission.Permission;
 import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.RegisteredServiceProvider;
 
 import java.util.Arrays;
 import java.util.List;
@@ -21,6 +22,18 @@ public final class VaultRegionGroupProvider implements RegionGroupProvider {
 	public VaultRegionGroupProvider(Server server, Permission permissions) {
 		this.server = Objects.requireNonNull(server, "server");
 		this.permissions = Objects.requireNonNull(permissions, "permissions");
+	}
+
+	public static RegionGroupProvider create(Server server) {
+		Objects.requireNonNull(server, "server");
+		RegisteredServiceProvider<Permission> registration =
+			server.getServicesManager().getRegistration(Permission.class);
+		if (registration == null) return RegionGroupProvider.none();
+		Permission provider = registration.getProvider();
+		if (provider == null || !provider.isEnabled() || !provider.hasGroupSupport()) {
+			return RegionGroupProvider.none();
+		}
+		return new VaultRegionGroupProvider(server, provider);
 	}
 
 	@Override

@@ -42,8 +42,6 @@ import com.voluble.titanMC.regions.service.RegionEngine;
 import io.voluble.michellelib.commands.CommandKit;
 import io.voluble.michellelib.menu.MenuService;
 import net.milkbowl.vault.economy.Economy;
-import net.milkbowl.vault.permission.Permission;
-import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import com.voluble.titanMC.mines.command.MineCommandModule;
 
@@ -142,22 +140,19 @@ public final class TitanMC extends JavaPlugin {
 		ProtectionBypass protectionBypass = BukkitProtectionBypass.permission(
 			getServer(), configuration.bypassPermission()
 		);
-		RegisteredServiceProvider<Permission> permissionRegistration =
-			getServer().getServicesManager().getRegistration(Permission.class);
-		if (permissionRegistration != null
-			&& permissionRegistration.getProvider() != null
-			&& permissionRegistration.getProvider().isEnabled()
-			&& permissionRegistration.getProvider().hasGroupSupport()) {
-			regionGroups = new VaultRegionGroupProvider(
-				getServer(), permissionRegistration.getProvider()
-			);
-			getLogger().info(
-				"Titan region group scopes enabled through " + permissionRegistration.getProvider().getName()
-			);
+		if (getServer().getPluginManager().isPluginEnabled("Vault")) {
+			regionGroups = VaultRegionGroupProvider.create(getServer());
+			if (regionGroups instanceof VaultRegionGroupProvider) {
+				getLogger().info("Titan region group scopes enabled through Vault");
+			} else {
+				getLogger().warning(
+					"Vault has no enabled permissions provider with group support; group-scoped region rules will not match"
+				);
+			}
 		} else {
 			regionGroups = RegionGroupProvider.none();
 			getLogger().warning(
-				"No Vault permissions provider with group support was found; group-scoped region rules will not match"
+				"Vault is not installed; group-scoped region rules will not match"
 			);
 		}
 		protectionService = ProtectionService.forEngine(
