@@ -6,6 +6,7 @@ import com.voluble.titanMC.regions.index.RegionIndexOptions;
 import com.voluble.titanMC.regions.index.RegionIndexSnapshot;
 import com.voluble.titanMC.regions.index.RegionReadView;
 import com.voluble.titanMC.regions.model.RegionDefinition;
+import com.voluble.titanMC.regions.model.RegionAccessSet;
 import com.voluble.titanMC.regions.model.RegionGeometry;
 import com.voluble.titanMC.regions.model.RegionId;
 import com.voluble.titanMC.regions.model.RegionKey;
@@ -181,6 +182,38 @@ public final class RegionEngine implements AutoCloseable {
 				existing.id(), existing.key(), existing.worldId(), existing.priority(), existing.geometry(),
 				existing.access(), flags,
 				existing.text(), existing.createdAt(), Instant.now(), existing.revision() + 1L
+			);
+			return saveMutation(updated, false);
+		});
+	}
+
+	public CompletableFuture<RegionMutationResult> setAccess(
+		RegionId id,
+		long expectedRevision,
+		RegionAccessSet access
+	) {
+		Objects.requireNonNull(access, "access");
+		return setSecurity(id, expectedRevision, access, null);
+	}
+
+	public CompletableFuture<RegionMutationResult> setSecurity(
+		RegionId id,
+		long expectedRevision,
+		RegionAccessSet access,
+		RegionFlagSet flags
+	) {
+		Objects.requireNonNull(access, "access");
+		return submit(() -> {
+			RegionDefinition existing = index.find(id);
+			if (existing == null) return failure(RegionMutationResult.Reason.NOT_FOUND, "Region does not exist: " + id);
+			if (existing.revision() != expectedRevision) {
+				return failure(RegionMutationResult.Reason.STALE_REVISION,
+					"Expected revision " + expectedRevision + " but found " + existing.revision());
+			}
+			RegionDefinition updated = new RegionDefinition(
+				existing.id(), existing.key(), existing.worldId(), existing.priority(), existing.geometry(),
+				access, flags == null ? existing.flags() : flags, existing.text(),
+				existing.createdAt(), Instant.now(), existing.revision() + 1L
 			);
 			return saveMutation(updated, false);
 		});

@@ -8,11 +8,13 @@ import com.voluble.titanMC.regions.model.PolygonPrismGeometry;
 import com.voluble.titanMC.regions.model.PolyhedronPlane;
 import com.voluble.titanMC.regions.model.RegionGeometry;
 import com.voluble.titanMC.regions.model.RegionDefinition;
+import com.voluble.titanMC.regions.model.RegionAccessSet;
 import com.voluble.titanMC.regions.model.RegionKey;
 import com.voluble.titanMC.regions.model.WorldId;
 import com.voluble.titanMC.regions.protection.model.ProtectionAction;
 import com.voluble.titanMC.regions.protection.model.ProtectionDecision;
 import com.voluble.titanMC.regions.protection.model.RegionFlagSet;
+import com.voluble.titanMC.regions.protection.model.RegionSubject;
 import com.voluble.titanMC.regions.model.RegionTextFlag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -22,6 +24,7 @@ import java.sql.DriverManager;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -137,6 +140,36 @@ class RegionEnginePersistenceTest {
 	}
 
 	@Test
+	void scopedFlagsAndRegionAccessSurviveRestart() throws Exception {
+		Path database = temporaryDirectory.resolve("access.db");
+		WorldId world = new WorldId(UUID.randomUUID());
+		RegionKey key = RegionKey.of("custom", "cell");
+		UUID owner = UUID.randomUUID();
+		UUID member = UUID.randomUUID();
+		RegionAccessSet access = RegionAccessSet.of(Set.of(owner), Set.of(member));
+		RegionFlagSet flags = RegionFlagSet.empty()
+			.with(ProtectionAction.CONTAINER_OPEN, RegionSubject.EVERYONE, ProtectionDecision.DENY)
+			.with(ProtectionAction.CONTAINER_OPEN, RegionSubject.MEMBERS, ProtectionDecision.ALLOW)
+			.with(ProtectionAction.ENTRY, RegionSubject.group("guard"), ProtectionDecision.ALLOW);
+
+		try (RegionEngine engine = RegionEngine.open(database)) {
+			RegionDefinition created = assertInstanceOf(
+				RegionMutationResult.Success.class,
+				engine.create(key, world, 0, new CuboidGeometry(new BlockBox(0, 0, 0, 16, 16, 16))).join()
+			).region();
+			assertTrue(engine.setSecurity(
+				created.id(), created.revision(), access, flags
+			).join().successful());
+		}
+
+		try (RegionEngine reloaded = RegionEngine.open(database)) {
+			RegionDefinition stored = reloaded.find(world, key);
+			assertEquals(access, stored.access());
+			assertEquals(flags, stored.flags());
+		}
+	}
+
+	@Test
 	void regionTextFlagsSurviveUpdatesAndRestart() throws Exception {
 		Path database = temporaryDirectory.resolve("text-flags.db");
 		WorldId world = new WorldId(UUID.randomUUID());
@@ -185,7 +218,7 @@ class RegionEnginePersistenceTest {
 			 Statement statement = connection.createStatement();
 			 var result = statement.executeQuery("PRAGMA user_version")) {
 			assertTrue(result.next());
-			assertEquals(6, result.getInt(1));
+			assertEquals(7, result.getInt(1));
 		}
 	}
 

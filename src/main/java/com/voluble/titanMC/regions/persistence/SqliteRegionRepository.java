@@ -7,6 +7,7 @@ import com.voluble.titanMC.regions.model.CuboidGeometry;
 import com.voluble.titanMC.regions.model.PolygonPrismGeometry;
 import com.voluble.titanMC.regions.model.PolyhedronPlane;
 import com.voluble.titanMC.regions.model.RegionDefinition;
+import com.voluble.titanMC.regions.model.RegionAccessSet;
 import com.voluble.titanMC.regions.model.RegionGeometry;
 import com.voluble.titanMC.regions.model.RegionId;
 import com.voluble.titanMC.regions.model.RegionKey;
@@ -16,6 +17,7 @@ import com.voluble.titanMC.regions.model.RegionTextSet;
 import com.voluble.titanMC.regions.protection.model.ProtectionAction;
 import com.voluble.titanMC.regions.protection.model.ProtectionDecision;
 import com.voluble.titanMC.regions.protection.model.RegionFlagSet;
+import com.voluble.titanMC.regions.protection.model.RegionSubject;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,10 +33,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 
 public final class SqliteRegionRepository implements RegionRepository {
 
-	private static final int SCHEMA_VERSION = 6;
+	private static final int SCHEMA_VERSION = 7;
 	private final Path databasePath;
 	private Connection connection;
 
@@ -91,9 +95,10 @@ public final class SqliteRegionRepository implements RegionRepository {
 		try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery("PRAGMA user_version")) {
 			version = result.next() ? result.getInt(1) : 0;
 		}
-		if (version != 0 && version != 5 && version != SCHEMA_VERSION) {
+		if (version != 0 && version != 5 && version != 6 && version != SCHEMA_VERSION) {
 			throw new SQLException(
-				"Unsupported region database schema " + version + "; expected an empty database or schema 5-" + SCHEMA_VERSION
+				"Unsupported region database schema " + version
+					+ "; expected an empty database or schema 5-" + SCHEMA_VERSION
 			);
 		}
 		if (version == SCHEMA_VERSION) return;
@@ -166,6 +171,34 @@ public final class SqliteRegionRepository implements RegionRepository {
 					    FOREIGN KEY(region_id) REFERENCES regions(id) ON DELETE CASCADE
 					)
 					""");
+				if (version < 7) {
+					statement.executeUpdate("ALTER TABLE region_flags RENAME TO region_flags_v6");
+					statement.executeUpdate("""
+						CREATE TABLE region_flags (
+						    region_id TEXT NOT NULL,
+						    action TEXT NOT NULL,
+						    subject_type TEXT NOT NULL,
+						    subject_value TEXT NOT NULL,
+						    decision TEXT NOT NULL,
+						    PRIMARY KEY(region_id, action, subject_type, subject_value),
+						    FOREIGN KEY(region_id) REFERENCES regions(id) ON DELETE CASCADE
+						)
+						""");
+					statement.executeUpdate("""
+						INSERT INTO region_flags(region_id, action, subject_type, subject_value, decision)
+						SELECT region_id, action, 'EVERYONE', '', decision FROM region_flags_v6
+						""");
+					statement.executeUpdate("DROP TABLE region_flags_v6");
+				}
+				statement.executeUpdate("""
+					CREATE TABLE IF NOT EXISTS region_principals (
+					    region_id TEXT NOT NULL,
+					    player_uuid TEXT NOT NULL,
+					    role TEXT NOT NULL,
+					    PRIMARY KEY(region_id, player_uuid, role),
+					    FOREIGN KEY(region_id) REFERENCES regions(id) ON DELETE CASCADE
+					)
+					""");
 				statement.execute("PRAGMA user_version = " + SCHEMA_VERSION);
 			}
 		});
@@ -177,6 +210,7 @@ public final class SqliteRegionRepository implements RegionRepository {
 		Map<RegionId, List<BlockPoint2>> polygonPoints = loadPolygonPoints();
 		Map<RegionId, List<PolyhedronPlane>> polyhedronPlanes = loadPolyhedronPlanes();
 		Map<RegionId, RegionFlagSet> flags = loadFlags();
+		Map<RegionId, RegionAccessSet> access = loadAccess();
 		Map<RegionId, RegionTextSet> text = loadTextFlags();
 		List<RegionDefinition> definitions = new ArrayList<>();
 		try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery("""
@@ -201,6 +235,7 @@ public final class SqliteRegionRepository implements RegionRepository {
 					WorldId.parse(result.getString("world_id")),
 					result.getInt("priority"),
 					readGeometry(id, result.getString("geometry_type"), bounds, polygonPoints, polyhedronPlanes),
+					access.getOrDefault(id, RegionAccessSet.empty()),
 					flags.getOrDefault(id, RegionFlagSet.empty()),
 					text.getOrDefault(id, RegionTextSet.empty()),
 					Instant.ofEpochMilli(result.getLong("created_at")),
@@ -249,7 +284,12 @@ public final class SqliteRegionRepository implements RegionRepository {
 				statement.setString(1, definition.id().toString());
 				statement.executeUpdate();
 			}
+			try (PreparedStatement statement = connection.prepareStatement("DELETE FROM region_principals WHERE region_id = ?")) {
+				statement.setString(1, definition.id().toString());
+				statement.executeUpdate();
+			}
 			insertGeometry(definition);
+			insertAccess(definition);
 			insertFlags(definition);
 			insertTextFlags(definition);
 		});
@@ -302,6 +342,7 @@ public final class SqliteRegionRepository implements RegionRepository {
 				regionStatement.executeBatch();
 				for (RegionDefinition definition : saves) {
 					insertGeometry(definition);
+					insertAccess(definition);
 					insertFlags(definition);
 					insertTextFlags(definition);
 				}
@@ -342,25 +383,62 @@ public final class SqliteRegionRepository implements RegionRepository {
 	}
 
 	private Map<RegionId, RegionFlagSet> loadFlags() throws SQLException {
-		Map<RegionId, Map<ProtectionAction, ProtectionDecision>> decisions = new LinkedHashMap<>();
+		Map<RegionId, Map<ProtectionAction, Map<RegionSubject, ProtectionDecision>>> decisions =
+			new LinkedHashMap<>();
 		try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery("""
-			SELECT region_id, action, decision FROM region_flags ORDER BY region_id, action
+			SELECT region_id, action, subject_type, subject_value, decision
+			FROM region_flags ORDER BY region_id, action, subject_type, subject_value
 			""")) {
 			while (result.next()) {
 				RegionId id = RegionId.parse(result.getString("region_id"));
 				try {
 					ProtectionAction action = ProtectionAction.valueOf(result.getString("action"));
+					RegionSubject.Type subjectType = RegionSubject.Type.valueOf(result.getString("subject_type"));
+					RegionSubject subject = new RegionSubject(subjectType, result.getString("subject_value"));
 					ProtectionDecision decision = ProtectionDecision.valueOf(result.getString("decision"));
 					if (!decision.explicit()) throw new IllegalArgumentException("ABSTAIN is not persistent");
-					decisions.computeIfAbsent(id, ignored -> new LinkedHashMap<>()).put(action, decision);
+					decisions.computeIfAbsent(id, ignored -> new LinkedHashMap<>())
+						.computeIfAbsent(action, ignored -> new LinkedHashMap<>())
+						.put(subject, decision);
 				} catch (IllegalArgumentException exception) {
 					throw new SQLException("Invalid persisted region flag for " + id, exception);
 				}
 			}
 		}
 		Map<RegionId, RegionFlagSet> flags = new LinkedHashMap<>();
-		decisions.forEach((id, values) -> flags.put(id, RegionFlagSet.of(values)));
+		decisions.forEach((id, values) -> flags.put(id, RegionFlagSet.ofScoped(values)));
 		return flags;
+	}
+
+	private Map<RegionId, RegionAccessSet> loadAccess() throws SQLException {
+		Map<RegionId, Set<UUID>> owners = new LinkedHashMap<>();
+		Map<RegionId, Set<UUID>> members = new LinkedHashMap<>();
+		try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery("""
+			SELECT region_id, player_uuid, role
+			FROM region_principals ORDER BY region_id, role, player_uuid
+			""")) {
+			while (result.next()) {
+				RegionId id = RegionId.parse(result.getString("region_id"));
+				try {
+					UUID playerId = UUID.fromString(result.getString("player_uuid"));
+					PrincipalRole role = PrincipalRole.valueOf(result.getString("role"));
+					Map<RegionId, Set<UUID>> target = role == PrincipalRole.OWNER ? owners : members;
+					target.computeIfAbsent(id, ignored -> new java.util.LinkedHashSet<>()).add(playerId);
+				} catch (IllegalArgumentException exception) {
+					throw new SQLException("Invalid persisted region principal for " + id, exception);
+				}
+			}
+		}
+		Map<RegionId, RegionAccessSet> access = new LinkedHashMap<>();
+		java.util.LinkedHashSet<RegionId> regionIds = new java.util.LinkedHashSet<>(owners.keySet());
+		regionIds.addAll(members.keySet());
+		for (RegionId id : regionIds) {
+			access.put(id, RegionAccessSet.of(
+				owners.getOrDefault(id, Set.of()),
+				members.getOrDefault(id, Set.of())
+			));
+		}
+		return access;
 	}
 
 	private Map<RegionId, RegionTextSet> loadTextFlags() throws SQLException {
@@ -492,18 +570,48 @@ public final class SqliteRegionRepository implements RegionRepository {
 	}
 
 	private void insertFlags(RegionDefinition definition) throws SQLException {
-		if (definition.flags().explicitDecisions().isEmpty()) return;
+		if (definition.flags().explicitRules().isEmpty()) return;
 		try (PreparedStatement statement = connection.prepareStatement("""
-			INSERT INTO region_flags(region_id, action, decision) VALUES (?, ?, ?)
+			INSERT INTO region_flags(region_id, action, subject_type, subject_value, decision)
+			VALUES (?, ?, ?, ?, ?)
 			""")) {
-			for (Map.Entry<ProtectionAction, ProtectionDecision> entry
-					: definition.flags().explicitDecisions().entrySet()) {
-				statement.setString(1, definition.id().toString());
-				statement.setString(2, entry.getKey().name());
-				statement.setString(3, entry.getValue().name());
-				statement.addBatch();
+			for (Map.Entry<ProtectionAction, Map<RegionSubject, ProtectionDecision>> action
+					: definition.flags().explicitRules().entrySet()) {
+				for (Map.Entry<RegionSubject, ProtectionDecision> rule : action.getValue().entrySet()) {
+					statement.setString(1, definition.id().toString());
+					statement.setString(2, action.getKey().name());
+					statement.setString(3, rule.getKey().type().name());
+					statement.setString(4, rule.getKey().value());
+					statement.setString(5, rule.getValue().name());
+					statement.addBatch();
+				}
 			}
 			statement.executeBatch();
+		}
+	}
+
+	private void insertAccess(RegionDefinition definition) throws SQLException {
+		if (definition.access().owners().isEmpty() && definition.access().members().isEmpty()) return;
+		try (PreparedStatement statement = connection.prepareStatement("""
+			INSERT INTO region_principals(region_id, player_uuid, role) VALUES (?, ?, ?)
+			""")) {
+			addPrincipals(statement, definition, definition.access().owners(), PrincipalRole.OWNER);
+			addPrincipals(statement, definition, definition.access().members(), PrincipalRole.MEMBER);
+			statement.executeBatch();
+		}
+	}
+
+	private static void addPrincipals(
+		PreparedStatement statement,
+		RegionDefinition definition,
+		Set<UUID> players,
+		PrincipalRole role
+	) throws SQLException {
+		for (UUID playerId : players) {
+			statement.setString(1, definition.id().toString());
+			statement.setString(2, playerId.toString());
+			statement.setString(3, role.name());
+			statement.addBatch();
 		}
 	}
 
@@ -560,5 +668,10 @@ public final class SqliteRegionRepository implements RegionRepository {
 		CUBOID,
 		POLYGON_PRISM,
 		CONVEX_POLYHEDRON
+	}
+
+	private enum PrincipalRole {
+		OWNER,
+		MEMBER
 	}
 }
