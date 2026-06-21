@@ -3,6 +3,7 @@ package com.voluble.titanMC.mines.storage;
 import com.voluble.titanMC.mines.Mine;
 import com.voluble.titanMC.mines.WeightedPalette;
 import com.voluble.titanMC.util.RegionUtils;
+import com.voluble.titanMC.util.ComponentFiles;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -35,7 +36,7 @@ public final class MineStorage implements AutoCloseable {
 
 	public MineStorage(Plugin plugin) {
 		this.plugin = Objects.requireNonNull(plugin, "plugin");
-		this.file = new File(plugin.getDataFolder(), "mines.yml");
+		this.file = ComponentFiles.resolve(plugin.getDataFolder().toPath(), "mines", "mines.yml").toFile();
 		this.writer = Executors.newSingleThreadExecutor(runnable -> {
 			Thread thread = new Thread(runnable, "TitanMC-MineStorage");
 			thread.setDaemon(true);
@@ -234,7 +235,7 @@ public final class MineStorage implements AutoCloseable {
 	}
 
 	private FileConfiguration loadConfig() {
-		if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
+		if (!file.getParentFile().exists()) file.getParentFile().mkdirs();
 		return YamlConfiguration.loadConfiguration(file);
 	}
 

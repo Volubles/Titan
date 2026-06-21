@@ -1,6 +1,7 @@
 package com.voluble.titanMC.donatortools.config;
 
 import com.voluble.titanMC.managers.ConfigManager;
+import com.voluble.titanMC.util.ComponentFiles;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.plugin.Plugin;
@@ -23,7 +24,11 @@ public final class DonatorToolsConfigurationManager
 
 	public DonatorToolsConfigurationManager(Plugin plugin) {
 		this.plugin = Objects.requireNonNull(plugin, "plugin");
-		this.path = plugin.getDataFolder().toPath().resolve("donator-tools.yml");
+		this.path = ComponentFiles.resolve(
+			plugin.getDataFolder().toPath(),
+			"donator-tools",
+			"donator-tools.yml"
+		);
 	}
 
 	@Override

@@ -1,6 +1,7 @@
 package com.voluble.titanMC.cells.config;
 
 import com.voluble.titanMC.managers.ConfigManager;
+import com.voluble.titanMC.util.ComponentFiles;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
@@ -18,7 +19,7 @@ public final class CellsConfigurationManager implements ConfigManager.ComponentC
 
 	public CellsConfigurationManager(Plugin plugin) {
 		this.plugin = Objects.requireNonNull(plugin, "plugin");
-		this.path = plugin.getDataFolder().toPath().resolve("cells.yml");
+		this.path = ComponentFiles.resolve(plugin.getDataFolder().toPath(), "cells", "cells.yml");
 	}
 
 	@Override public void initialize() {

@@ -53,6 +53,7 @@ import com.voluble.titanMC.regions.protection.policy.RegionPolicyRegistry;
 import com.voluble.titanMC.regions.protection.service.ProtectionService;
 import com.voluble.titanMC.regions.protection.service.RegionEntryService;
 import com.voluble.titanMC.regions.service.RegionEngine;
+import com.voluble.titanMC.util.ComponentFiles;
 import io.voluble.michellelib.commands.CommandKit;
 import io.voluble.michellelib.menu.MenuService;
 import net.milkbowl.vault.economy.Economy;
@@ -81,7 +82,7 @@ public final class TitanMC extends JavaPlugin {
 	public void onEnable() {
 		instance = this;
 		try {
-			regionEngine = RegionEngine.open(getDataFolder().toPath().resolve("regions.db"));
+			regionEngine = RegionEngine.open(ComponentFiles.resolve(getDataFolder().toPath(), "regions", "regions.db"));
 			getLogger().info("Titan Region Engine loaded " + regionEngine.snapshot().definitions().size() + " regions");
 		} catch (RegionStorageException exception) {
 			getLogger().severe("Titan Region Engine failed to initialize: " + exception.getMessage());
@@ -137,7 +138,7 @@ public final class TitanMC extends JavaPlugin {
 
 		try {
 			cellManager = new CellManager(
-				new CellStorage(getDataFolder().toPath().resolve("cells.db")),
+				new CellStorage(ComponentFiles.resolve(getDataFolder().toPath(), "cells", "cells.db")),
 				new CellRegionService(regionEngine)
 			);
 			cellManager.load();
