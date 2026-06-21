@@ -58,8 +58,15 @@ import com.voluble.titanMC.regions.protection.policy.RegionPolicyRegistry;
 import com.voluble.titanMC.regions.protection.service.ProtectionService;
 import com.voluble.titanMC.regions.protection.service.RegionEntryService;
 import com.voluble.titanMC.regions.service.RegionEngine;
+import com.voluble.titanMC.ranks.bukkit.PlayerRankListener;
+import com.voluble.titanMC.ranks.command.RankCommandModule;
 import com.voluble.titanMC.ranks.config.RankConfigurationManager;
+import com.voluble.titanMC.ranks.persistence.PlayerRankStorage;
+import com.voluble.titanMC.ranks.service.PlayerRankService;
 import com.voluble.titanMC.ranks.service.RankCatalog;
+import com.voluble.titanMC.ranks.service.RankEconomy;
+import com.voluble.titanMC.ranks.service.RankupService;
+import com.voluble.titanMC.ranks.service.VaultRankEconomy;
 import com.voluble.titanMC.util.ComponentFiles;
 import io.voluble.michellelib.commands.CommandKit;
 import io.voluble.michellelib.menu.MenuService;
@@ -86,6 +93,9 @@ public final class TitanMC extends JavaPlugin {
 	private CellsConfigurationManager cellsConfiguration;
 	private AuctionConfigurationManager auctionConfiguration;
 	private RankConfigurationManager rankConfiguration;
+	private PlayerRankStorage rankStorage;
+	private PlayerRankService rankService;
+	private RankupService rankupService;
 	private AuctionService auctionService;
 
 	@Override
@@ -129,6 +139,7 @@ public final class TitanMC extends JavaPlugin {
 		);
 		economyManager = new EconomyManager(this);
 		if (!economyManager.initialize()) getLogger().warning("No Vault economy provider found; cell renting is disabled");
+		if (!initializeRanks()) return;
 		if (!initializeProtection()) return;
 
 		// Mines
@@ -203,9 +214,42 @@ public final class TitanMC extends JavaPlugin {
 			.addModule(new RegionCommandModule(this))
 			.addModule(new CellCommandModule(cellManager, cellResets, cellSigns, cellSignRenderer))
 			.addModule(new AuctionCommandModule(auctionService))
+			.addModule(new RankCommandModule(rankConfiguration.catalog(), rankService, rankupService))
 			.install();
 
 		getLogger().info("TitanMC has been enabled!");
+	}
+
+	private boolean initializeRanks() {
+		try {
+			rankStorage = new PlayerRankStorage(
+				ComponentFiles.resolveData(getDataFolder().toPath(), "ranks", "players.db")
+			);
+		} catch (java.sql.SQLException exception) {
+			getLogger().severe("Failed to open rank storage: " + exception.getMessage());
+			getServer().getPluginManager().disablePlugin(this);
+			return false;
+		}
+		RankEconomy rankEconomy = economyManager.isEnabled()
+			? new VaultRankEconomy(economyManager.getEconomy(), getServer())
+			: RankEconomy.unavailable();
+		rankService = new PlayerRankService(
+			rankConfiguration.catalog(),
+			rankStorage,
+			event -> getServer().getPluginManager().callEvent(event),
+			getLogger()
+		);
+		try {
+			rankService.load();
+		} catch (java.sql.SQLException exception) {
+			getLogger().severe("Failed to load player ranks: " + exception.getMessage());
+			getServer().getPluginManager().disablePlugin(this);
+			return false;
+		}
+		rankupService = new RankupService(rankConfiguration.catalog(), rankService, rankEconomy);
+		getServer().getPluginManager().registerEvents(new PlayerRankListener(rankService), this);
+		getLogger().info("Player ranks ready (" + (rankEconomy.available() ? "Vault economy" : "no economy") + ")");
+		return true;
 	}
 
 	private boolean initializeProtection() {
@@ -294,6 +338,10 @@ public final class TitanMC extends JavaPlugin {
 		if (cellManager != null) {
 			try { cellManager.close(); }
 			catch (Exception exception) { getLogger().severe("Failed to close Cells cleanly: " + exception.getMessage()); }
+		}
+		if (rankStorage != null) {
+			try { rankStorage.close(); }
+			catch (Exception exception) { getLogger().severe("Failed to close Ranks cleanly: " + exception.getMessage()); }
 		}
 		if (regionEngine != null) {
 			try {
