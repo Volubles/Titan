@@ -129,9 +129,10 @@ public final class RankCommandModule implements CommandModule {
 			sender.sendMessage("Unknown rank: " + rankId.value());
 			return CommandTree.ok();
 		}
-		PlayerRank existing = players.current(target.getUniqueId())
-			.orElseGet(() -> players.assignStarting(target.getUniqueId()));
-		players.apply(existing.withRank(prisonRank.id(), System.currentTimeMillis()));
+		PlayerRank updated = players.current(target.getUniqueId())
+			.map(existing -> existing.withRank(prisonRank.id(), System.currentTimeMillis()))
+			.orElseGet(() -> new PlayerRank(target.getUniqueId(), prisonRank.id(), System.currentTimeMillis()));
+		players.apply(updated);
 		sender.sendMessage("Set " + displayName(target) + " to " + prisonRank.displayName() + ".");
 		return CommandTree.ok();
 	}

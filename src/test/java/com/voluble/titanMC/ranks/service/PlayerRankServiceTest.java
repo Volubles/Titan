@@ -73,6 +73,22 @@ class PlayerRankServiceTest {
 	}
 
 	@Test
+	void applyCanAssignExplicitRankToUnrankedPlayer() throws Exception {
+		PlayerRankService service = newService();
+		UUID player = UUID.randomUUID();
+		PlayerRank requested = new PlayerRank(player, E3, 2_000L);
+
+		PlayerRank applied = service.apply(requested);
+
+		assertEquals(requested, applied);
+		assertEquals(1, events.size());
+		assertTrue(events.getFirst().previous().isEmpty());
+		assertEquals(E3, events.getFirst().current().rankId());
+		storage.flush();
+		assertEquals(E3, storage.loadAll().get(player).rankId());
+	}
+
+	@Test
 	void assignStartingIsIdempotent() {
 		PlayerRankService service = newService();
 		UUID player = UUID.randomUUID();

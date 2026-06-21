@@ -52,6 +52,12 @@ permissions:
   titanmc.auction.admin:
     description: Allows managing thrift auction positions
     default: op
+  titanmc.rank.use:
+    description: Allows viewing and purchasing prison ranks
+    default: true
+  titanmc.rank.admin:
+    description: Allows managing player prison ranks
+    default: op
   titanmc.protection.bypass:
     description: Bypasses Titan region protection
     default: op
