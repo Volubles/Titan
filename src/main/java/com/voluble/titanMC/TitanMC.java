@@ -177,7 +177,7 @@ public final class TitanMC extends JavaPlugin {
 	public void onDisable() {
 		if (menuService != null) menuService.shutdown();
 		if (mineScheduler != null) mineScheduler.stop();
-		if (mineManager != null) mineManager.saveAll();
+		if (mineManager != null) mineManager.close();
 		if (regionEngine != null) {
 			try {
 				regionEngine.close();

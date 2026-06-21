@@ -14,16 +14,33 @@ import org.bukkit.plugin.Plugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
-public final class MineStorage {
+public final class MineStorage implements AutoCloseable {
 
 	private final Plugin plugin;
 	private final File file;
+	private final Object lock = new Object();
+	private final Map<String, MineSnapshot> snapshots = new LinkedHashMap<>();
+	private final ExecutorService writer;
+	private boolean dirty;
+	private boolean writeScheduled;
+	private boolean closed;
 
 	public MineStorage(Plugin plugin) {
 		this.plugin = Objects.requireNonNull(plugin, "plugin");
 		this.file = new File(plugin.getDataFolder(), "mines.yml");
+		this.writer = Executors.newSingleThreadExecutor(runnable -> {
+			Thread thread = new Thread(runnable, "TitanMC-MineStorage");
+			thread.setDaemon(true);
+			return thread;
+		});
 	}
 
 	public Map<String, Mine> loadAll() {
@@ -91,82 +108,166 @@ public final class MineStorage {
 			}
 			result.put(name, mine);
 		}
+		synchronized (lock) {
+			snapshots.clear();
+			for (Mine mine : result.values()) {
+				snapshots.put(mine.getName(), MineSnapshot.from(mine));
+			}
+		}
 		return result;
 	}
 
 	public void saveAll(Collection<Mine> mines) {
-		FileConfiguration cfg = new YamlConfiguration();
-		ConfigurationSection minesSec = cfg.createSection("mines");
-		if (mines != null) {
-			for (Mine mine : mines) {
-				saveIntoSection(minesSec, mine);
+		synchronized (lock) {
+			ensureOpen();
+			snapshots.clear();
+			if (mines != null) {
+				for (Mine mine : mines) {
+					MineSnapshot snapshot = MineSnapshot.from(mine);
+					snapshots.put(snapshot.name(), snapshot);
+				}
 			}
+			markDirty();
 		}
-		writeConfig(cfg);
 	}
 
 	public void saveMine(Mine mine) {
-		FileConfiguration cfg = loadConfig();
-		ConfigurationSection minesSec = cfg.getConfigurationSection("mines");
-		if (minesSec == null) minesSec = cfg.createSection("mines");
-		saveIntoSection(minesSec, mine);
-		writeConfig(cfg);
+		MineSnapshot snapshot = MineSnapshot.from(Objects.requireNonNull(mine, "mine"));
+		synchronized (lock) {
+			ensureOpen();
+			snapshots.put(snapshot.name(), snapshot);
+			markDirty();
+		}
 	}
 
 	public void deleteMine(String name) {
-		FileConfiguration cfg = loadConfig();
-		ConfigurationSection minesSec = cfg.getConfigurationSection("mines");
-		if (minesSec != null) {
-			minesSec.set(name, null);
+		synchronized (lock) {
+			ensureOpen();
+			snapshots.remove(name);
+			markDirty();
+		}
+	}
+
+	public void flush() {
+		Future<?> barrier = writer.submit(() -> {});
+		try {
+			barrier.get();
+		} catch (Exception exception) {
+			throw new IllegalStateException("Failed to flush mine storage", exception);
+		}
+	}
+
+	@Override
+	public void close() {
+		synchronized (lock) {
+			if (closed) return;
+		}
+		flush();
+		synchronized (lock) {
+			closed = true;
+		}
+		writer.shutdown();
+	}
+
+	private void markDirty() {
+		dirty = true;
+		if (writeScheduled) return;
+		writeScheduled = true;
+		writer.execute(this::drainWrites);
+	}
+
+	private void drainWrites() {
+		while (true) {
+			Map<String, MineSnapshot> pending;
+			synchronized (lock) {
+				if (!dirty) {
+					writeScheduled = false;
+					return;
+				}
+				dirty = false;
+				pending = new LinkedHashMap<>(snapshots);
+			}
+			writeSnapshots(pending);
+		}
+	}
+
+	private void writeSnapshots(Map<String, MineSnapshot> pending) {
+		FileConfiguration cfg = new YamlConfiguration();
+		ConfigurationSection minesSec = cfg.createSection("mines");
+		for (MineSnapshot snapshot : pending.values()) {
+			saveIntoSection(minesSec, snapshot);
 		}
 		writeConfig(cfg);
 	}
 
-	private void saveIntoSection(ConfigurationSection minesSec, Mine mine) {
-		ConfigurationSection s = minesSec.createSection(mine.getName());
-		s.set("world", mine.getCuboid().worldId.toString());
+	private void saveIntoSection(ConfigurationSection minesSec, MineSnapshot mine) {
+		ConfigurationSection s = minesSec.createSection(mine.name());
+		s.set("world", mine.worldId().toString());
 		ConfigurationSection min = s.createSection("min");
-		min.set("x", mine.getCuboid().minX);
-		min.set("y", mine.getCuboid().minY);
-		min.set("z", mine.getCuboid().minZ);
+		min.set("x", mine.minX());
+		min.set("y", mine.minY());
+		min.set("z", mine.minZ());
 		ConfigurationSection max = s.createSection("max");
-		max.set("x", mine.getCuboid().maxX);
-		max.set("y", mine.getCuboid().maxY);
-		max.set("z", mine.getCuboid().maxZ);
-		s.set("interval_seconds", mine.getResetIntervalSeconds());
-		s.set("batch_per_tick", mine.getBatchSizePerTick());
-		s.set("enabled", mine.isEnabled());
-		s.set("auto_reset_below_percent", mine.getAutoResetBelowPercent());
-		s.set("broken_blocks", mine.getBrokenBlocks());
-		s.set("next_reset_epoch_ms", mine.getNextResetEpochMs());
-		Location safeSpawn = mine.getSafeSpawn();
+		max.set("x", mine.maxX());
+		max.set("y", mine.maxY());
+		max.set("z", mine.maxZ());
+		s.set("interval_seconds", mine.intervalSeconds());
+		s.set("batch_per_tick", mine.batchPerTick());
+		s.set("enabled", mine.enabled());
+		s.set("auto_reset_below_percent", mine.autoResetBelowPercent());
+		s.set("broken_blocks", mine.brokenBlocks());
+		s.set("next_reset_epoch_ms", mine.nextResetEpochMs());
+		MineSnapshot.SafeSpawnSnapshot safeSpawn = mine.safeSpawn();
 		if (safeSpawn != null) {
 			ConfigurationSection safeSec = s.createSection("safe_spawn");
-			safeSec.set("world", safeSpawn.getWorld().getUID().toString());
-			safeSec.set("x", safeSpawn.getX());
-			safeSec.set("y", safeSpawn.getY());
-			safeSec.set("z", safeSpawn.getZ());
-			safeSec.set("yaw", safeSpawn.getYaw());
-			safeSec.set("pitch", safeSpawn.getPitch());
+			safeSec.set("world", safeSpawn.worldId().toString());
+			safeSec.set("x", safeSpawn.x());
+			safeSec.set("y", safeSpawn.y());
+			safeSec.set("z", safeSpawn.z());
+			safeSec.set("yaw", safeSpawn.yaw());
+			safeSec.set("pitch", safeSpawn.pitch());
 		}
 		ConfigurationSection palette = s.createSection("palette");
-		for (Map.Entry<String, Integer> e : mine.getPalette().toConfigMap().entrySet()) {
+		for (Map.Entry<String, Integer> e : mine.palette().entrySet()) {
 			palette.set(e.getKey(), e.getValue());
 		}
 	}
 
 	private FileConfiguration loadConfig() {
 		if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
-		FileConfiguration cfg = YamlConfiguration.loadConfiguration(file);
-		return cfg;
+		return YamlConfiguration.loadConfiguration(file);
 	}
 
 	private void writeConfig(FileConfiguration cfg) {
+		File parent = file.getParentFile();
+		if (!parent.exists() && !parent.mkdirs()) {
+			plugin.getLogger().severe("Failed to create mine storage directory");
+			return;
+		}
+		File temporary = new File(parent, file.getName() + ".tmp");
 		try {
-			cfg.save(file);
+			cfg.save(temporary);
+			try {
+				Files.move(
+					temporary.toPath(),
+					file.toPath(),
+					StandardCopyOption.ATOMIC_MOVE,
+					StandardCopyOption.REPLACE_EXISTING
+				);
+			} catch (AtomicMoveNotSupportedException ignored) {
+				Files.move(temporary.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+			}
 		} catch (IOException e) {
 			plugin.getLogger().severe("Failed to save mines.yml: " + e.getMessage());
+			try {
+				Files.deleteIfExists(temporary.toPath());
+			} catch (IOException ignored) {
+			}
 		}
+	}
+
+	private void ensureOpen() {
+		if (closed) throw new IllegalStateException("Mine storage is closed");
 	}
 }
 

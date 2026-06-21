@@ -37,7 +37,10 @@ public final class MineManager {
 		}
 	}
 
-	public void saveAll() { storage.saveAll(minesByName.values()); }
+	public void close() {
+		storage.saveAll(minesByName.values());
+		storage.close();
+	}
 
 	public Collection<Mine> getAll() { return Collections.unmodifiableCollection(minesByName.values()); }
 
