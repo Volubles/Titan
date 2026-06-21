@@ -7,9 +7,11 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RankConfigurationTest {
 	@Test
@@ -18,9 +20,20 @@ class RankConfigurationTest {
 			wards:
 			  - id: E
 			    display-name: E Ward
-			    ranks: [E4, E3, E2, E1]
+			    ranks:
+			      - id: E4
+			      - id: E3
+			        cost: 1000
+			      - id: E2
+			        cost: 2500
+			      - id: E1
+			        cost: 5000
 			  - id: D
-			    ranks: [D4, D3]
+			    ranks:
+			      - id: D4
+			        cost: 10000
+			      - id: D3
+			        cost: 25000
 			"""));
 
 		assertEquals(List.of(WardId.of("e"), WardId.of("d")),
@@ -31,27 +44,103 @@ class RankConfigurationTest {
 	}
 
 	@Test
-	void rejectsDuplicateRanksAcrossWards() throws Exception {
-		YamlConfiguration yaml = yaml("""
+	void starterRankHasNoRankupRequirement() throws Exception {
+		RankConfiguration configuration = RankConfiguration.load(yaml("""
 			wards:
-			  - id: e
-			    ranks: [e4]
-			  - id: d
-			    ranks: [e4]
-			""");
+			  - id: E
+			    ranks:
+			      - id: E4
+			      - id: E3
+			        cost: 500
+			"""));
 
-		assertThrows(IllegalArgumentException.class, () -> RankConfiguration.load(yaml));
+		assertTrue(configuration.catalog().requireRank(RankId.of("e4")).rankup().isEmpty());
+		assertEquals(500L, configuration.catalog().requireRank(RankId.of("e3"))
+			.rankup().orElseThrow().cost());
 	}
 
 	@Test
-	void rejectsWardWithoutRanks() throws Exception {
-		YamlConfiguration yaml = yaml("""
+	void parsesOptionalRequiresField() throws Exception {
+		RankConfiguration configuration = RankConfiguration.load(yaml("""
+			wards:
+			  - id: E
+			    ranks:
+			      - id: E4
+			      - id: E3
+			        cost: 500
+			      - id: E2
+			        cost: 1000
+			        requires: E4
+			"""));
+
+		assertEquals(Optional.of(RankId.of("e4")),
+			configuration.catalog().requireRank(RankId.of("e2")).rankup().orElseThrow().requires());
+	}
+
+	@Test
+	void rejectsStarterWithCost() {
+		assertThrows(IllegalArgumentException.class, () -> RankConfiguration.load(yaml("""
+			wards:
+			  - id: E
+			    ranks:
+			      - id: E4
+			        cost: 100
+			""")));
+	}
+
+	@Test
+	void rejectsNonStarterWithoutCost() {
+		assertThrows(IllegalArgumentException.class, () -> RankConfiguration.load(yaml("""
+			wards:
+			  - id: E
+			    ranks:
+			      - id: E4
+			      - id: E3
+			""")));
+	}
+
+	@Test
+	void rejectsBareStringRankEntries() {
+		assertThrows(IllegalArgumentException.class, () -> RankConfiguration.load(yaml("""
+			wards:
+			  - id: E
+			    ranks: [E4, E3]
+			""")));
+	}
+
+	@Test
+	void rejectsNegativeCost() {
+		assertThrows(IllegalArgumentException.class, () -> RankConfiguration.load(yaml("""
+			wards:
+			  - id: E
+			    ranks:
+			      - id: E4
+			      - id: E3
+			        cost: -100
+			""")));
+	}
+
+	@Test
+	void rejectsDuplicateRanksAcrossWards() {
+		assertThrows(IllegalArgumentException.class, () -> RankConfiguration.load(yaml("""
+			wards:
+			  - id: e
+			    ranks:
+			      - id: e4
+			  - id: d
+			    ranks:
+			      - id: e4
+			        cost: 100
+			""")));
+	}
+
+	@Test
+	void rejectsWardWithoutRanks() {
+		assertThrows(IllegalArgumentException.class, () -> RankConfiguration.load(yaml("""
 			wards:
 			  - id: e
 			    ranks: []
-			""");
-
-		assertThrows(IllegalArgumentException.class, () -> RankConfiguration.load(yaml));
+			""")));
 	}
 
 	@Test
@@ -59,9 +148,13 @@ class RankConfigurationTest {
 		assertThrows(IllegalArgumentException.class, () -> RankConfiguration.load(new YamlConfiguration()));
 	}
 
-	private static YamlConfiguration yaml(String source) throws Exception {
+	private static YamlConfiguration yaml(String source) {
 		YamlConfiguration yaml = new YamlConfiguration();
-		yaml.loadFromString(source);
+		try {
+			yaml.loadFromString(source);
+		} catch (Exception exception) {
+			throw new IllegalStateException(exception);
+		}
 		return yaml;
 	}
 }
