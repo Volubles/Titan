@@ -140,11 +140,8 @@ public final class MineManager {
 	}
 
 	public Mine getFirstAt(Location location) {
-		for (RegionUtils.Cuboid c : regionIndex.getAllAt(location)) {
-			Mine mine = cuboidToMine.get(c);
-			if (mine != null) return mine;
-		}
-		return null;
+		RegionUtils.Cuboid cuboid = regionIndex.getFirstAt(location);
+		return cuboid == null ? null : cuboidToMine.get(cuboid);
 	}
 
 	public void completeReset(String name) {

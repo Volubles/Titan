@@ -12,6 +12,8 @@ public final class WeightedPalette {
 
 	private final LinkedHashMap<Material, Integer> materialToWeight;
 	private int totalWeight;
+	private Material[] compiledMaterials = new Material[0];
+	private int[] cumulativeWeights = new int[0];
 
 	public WeightedPalette() {
 		this.materialToWeight = new LinkedHashMap<>();
@@ -36,11 +38,15 @@ public final class WeightedPalette {
 		Integer prev = materialToWeight.put(material, weight);
 		if (prev != null) totalWeight -= prev;
 		totalWeight += weight;
+		rebuild();
 	}
 
 	public void remove(Material material) {
 		Integer prev = materialToWeight.remove(material);
-		if (prev != null) totalWeight -= prev;
+		if (prev != null) {
+			totalWeight -= prev;
+			rebuild();
+		}
 	}
 
 	public boolean isEmpty() {
@@ -54,16 +60,12 @@ public final class WeightedPalette {
 	}
 
 	public Material pickRandom(Random random) {
+		Objects.requireNonNull(random, "random");
 		if (isEmpty()) return Material.AIR;
-		int bound = getTotalWeight();
-		int r = random.nextInt(bound);
-		int cumulative = 0;
-		for (Map.Entry<Material, Integer> e : materialToWeight.entrySet()) {
-			cumulative += e.getValue();
-			if (r < cumulative) return e.getKey();
-		}
-		// Fallback (should not happen)
-		return materialToWeight.keySet().iterator().next();
+		int target = random.nextInt(totalWeight) + 1;
+		int index = Arrays.binarySearch(cumulativeWeights, target);
+		if (index < 0) index = -index - 1;
+		return compiledMaterials[index];
 	}
 
 	public Material pickRandomThreadLocal() {
@@ -97,6 +99,19 @@ public final class WeightedPalette {
 			if (weight > 0) p.addOrUpdate(m, weight);
 		}
 		return p;
+	}
+
+	private void rebuild() {
+		compiledMaterials = new Material[materialToWeight.size()];
+		cumulativeWeights = new int[materialToWeight.size()];
+		int index = 0;
+		int cumulative = 0;
+		for (Map.Entry<Material, Integer> entry : materialToWeight.entrySet()) {
+			compiledMaterials[index] = entry.getKey();
+			cumulative += entry.getValue();
+			cumulativeWeights[index] = cumulative;
+			index++;
+		}
 	}
 }
 

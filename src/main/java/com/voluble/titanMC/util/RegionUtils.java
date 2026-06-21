@@ -227,19 +227,23 @@ public final class RegionUtils {
 		}
 
 		public boolean containsAny(Location location) {
-			if (location == null) return false;
+			return getFirstAt(location) != null;
+		}
+
+		public Cuboid getFirstAt(Location location) {
+			if (location == null) return null;
 			World world = location.getWorld();
-			if (world == null) return false;
+			if (world == null) return null;
 			Map<Long, List<Cuboid>> chunkMap = worldChunkToRegions.get(world.getUID());
-			if (chunkMap == null) return false;
+			if (chunkMap == null) return null;
 			int chunkX = location.getBlockX() >> 4;
 			int chunkZ = location.getBlockZ() >> 4;
 			List<Cuboid> candidates = chunkMap.get(chunkKey(chunkX, chunkZ));
-			if (candidates == null) return false;
+			if (candidates == null) return null;
 			for (Cuboid cuboid : candidates) {
-				if (cuboid.contains(location)) return true;
+				if (cuboid.contains(location)) return cuboid;
 			}
-			return false;
+			return null;
 		}
 	}
 

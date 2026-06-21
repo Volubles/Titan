@@ -19,6 +19,8 @@ public final class Mine {
 	// Depletion-based auto reset: trigger when remaining percent <= threshold. -1 disables
 	private int autoResetBelowPercent = -1;
 	private int brokenBlocks = 0;
+	private int totalBlockCount;
+	private int depletionTriggerBrokenBlocks = Integer.MAX_VALUE;
 
 	public Mine(String name, RegionUtils.Cuboid cuboid, int resetIntervalSeconds, boolean enabled, int batchSizePerTick, WeightedPalette palette) {
 		this.name = Objects.requireNonNull(name, "name");
@@ -28,11 +30,16 @@ public final class Mine {
 		this.batchSizePerTick = Math.max(1, batchSizePerTick);
 		this.palette = palette == null ? new WeightedPalette() : palette;
 		this.nextResetEpochMs = System.currentTimeMillis() + (long) this.resetIntervalSeconds * 1000L;
+		recalculateVolumeAndThreshold();
 	}
 
 	public String getName() { return name; }
 	public RegionUtils.Cuboid getCuboid() { return cuboid; }
-	public void setCuboid(RegionUtils.Cuboid cuboid) { this.cuboid = Objects.requireNonNull(cuboid); }
+	public void setCuboid(RegionUtils.Cuboid cuboid) {
+		this.cuboid = Objects.requireNonNull(cuboid);
+		recalculateVolumeAndThreshold();
+		brokenBlocks = Math.min(brokenBlocks, totalBlockCount);
+	}
 	public int getResetIntervalSeconds() { return resetIntervalSeconds; }
 	public void setResetIntervalSeconds(int seconds) { this.resetIntervalSeconds = Math.max(1, seconds); }
 	public boolean isEnabled() { return enabled; }
@@ -49,7 +56,10 @@ public final class Mine {
 	public void setSafeSpawn(Location location) { this.safeSpawn = location; }
 
 	public int getAutoResetBelowPercent() { return autoResetBelowPercent; }
-	public void setAutoResetBelowPercent(int percent) { this.autoResetBelowPercent = Math.max(-1, Math.min(100, percent)); }
+	public void setAutoResetBelowPercent(int percent) {
+		this.autoResetBelowPercent = Math.max(-1, Math.min(100, percent));
+		recalculateDepletionThreshold();
+	}
 
 	public void resetDepletionCounters() { this.brokenBlocks = 0; }
 	public void incrementBroken(int amount) { if (amount > 0) this.brokenBlocks = Math.min(getTotalBlockCountSafe(), this.brokenBlocks + amount); }
@@ -58,6 +68,10 @@ public final class Mine {
 	public void setBrokenBlocks(int amount) { this.brokenBlocks = Math.max(0, Math.min(getTotalBlockCountSafe(), amount)); }
 
 	public int getTotalBlockCountSafe() {
+		return totalBlockCount;
+	}
+
+	private int calculateTotalBlockCount() {
 		long dx = (long) (cuboid.maxX - cuboid.minX + 1);
 		long dy = (long) (cuboid.maxY - cuboid.minY + 1);
 		long dz = (long) (cuboid.maxZ - cuboid.minZ + 1);
@@ -73,7 +87,33 @@ public final class Mine {
 	}
 
 	public boolean shouldAutoResetByDepletion() {
-		return autoResetBelowPercent >= 0 && getRemainingPercent() <= autoResetBelowPercent;
+		return autoResetBelowPercent >= 0 && brokenBlocks >= depletionTriggerBrokenBlocks;
+	}
+
+	private void recalculateVolumeAndThreshold() {
+		totalBlockCount = calculateTotalBlockCount();
+		recalculateDepletionThreshold();
+	}
+
+	private void recalculateDepletionThreshold() {
+		if (autoResetBelowPercent < 0) {
+			depletionTriggerBrokenBlocks = Integer.MAX_VALUE;
+			return;
+		}
+		int low = 0;
+		int high = totalBlockCount;
+		while (low < high) {
+			int middle = low + (high - low) / 2;
+			if (remainingPercentAt(middle) <= autoResetBelowPercent) high = middle;
+			else low = middle + 1;
+		}
+		depletionTriggerBrokenBlocks = low;
+	}
+
+	private int remainingPercentAt(int broken) {
+		if (totalBlockCount <= 0) return 0;
+		int remaining = Math.max(0, totalBlockCount - broken);
+		return (int) Math.round(remaining * 100.0 / totalBlockCount);
 	}
 }
 
