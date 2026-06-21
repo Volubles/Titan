@@ -34,6 +34,25 @@ public final class RankCatalog {
 		for (int index = 0; index < progression.size(); index++) {
 			progressionIndexes.put(progression.get(index).id(), index);
 		}
+		validateRequirements(progression, progressionIndexes);
+	}
+
+	private static void validateRequirements(List<PrisonRank> progression, Map<RankId, Integer> indexes) {
+		for (int index = 0; index < progression.size(); index++) {
+			PrisonRank rank = progression.get(index);
+			if (rank.rankup().isEmpty()) continue;
+			RankId required = rank.rankup().get().requires().orElse(null);
+			if (required == null) continue;
+			Integer requiredIndex = indexes.get(required);
+			if (requiredIndex == null) {
+				throw new IllegalArgumentException("rank " + rank.id() + " requires unknown rank: " + required);
+			}
+			if (requiredIndex >= index) {
+				throw new IllegalArgumentException(
+					"rank " + rank.id() + " requires " + required + " which is not earlier in the progression"
+				);
+			}
+		}
 	}
 
 	private static Map<WardId, WardDefinition> indexWards(List<WardDefinition> wards) {

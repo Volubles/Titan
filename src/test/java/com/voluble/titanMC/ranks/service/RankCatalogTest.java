@@ -2,6 +2,7 @@ package com.voluble.titanMC.ranks.service;
 
 import com.voluble.titanMC.ranks.model.PrisonRank;
 import com.voluble.titanMC.ranks.model.RankId;
+import com.voluble.titanMC.ranks.model.RankupRequirement;
 import com.voluble.titanMC.ranks.model.WardDefinition;
 import com.voluble.titanMC.ranks.model.WardId;
 import org.junit.jupiter.api.Test;
@@ -45,6 +46,50 @@ class RankCatalogTest {
 		PrisonRank wrong = new PrisonRank(E4, D, "E4");
 
 		assertThrows(IllegalArgumentException.class, () -> new RankCatalog(List.of(ward), List.of(wrong)));
+	}
+
+	@Test
+	void acceptsRequirementReferencingEarlierRank() {
+		RankCatalog catalog = new RankCatalog(
+			List.of(new WardDefinition(E, "E Ward", List.of(E4, E3))),
+			List.of(
+				new PrisonRank(E4, E, "E4"),
+				new PrisonRank(E3, E, "E3").withRankup(RankupRequirement.of(100L, E4))
+			)
+		);
+
+		assertEquals(E4, catalog.requireRank(E3).rankup().orElseThrow().requires().orElseThrow());
+	}
+
+	@Test
+	void rejectsRequirementOnUnknownRank() {
+		WardDefinition ward = new WardDefinition(E, "E Ward", List.of(E4));
+		List<PrisonRank> ranks = List.of(
+			new PrisonRank(E4, E, "E4").withRankup(RankupRequirement.of(100L, RankId.of("ghost")))
+		);
+
+		assertThrows(IllegalArgumentException.class, () -> new RankCatalog(List.of(ward), ranks));
+	}
+
+	@Test
+	void rejectsRequirementOnSelf() {
+		WardDefinition ward = new WardDefinition(E, "E Ward", List.of(E4));
+		List<PrisonRank> ranks = List.of(
+			new PrisonRank(E4, E, "E4").withRankup(RankupRequirement.of(100L, E4))
+		);
+
+		assertThrows(IllegalArgumentException.class, () -> new RankCatalog(List.of(ward), ranks));
+	}
+
+	@Test
+	void rejectsRequirementOnLaterRank() {
+		WardDefinition ward = new WardDefinition(E, "E Ward", List.of(E4, E3));
+		List<PrisonRank> ranks = List.of(
+			new PrisonRank(E4, E, "E4").withRankup(RankupRequirement.of(100L, E3)),
+			new PrisonRank(E3, E, "E3")
+		);
+
+		assertThrows(IllegalArgumentException.class, () -> new RankCatalog(List.of(ward), ranks));
 	}
 
 	@Test
