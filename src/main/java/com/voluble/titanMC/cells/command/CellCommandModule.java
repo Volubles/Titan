@@ -4,6 +4,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.voluble.titanMC.cells.CellManager;
 import com.voluble.titanMC.cells.CellResetService;
 import com.voluble.titanMC.cells.CellSignService;
+import com.voluble.titanMC.cells.CellSignRenderer;
 import com.voluble.titanMC.cells.model.CellDefinition;
 import com.voluble.titanMC.regions.model.CuboidGeometry;
 import com.voluble.titanMC.regions.selection.SelectionException;
@@ -23,8 +24,8 @@ import org.bukkit.entity.Player;
 import java.time.Duration;
 
 public final class CellCommandModule implements CommandModule {
-	private final CellManager cells;private final CellResetService resets;private final CellSignService signs;
-	public CellCommandModule(CellManager cells,CellResetService resets,CellSignService signs){this.cells=cells;this.resets=resets;this.signs=signs;}
+	private final CellManager cells;private final CellResetService resets;private final CellSignService signs;private final CellSignRenderer renderer;
+	public CellCommandModule(CellManager cells,CellResetService resets,CellSignService signs,CellSignRenderer renderer){this.cells=cells;this.resets=resets;this.signs=signs;this.renderer=renderer;}
 	@Override public void register(CommandRegistration registration){var names=Suggest.fromContext(source->cells.cells().stream().map(CellDefinition::id).toList());registration.register(CommandTree.root("cell").aliases("cells").description("Manage rentable cells").requiresPermission("titanmc.cell.admin").requiresPlayerExecutor().executes(this::root)
 		.literalExec("list",this::list)
 		.literal("create",node->node.argument("name",Args.word(),name->name.argument("price",Args.longArg(),price->price.argument("duration",Args.timeDuration(),duration->duration.executes(this::create)))))
@@ -42,7 +43,7 @@ public final class CellCommandModule implements CommandModule {
 	private int delete(MichelleCommandContext c)throws CommandSyntaxException{try{cells.delete(c.arg("name",String.class));c.playerExecutor().sendMessage("Deleted cell.");}catch(RuntimeException e){c.playerExecutor().sendMessage(e.getMessage());}return CommandTree.ok();}
 	private int list(MichelleCommandContext c)throws CommandSyntaxException{String value=cells.cells().isEmpty()?"none":cells.cells().stream().map(CellDefinition::id).collect(java.util.stream.Collectors.joining(", "));c.playerExecutor().sendMessage("Cells: "+value);return CommandTree.ok();}
 	private int info(MichelleCommandContext c)throws CommandSyntaxException{CellDefinition cell=cells.get(c.arg("name",String.class));if(cell==null){c.playerExecutor().sendMessage("Unknown cell.");return CommandTree.ok();}var lease=cells.lease(cell.id());c.playerExecutor().sendMessage(cell.displayName()+" ("+cell.id()+") | $"+cell.rentPrice()+" | "+cell.rentDurationSeconds()+"s | "+(lease==null?"available":"rented by "+lease.ownerId()));return CommandTree.ok();}
-	private int displayName(MichelleCommandContext c)throws CommandSyntaxException{try{cells.setDisplayName(c.arg("name",String.class),c.arg("display_name",String.class));c.playerExecutor().sendMessage("Updated cell display name.");}catch(RuntimeException e){c.playerExecutor().sendMessage(e.getMessage());}return CommandTree.ok();}
+	private int displayName(MichelleCommandContext c)throws CommandSyntaxException{try{String id=c.arg("name",String.class);cells.setDisplayName(id,c.arg("display_name",String.class));renderer.refresh(cells.get(id));c.playerExecutor().sendMessage("Updated cell display name.");}catch(RuntimeException e){c.playerExecutor().sendMessage(e.getMessage());}return CommandTree.ok();}
 	private int reset(MichelleCommandContext c)throws CommandSyntaxException{try{resets.reset(c.arg("name",String.class));c.playerExecutor().sendMessage("Cell reset started.");}catch(RuntimeException e){c.playerExecutor().sendMessage(e.getMessage());}return CommandTree.ok();}
 	private int member(MichelleCommandContext c,boolean add)throws CommandSyntaxException{String input=c.arg("player",String.class);OfflinePlayer target;try{target=Bukkit.getOfflinePlayer(java.util.UUID.fromString(input));}catch(IllegalArgumentException ignored){target=Bukkit.getOfflinePlayerIfCached(input);}if(target==null){c.playerExecutor().sendMessage("Unknown player. Use a cached name or UUID.");return CommandTree.ok();}try{if(add)cells.addMember(c.arg("name",String.class),target.getUniqueId());else cells.removeMember(c.arg("name",String.class),target.getUniqueId());c.playerExecutor().sendMessage((add?"Added ":"Removed ")+(target.getName()==null?target.getUniqueId():target.getName())+(add?" to ":" from ")+"the cell.");}catch(RuntimeException e){c.playerExecutor().sendMessage(e.getMessage());}return CommandTree.ok();}
 	private int members(MichelleCommandContext c)throws CommandSyntaxException{var values=cells.members(c.arg("name",String.class));c.playerExecutor().sendMessage("Members: "+(values.isEmpty()?"none":values.toString()));return CommandTree.ok();}

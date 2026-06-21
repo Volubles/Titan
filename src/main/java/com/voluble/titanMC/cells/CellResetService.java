@@ -20,11 +20,14 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 public final class CellResetService {
 	private static final int BLOCKS_PER_TICK=750;
 	private final Plugin plugin; private final CellManager cells;
+	private Consumer<CellDefinition> stateListener=ignored->{};
 	public CellResetService(Plugin plugin,CellManager cells){this.plugin=plugin;this.cells=cells;}
+	public void stateListener(Consumer<CellDefinition> listener){stateListener=java.util.Objects.requireNonNull(listener);}
 	public void resume(){for(CellResetJob job:cells.resetJobs())start(job);}
 	public void reset(String cellId){start(cells.beginReset(cellId));}
 	private void start(CellResetJob job){CellDefinition cell=cells.get(job.cellId());if(cell==null)return;World world=Bukkit.getWorld(cell.cuboid().worldId);if(world==null){plugin.getLogger().severe("Cannot reset cell "+cell.id()+": world is unavailable");return;}List<CompletableFuture<Chunk>> loads=new ArrayList<>();for(int x=cell.cuboid().minChunkX();x<=cell.cuboid().maxChunkX();x++)for(int z=cell.cuboid().minChunkZ();z<=cell.cuboid().maxChunkZ();z++)loads.add(world.getChunkAtAsync(x,z));CompletableFuture.allOf(loads.toArray(CompletableFuture[]::new)).thenRun(()->Bukkit.getScheduler().runTask(plugin,()->{List<Chunk> chunks=loads.stream().map(CompletableFuture::join).toList();chunks.forEach(chunk->chunk.addPluginChunkTicket(plugin));new Scan(job,cell,world,chunks).runTaskTimer(plugin,1,1);}));}
@@ -38,5 +41,5 @@ public final class CellResetService {
 		private void clear(long lotId){for(Inventory inventory:inventories)inventory.clear();List<TrackedCellBlock> blocks=cells.tracked(cells.lease(job.cellId()));new Clear(job,blocks,lotId,chunks).runTaskTimer(plugin,1,1);}
 		private void release(){chunks.forEach(chunk->chunk.removePluginChunkTicket(plugin));}
 	}
-	private final class Clear extends BukkitRunnable {private final CellResetJob job;private final List<TrackedCellBlock> blocks;private final long lotId;private final List<Chunk> chunks;private int index;private Clear(CellResetJob job,List<TrackedCellBlock> blocks,long lotId,List<Chunk> chunks){this.job=job;this.blocks=blocks;this.lotId=lotId;this.chunks=chunks;}@Override public void run(){int done=0;while(index<blocks.size()&&done++<BLOCKS_PER_TICK){TrackedCellBlock b=blocks.get(index++);World w=Bukkit.getWorld(b.worldId());if(w!=null)w.getBlockAt(b.x(),b.y(),b.z()).setType(Material.AIR,false);}if(index>=blocks.size()){cancel();cells.completeReset(job,lotId);chunks.forEach(chunk->chunk.removePluginChunkTicket(plugin));}}}
+	private final class Clear extends BukkitRunnable {private final CellResetJob job;private final List<TrackedCellBlock> blocks;private final long lotId;private final List<Chunk> chunks;private int index;private Clear(CellResetJob job,List<TrackedCellBlock> blocks,long lotId,List<Chunk> chunks){this.job=job;this.blocks=blocks;this.lotId=lotId;this.chunks=chunks;}@Override public void run(){int done=0;while(index<blocks.size()&&done++<BLOCKS_PER_TICK){TrackedCellBlock b=blocks.get(index++);World w=Bukkit.getWorld(b.worldId());if(w!=null)w.getBlockAt(b.x(),b.y(),b.z()).setType(Material.AIR,false);}if(index>=blocks.size()){cancel();cells.completeReset(job,lotId);chunks.forEach(chunk->chunk.removePluginChunkTicket(plugin));stateListener.accept(cells.get(job.cellId()));}}}
 }

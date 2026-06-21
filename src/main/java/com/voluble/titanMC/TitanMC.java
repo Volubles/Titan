@@ -12,6 +12,8 @@ import com.voluble.titanMC.cells.persistence.CellStorage;
 import com.voluble.titanMC.cells.region.CellProtectionPolicy;
 import com.voluble.titanMC.cells.region.CellRegionService;
 import com.voluble.titanMC.cells.CellSignRenderer;
+import com.voluble.titanMC.cells.CellManagementService;
+import com.voluble.titanMC.cells.ui.CellMenuService;
 import com.voluble.titanMC.managers.ConfigManager;
 import com.voluble.titanMC.donatortools.DonatorToolsService;
 import com.voluble.titanMC.donatortools.command.DonatorToolsCommandModule;
@@ -146,13 +148,16 @@ public final class TitanMC extends JavaPlugin {
 		}
 		CellResetService cellResets = new CellResetService(this, cellManager);
 		cellSignRenderer = new CellSignRenderer(this, cellManager, cellsConfiguration);
-		CellRentalService cellRentals = new CellRentalService(this, cellManager, economyManager.getEconomy());
-		CellSignService cellSigns = new CellSignService(this, cellManager, cellRentals, cellSignRenderer);
+		cellResets.stateListener(cellSignRenderer::refresh);
+		CellRentalService cellRentals = new CellRentalService(this, cellManager, economyManager.getEconomy(), cellSignRenderer);
+		CellManagementService cellManagement = new CellManagementService(this, cellManager, cellResets, cellSignRenderer, cellsConfiguration, economyManager.getEconomy());
+		CellSignService cellSigns = new CellSignService(this, cellManager, cellSignRenderer);
+		cellSigns.menus(new CellMenuService(menuService, cellManager, cellRentals, cellManagement, cellsConfiguration));
 		getServer().getPluginManager().registerEvents(new CellTrackingListener(cellManager), this);
 		getServer().getPluginManager().registerEvents(cellSigns, this);
 		cellSignRenderer.start();
 		cellResets.resume();
-		cellLeaseScheduler = new CellLeaseScheduler(this, cellManager, cellResets);
+		cellLeaseScheduler = new CellLeaseScheduler(this, cellManager, cellResets, cellManagement);
 		cellLeaseScheduler.start();
 
 		// MichelleLib commands (dtools, mine)
@@ -160,7 +165,7 @@ public final class TitanMC extends JavaPlugin {
 			.addModule(new DonatorToolsCommandModule(donatorTools))
 			.addModule(new MineCommandModule(this))
 			.addModule(new RegionCommandModule(this))
-			.addModule(new CellCommandModule(cellManager, cellResets, cellSigns))
+			.addModule(new CellCommandModule(cellManager, cellResets, cellSigns, cellSignRenderer))
 			.install();
 
 		getLogger().info("TitanMC has been enabled!");
