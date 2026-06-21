@@ -32,11 +32,24 @@ class ComponentFilesTest {
 		Files.writeString(dataFolder.resolve("regions.db-wal"), "wal");
 		Files.writeString(dataFolder.resolve("regions.db-shm"), "shm");
 
-		ComponentFiles.resolve(dataFolder, "regions", "regions.db");
+		ComponentFiles.resolveData(dataFolder, "regions", "regions.db");
 
-		assertEquals("database", Files.readString(dataFolder.resolve("regions/regions.db")));
-		assertEquals("wal", Files.readString(dataFolder.resolve("regions/regions.db-wal")));
-		assertEquals("shm", Files.readString(dataFolder.resolve("regions/regions.db-shm")));
+		assertEquals("database", Files.readString(dataFolder.resolve("regions/data/regions.db")));
+		assertEquals("wal", Files.readString(dataFolder.resolve("regions/data/regions.db-wal")));
+		assertEquals("shm", Files.readString(dataFolder.resolve("regions/data/regions.db-shm")));
+	}
+
+	@Test
+	void movesDatabaseFromComponentFolderIntoDataFolder() throws Exception {
+		Path currentLocation = dataFolder.resolve("cells/cells.db");
+		Files.createDirectories(currentLocation.getParent());
+		Files.writeString(currentLocation, "database");
+
+		Path resolved = ComponentFiles.resolveData(dataFolder, "cells", "cells.db");
+
+		assertEquals(dataFolder.resolve("cells/data/cells.db"), resolved);
+		assertEquals("database", Files.readString(resolved));
+		assertFalse(Files.exists(currentLocation));
 	}
 
 	@Test
@@ -55,16 +68,16 @@ class ComponentFilesTest {
 
 	@Test
 	void doesNotMixLegacySidecarsWithExistingDatabase() throws Exception {
-		Path target = dataFolder.resolve("regions/regions.db");
+		Path target = dataFolder.resolve("regions/data/regions.db");
 		Files.createDirectories(target.getParent());
 		Files.writeString(target, "current database");
 		Files.writeString(dataFolder.resolve("regions.db"), "legacy database");
 		Files.writeString(dataFolder.resolve("regions.db-wal"), "legacy wal");
 
-		ComponentFiles.resolve(dataFolder, "regions", "regions.db");
+		ComponentFiles.resolveData(dataFolder, "regions", "regions.db");
 
 		assertEquals("current database", Files.readString(target));
-		assertFalse(Files.exists(dataFolder.resolve("regions/regions.db-wal")));
+		assertFalse(Files.exists(dataFolder.resolve("regions/data/regions.db-wal")));
 		assertTrue(Files.exists(dataFolder.resolve("regions.db")));
 		assertTrue(Files.exists(dataFolder.resolve("regions.db-wal")));
 	}

@@ -82,7 +82,7 @@ public final class TitanMC extends JavaPlugin {
 	public void onEnable() {
 		instance = this;
 		try {
-			regionEngine = RegionEngine.open(ComponentFiles.resolve(getDataFolder().toPath(), "regions", "regions.db"));
+			regionEngine = RegionEngine.open(ComponentFiles.resolveData(getDataFolder().toPath(), "regions", "regions.db"));
 			getLogger().info("Titan Region Engine loaded " + regionEngine.snapshot().definitions().size() + " regions");
 		} catch (RegionStorageException exception) {
 			getLogger().severe("Titan Region Engine failed to initialize: " + exception.getMessage());
@@ -138,7 +138,7 @@ public final class TitanMC extends JavaPlugin {
 
 		try {
 			cellManager = new CellManager(
-				new CellStorage(ComponentFiles.resolve(getDataFolder().toPath(), "cells", "cells.db")),
+				new CellStorage(ComponentFiles.resolveData(getDataFolder().toPath(), "cells", "cells.db")),
 				new CellRegionService(regionEngine)
 			);
 			cellManager.load();
