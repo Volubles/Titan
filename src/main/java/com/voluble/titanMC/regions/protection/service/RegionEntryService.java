@@ -1,8 +1,8 @@
 package com.voluble.titanMC.regions.protection.service;
 
 import com.voluble.titanMC.regions.model.BlockPosition;
+import com.voluble.titanMC.regions.index.RegionIndexSnapshot;
 import com.voluble.titanMC.regions.model.RegionDefinition;
-import com.voluble.titanMC.regions.model.RegionId;
 import com.voluble.titanMC.regions.model.RegionTextFlag;
 import com.voluble.titanMC.regions.protection.model.ProtectionAction;
 import com.voluble.titanMC.regions.protection.model.ProtectionActor;
@@ -11,19 +11,13 @@ import com.voluble.titanMC.regions.protection.model.ProtectionRequest;
 import com.voluble.titanMC.regions.protection.policy.ProtectionBypass;
 import com.voluble.titanMC.regions.service.RegionEngine;
 
-import java.util.Comparator;
-import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
+import java.util.function.Supplier;
 
 public final class RegionEntryService {
-
-	private static final Comparator<RegionDefinition> REGION_ORDER = Comparator
-		.comparingInt(RegionDefinition::priority).reversed()
-		.thenComparing(RegionDefinition::key)
-		.thenComparing(RegionDefinition::id);
 
 	private final RegionEngine regions;
 	private final ProtectionBypass bypass;
@@ -35,18 +29,20 @@ public final class RegionEntryService {
 
 	public Transition evaluate(ProtectionActor actor, BlockPosition from, BlockPosition to) {
 		Objects.requireNonNull(actor, "actor");
-		Objects.requireNonNull(from, "from");
-		Objects.requireNonNull(to, "to");
-		List<RegionDefinition> source = matching(from);
-		List<RegionDefinition> target = matching(to);
-		Set<RegionId> sourceIds = ids(source);
-		Set<RegionId> targetIds = ids(target);
-		List<RegionDefinition> entered = target.stream()
-			.filter(region -> !sourceIds.contains(region.id()))
-			.toList();
-		List<RegionDefinition> exited = source.stream()
-			.filter(region -> !targetIds.contains(region.id()))
-			.toList();
+		MovementMembership movement = movementMembership(from, to, null);
+		return evaluate(() -> actor, movement.source(), movement.target());
+	}
+
+	public Transition evaluate(
+		Supplier<ProtectionActor> actor,
+		Membership source,
+		Membership target
+	) {
+		Objects.requireNonNull(actor, "actor");
+		Objects.requireNonNull(source, "source");
+		Objects.requireNonNull(target, "target");
+		List<RegionDefinition> entered = difference(target.regions(), source.regions());
+		List<RegionDefinition> exited = difference(source.regions(), target.regions());
 		if (entered.isEmpty()) {
 			return new Transition(
 				ProtectionDecision.ALLOW, Reason.DEFAULT_ALLOW, entered, exited, List.of(),
@@ -54,23 +50,37 @@ public final class RegionEntryService {
 			);
 		}
 
-		ProtectionRequest request = ProtectionRequest.at(actor, ProtectionAction.ENTRY, to);
-		try {
-			if (bypass.bypasses(request)) {
-				return new Transition(
-					ProtectionDecision.ALLOW, Reason.BYPASS, entered, exited, List.of(),
-					message(entered, RegionTextFlag.ENTRY_MESSAGE),
-					message(exited, RegionTextFlag.EXIT_MESSAGE),
-					Optional.empty()
-				);
-			}
-		} catch (RuntimeException exception) {
-			return new Transition(
-				ProtectionDecision.DENY, Reason.ERROR, entered, exited, List.of(),
-				Optional.empty(), Optional.empty(), Optional.of("Region entry bypass check failed.")
-			);
-		}
+		return evaluateEntry(actor, target.position(), entered, exited);
+	}
 
+	public Membership membership(BlockPosition position) {
+		Objects.requireNonNull(position, "position");
+		var snapshot = regions.snapshot();
+		return membership(snapshot, position);
+	}
+
+	public MovementMembership movementMembership(
+		BlockPosition from,
+		BlockPosition to,
+		Membership cachedSource
+	) {
+		Objects.requireNonNull(from, "from");
+		Objects.requireNonNull(to, "to");
+		var snapshot = regions.snapshot();
+		Membership source = cachedSource != null
+			&& cachedSource.version() == snapshot.version()
+			&& cachedSource.position().equals(from)
+			? cachedSource
+			: membership(snapshot, from);
+		return new MovementMembership(source, membership(snapshot, to));
+	}
+
+	private Transition evaluateEntry(
+		Supplier<ProtectionActor> actor,
+		BlockPosition target,
+		List<RegionDefinition> entered,
+		List<RegionDefinition> exited
+	) {
 		List<RegionDecision> decisions = entered.stream()
 			.map(region -> new RegionDecision(region, region.flags().decision(ProtectionAction.ENTRY)))
 			.filter(decision -> decision.decision().explicit())
@@ -83,6 +93,28 @@ public final class RegionEntryService {
 			ProtectionDecision decision = level.stream().anyMatch(value -> value.decision() == ProtectionDecision.DENY)
 				? ProtectionDecision.DENY
 				: ProtectionDecision.ALLOW;
+			if (decision == ProtectionDecision.DENY) {
+				try {
+					ProtectionRequest request = ProtectionRequest.at(
+						Objects.requireNonNull(actor.get(), "actor supplier result"),
+						ProtectionAction.ENTRY,
+						target
+					);
+					if (bypass.bypasses(request)) {
+						return new Transition(
+							ProtectionDecision.ALLOW, Reason.BYPASS, entered, exited, List.of(),
+							message(entered, RegionTextFlag.ENTRY_MESSAGE),
+							message(exited, RegionTextFlag.EXIT_MESSAGE),
+							Optional.empty()
+						);
+					}
+				} catch (RuntimeException exception) {
+					return new Transition(
+						ProtectionDecision.DENY, Reason.ERROR, entered, exited, List.of(),
+						Optional.empty(), Optional.empty(), Optional.of("Region entry bypass check failed.")
+					);
+				}
+			}
 			Optional<String> deniedMessage = decision == ProtectionDecision.DENY
 				? level.stream()
 					.filter(value -> value.decision() == ProtectionDecision.DENY)
@@ -110,16 +142,38 @@ public final class RegionEntryService {
 		);
 	}
 
-	private List<RegionDefinition> matching(BlockPosition position) {
-		return regions.findAll(
-			position.worldId(), position.x(), position.y(), position.z()
-		).stream().sorted(REGION_ORDER).toList();
+	private static List<RegionDefinition> difference(
+		List<RegionDefinition> candidates,
+		List<RegionDefinition> existing
+	) {
+		if (candidates.isEmpty()) return List.of();
+		if (existing.isEmpty()) return candidates;
+		List<RegionDefinition> result = null;
+		for (RegionDefinition candidate : candidates) {
+			boolean found = false;
+			for (RegionDefinition current : existing) {
+				if (candidate.id().equals(current.id())) {
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
+				if (result == null) result = new ArrayList<>();
+				result.add(candidate);
+			}
+		}
+		return result == null ? List.of() : List.copyOf(result);
 	}
 
-	private static Set<RegionId> ids(List<RegionDefinition> regions) {
-		Set<RegionId> ids = new HashSet<>();
-		for (RegionDefinition region : regions) ids.add(region.id());
-		return ids;
+	private static Membership membership(
+		RegionIndexSnapshot snapshot,
+		BlockPosition position
+	) {
+		return new Membership(
+			snapshot.version(),
+			position,
+			snapshot.findAll(position.worldId(), position.x(), position.y(), position.z())
+		);
 	}
 
 	private static Optional<String> message(List<RegionDefinition> regions, RegionTextFlag flag) {
@@ -140,6 +194,28 @@ public final class RegionEntryService {
 		public RegionDecision {
 			Objects.requireNonNull(region, "region");
 			Objects.requireNonNull(decision, "decision");
+		}
+	}
+
+	public record Membership(
+		long version,
+		BlockPosition position,
+		List<RegionDefinition> regions
+	) {
+		public Membership {
+			if (version < 0L) throw new IllegalArgumentException("version must not be negative");
+			Objects.requireNonNull(position, "position");
+			regions = List.copyOf(regions);
+		}
+	}
+
+	public record MovementMembership(Membership source, Membership target) {
+		public MovementMembership {
+			Objects.requireNonNull(source, "source");
+			Objects.requireNonNull(target, "target");
+			if (source.version() != target.version()) {
+				throw new IllegalArgumentException("movement memberships must use the same snapshot");
+			}
 		}
 	}
 

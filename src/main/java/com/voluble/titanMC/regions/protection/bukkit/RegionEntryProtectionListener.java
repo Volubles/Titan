@@ -14,16 +14,18 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 
 import java.util.Map;
-import java.util.WeakHashMap;
+import java.util.HashMap;
 import java.util.Objects;
+import java.util.UUID;
 
 public final class RegionEntryProtectionListener implements Listener {
 
 	private static final long DENY_MESSAGE_COOLDOWN_MILLIS = 1_000L;
 
 	private final RegionEntryService entries;
-	private final Map<Player, Long> lastDenyMessage = new WeakHashMap<>();
-	private final Map<PlayerMoveEvent, RegionEntryService.Transition> pendingMessages = new WeakHashMap<>();
+	private final Map<UUID, Long> lastDenyMessage = new HashMap<>();
+	private final Map<UUID, RegionEntryService.Membership> memberships = new HashMap<>();
+	private final Map<PlayerMoveEvent, RegionEntryService.Transition> pendingMessages = new HashMap<>();
 
 	public RegionEntryProtectionListener(RegionEntryService entries) {
 		this.entries = Objects.requireNonNull(entries, "entries");
@@ -31,6 +33,7 @@ public final class RegionEntryProtectionListener implements Listener {
 
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void protectEntry(PlayerMoveEvent event) {
+		if (event instanceof PlayerTeleportEvent) return;
 		protect(event);
 	}
 
@@ -41,17 +44,36 @@ public final class RegionEntryProtectionListener implements Listener {
 
 	private void protect(PlayerMoveEvent event) {
 		if (!changedBlock(event.getFrom(), event.getTo())) return;
-		RegionEntryService.Transition transition = transition(event);
+		Player player = event.getPlayer();
+		BlockPosition from = BukkitProtectionMapper.position(event.getFrom());
+		BlockPosition to = BukkitProtectionMapper.position(event.getTo());
+		RegionEntryService.MovementMembership movement = entries.movementMembership(
+			from,
+			to,
+			memberships.get(player.getUniqueId())
+		);
+		RegionEntryService.Membership source = movement.source();
+		RegionEntryService.Membership target = movement.target();
+		RegionEntryService.Transition transition = entries.evaluate(
+			() -> BukkitProtectionMapper.actor(player),
+			source,
+			target
+		);
 		if (transition.allowed()) {
-			pendingMessages.put(event, transition);
+			memberships.put(player.getUniqueId(), target);
+			if (transition.entryMessage().isPresent() || transition.exitMessage().isPresent()) {
+				pendingMessages.put(event, transition);
+			}
 		} else {
 			event.setCancelled(true);
-			sendDenied(event.getPlayer(), transition);
+			memberships.put(player.getUniqueId(), source);
+			sendDenied(player, transition);
 		}
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR)
 	public void sendTransitionMessages(PlayerMoveEvent event) {
+		if (event instanceof PlayerTeleportEvent) return;
 		sendTransitionMessagesAfter(event);
 	}
 
@@ -73,20 +95,14 @@ public final class RegionEntryProtectionListener implements Listener {
 
 	@EventHandler
 	public void forgetPlayer(PlayerQuitEvent event) {
-		lastDenyMessage.remove(event.getPlayer());
-	}
-
-	private RegionEntryService.Transition transition(PlayerMoveEvent event) {
-		return entries.evaluate(
-			BukkitProtectionMapper.actor(event.getPlayer()),
-			BukkitProtectionMapper.position(event.getFrom()),
-			BukkitProtectionMapper.position(event.getTo())
-		);
+		UUID playerId = event.getPlayer().getUniqueId();
+		lastDenyMessage.remove(playerId);
+		memberships.remove(playerId);
 	}
 
 	private void sendDenied(Player player, RegionEntryService.Transition transition) {
 		long now = System.currentTimeMillis();
-		Long previous = lastDenyMessage.put(player, now);
+		Long previous = lastDenyMessage.put(player.getUniqueId(), now);
 		if (previous != null && now - previous < DENY_MESSAGE_COOLDOWN_MILLIS) return;
 		String message = transition.denyMessage().orElse("<red>You may not enter this region.</red>");
 		send(player, message);

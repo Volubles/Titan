@@ -18,8 +18,11 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RegionEntryServiceTest {
@@ -130,6 +133,69 @@ class RegionEntryServiceTest {
 			assertTrue(bypassing.evaluate(
 				ProtectionActor.system("admin", Set.of()), position(-1), position(1)
 			).allowed());
+		}
+	}
+
+	@Test
+	void reusesCachedSourceMembershipUntilTheRegionSnapshotChanges() throws Exception {
+		try (RegionEngine engine = RegionEngine.open(temporaryDirectory.resolve("membership-cache.db"))) {
+			RegionAdminService admin = new RegionAdminService(engine);
+			assertTrue(admin.create(
+				"spawn", world, 100, new CuboidGeometry(new BlockBox(0, 0, 0, 10, 10, 10))
+			).successful());
+			RegionEntryService service = new RegionEntryService(engine, ProtectionBypass.none());
+
+			var first = service.movementMembership(position(-2), position(-1), null);
+			var second = service.movementMembership(position(-1), position(0), first.target());
+
+			assertSame(first.target(), second.source());
+			assertTrue(admin.setText(
+				"spawn", world, RegionTextFlag.ENTRY_MESSAGE, "Updated"
+			).successful());
+
+			var afterUpdate = service.movementMembership(position(0), position(1), second.target());
+
+			assertNotSame(second.target(), afterUpdate.source());
+			assertTrue(afterUpdate.source().version() > second.target().version());
+		}
+	}
+
+	@Test
+	void doesNotCreateAnActorUnlessAWinningEntryFlagDeniesMovement() throws Exception {
+		try (RegionEngine engine = RegionEngine.open(temporaryDirectory.resolve("lazy-actor.db"))) {
+			RegionAdminService admin = new RegionAdminService(engine);
+			assertTrue(admin.create(
+				"spawn", world, 100, new CuboidGeometry(new BlockBox(0, 0, 0, 10, 10, 10))
+			).successful());
+			RegionEntryService service = new RegionEntryService(engine, ProtectionBypass.none());
+			AtomicInteger actorCreations = new AtomicInteger();
+
+			var allowed = service.evaluate(
+				() -> {
+					actorCreations.incrementAndGet();
+					return player;
+				},
+				service.membership(position(-1)),
+				service.membership(position(1))
+			);
+
+			assertTrue(allowed.allowed());
+			assertEquals(0, actorCreations.get());
+
+			assertTrue(admin.setFlag(
+				"spawn", world, ProtectionAction.ENTRY, ProtectionDecision.DENY
+			).successful());
+			var denied = service.evaluate(
+				() -> {
+					actorCreations.incrementAndGet();
+					return player;
+				},
+				service.membership(position(-1)),
+				service.membership(position(1))
+			);
+
+			assertEquals(ProtectionDecision.DENY, denied.decision());
+			assertEquals(1, actorCreations.get());
 		}
 	}
 

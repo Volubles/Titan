@@ -24,6 +24,7 @@ import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -133,6 +134,32 @@ class RegionEntryProtectionListenerTest extends MockBukkitProtectionTestSupport 
 		server.getPluginManager().callEvent(event);
 
 		assertTrue(event.isCancelled());
+	}
+
+	@Test
+	void handlesTeleportOnlyThroughTheDedicatedTeleportHandler() {
+		assertTrue(admin.setFlag(
+			"spawn", new WorldId(world.getUID()), ProtectionAction.ENTRY, ProtectionDecision.DENY
+		).successful());
+		AtomicInteger bypassChecks = new AtomicInteger();
+		RegionEntryProtectionListener listener = new RegionEntryProtectionListener(
+			new RegionEntryService(engine, request -> {
+				bypassChecks.incrementAndGet();
+				return false;
+			})
+		);
+		PlayerTeleportEvent event = new PlayerTeleportEvent(
+			player,
+			new Location(world, -1, 1, 1),
+			new Location(world, 1, 1, 1),
+			PlayerTeleportEvent.TeleportCause.COMMAND
+		);
+
+		listener.protectEntry(event);
+		listener.protectTeleportEntry(event);
+
+		assertTrue(event.isCancelled());
+		assertEquals(1, bypassChecks.get());
 	}
 
 	private void register(ProtectionBypass bypass) {
