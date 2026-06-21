@@ -19,6 +19,7 @@ import java.util.UUID;
 import java.util.function.LongSupplier;
 
 public final class AuctionStorage implements AutoCloseable {
+	private static final int SCHEMA_VERSION = 1;
 	private static final int ITEMS_PER_CHEST = 27;
 	private final Connection connection;
 
@@ -34,9 +35,13 @@ public final class AuctionStorage implements AutoCloseable {
 			statement.execute("PRAGMA foreign_keys=ON");
 			statement.execute("PRAGMA journal_mode=WAL");
 			statement.execute("PRAGMA synchronous=FULL");
+			try (ResultSet result = statement.executeQuery("PRAGMA user_version")) {
+				int version = result.next() ? result.getInt(1) : 0;
+				if (version > SCHEMA_VERSION) throw new SQLException("Unsupported Auctions database schema " + version);
+			}
 			statement.execute("""
 				CREATE TABLE IF NOT EXISTS auction_positions (
-				 id TEXT PRIMARY KEY, world_id TEXT NOT NULL,
+				 id TEXT PRIMARY KEY, ward_id TEXT NOT NULL, world_id TEXT NOT NULL,
 				 x INTEGER NOT NULL, y INTEGER NOT NULL, z INTEGER NOT NULL,
 				 facing TEXT NOT NULL,
 				 UNIQUE(world_id,x,y,z)
@@ -46,6 +51,7 @@ public final class AuctionStorage implements AutoCloseable {
 				CREATE TABLE IF NOT EXISTS auctions (
 				 id INTEGER PRIMARY KEY AUTOINCREMENT,
 				 source_lot_id INTEGER NOT NULL, batch_index INTEGER NOT NULL,
+				 ward_id TEXT NOT NULL,
 				 position_id TEXT, price INTEGER NOT NULL, state TEXT NOT NULL,
 				 buyer_id TEXT, buyer_name TEXT,
 				 sale_expires_at INTEGER NOT NULL DEFAULT 0,
@@ -54,6 +60,12 @@ public final class AuctionStorage implements AutoCloseable {
 				 FOREIGN KEY(position_id) REFERENCES auction_positions(id)
 				)
 				""");
+			if (!hasColumn("auction_positions", "ward_id")) {
+				statement.executeUpdate("ALTER TABLE auction_positions ADD COLUMN ward_id TEXT NOT NULL DEFAULT 'e'");
+			}
+			if (!hasColumn("auctions", "ward_id")) {
+				statement.executeUpdate("ALTER TABLE auctions ADD COLUMN ward_id TEXT NOT NULL DEFAULT 'e'");
+			}
 			statement.execute("""
 				CREATE TABLE IF NOT EXISTS auction_items (
 				 auction_id INTEGER NOT NULL, slot INTEGER NOT NULL, item_data BLOB NOT NULL,
@@ -61,6 +73,19 @@ public final class AuctionStorage implements AutoCloseable {
 				 FOREIGN KEY(auction_id) REFERENCES auctions(id) ON DELETE CASCADE
 				)
 				""");
+			statement.execute("PRAGMA user_version=" + SCHEMA_VERSION);
+		}
+	}
+
+	private boolean hasColumn(String table, String column) throws SQLException {
+		try (PreparedStatement statement = connection.prepareStatement(
+			"SELECT COUNT(*) FROM pragma_table_info(?) WHERE name=?"
+		)) {
+			statement.setString(1, table);
+			statement.setString(2, column);
+			try (ResultSet result = statement.executeQuery()) {
+				return result.next() && result.getInt(1) > 0;
+			}
 		}
 	}
 
@@ -70,7 +95,7 @@ public final class AuctionStorage implements AutoCloseable {
 			 ResultSet result = statement.executeQuery("SELECT * FROM auction_positions ORDER BY id")) {
 			while (result.next()) {
 				AuctionPosition position = new AuctionPosition(
-					result.getString("id"), WardId.of("e"), UUID.fromString(result.getString("world_id")),
+					result.getString("id"), WardId.of(result.getString("ward_id")), UUID.fromString(result.getString("world_id")),
 					result.getInt("x"), result.getInt("y"), result.getInt("z"),
 					org.bukkit.block.BlockFace.valueOf(result.getString("facing"))
 				);
@@ -93,7 +118,7 @@ public final class AuctionStorage implements AutoCloseable {
 				AuctionBuilder builder = builders.get(id);
 				if (builder == null) {
 					builder = new AuctionBuilder(new AuctionLot(
-						id, result.getLong("source_lot_id"), result.getInt("batch_index"), WardId.of("e"),
+						id, result.getLong("source_lot_id"), result.getInt("batch_index"), WardId.of(result.getString("ward_id")),
 						result.getString("position_id"), result.getLong("price"),
 						AuctionState.valueOf(result.getString("state")),
 						uuid(result.getString("buyer_id")), result.getString("buyer_name"),
@@ -110,14 +135,15 @@ public final class AuctionStorage implements AutoCloseable {
 
 	public synchronized void savePosition(AuctionPosition position) throws SQLException {
 		try (PreparedStatement statement = connection.prepareStatement(
-			"INSERT INTO auction_positions VALUES(?,?,?,?,?,?)"
+			"INSERT INTO auction_positions(id,ward_id,world_id,x,y,z,facing) VALUES(?,?,?,?,?,?,?)"
 		)) {
 			statement.setString(1, position.id());
-			statement.setString(2, position.worldId().toString());
-			statement.setInt(3, position.x());
-			statement.setInt(4, position.y());
-			statement.setInt(5, position.z());
-			statement.setString(6, position.facing().name());
+			statement.setString(2, position.wardId().value());
+			statement.setString(3, position.worldId().toString());
+			statement.setInt(4, position.x());
+			statement.setInt(5, position.y());
+			statement.setInt(6, position.z());
+			statement.setString(7, position.facing().name());
 			statement.executeUpdate();
 		}
 	}
@@ -144,12 +170,13 @@ public final class AuctionStorage implements AutoCloseable {
 			for (int batch = 0; batch < batches; batch++) {
 				long auctionId;
 				try (PreparedStatement statement = connection.prepareStatement(
-					"INSERT INTO auctions(source_lot_id,batch_index,price,state) VALUES(?,?,?,'QUEUED')",
+					"INSERT INTO auctions(source_lot_id,batch_index,ward_id,price,state) VALUES(?,?,?,?,'QUEUED')",
 					Statement.RETURN_GENERATED_KEYS
 				)) {
 					statement.setLong(1, source.id());
 					statement.setInt(2, batch);
-					statement.setLong(3, prices.getAsLong());
+					statement.setString(3, source.wardId().value());
+					statement.setLong(4, prices.getAsLong());
 					statement.executeUpdate();
 					try (ResultSet keys = statement.getGeneratedKeys()) {
 						if (!keys.next()) throw new SQLException("No auction id returned");
