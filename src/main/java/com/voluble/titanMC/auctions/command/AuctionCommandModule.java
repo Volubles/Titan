@@ -3,6 +3,8 @@ package com.voluble.titanMC.auctions.command;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.voluble.titanMC.auctions.AuctionPosition;
 import com.voluble.titanMC.auctions.AuctionService;
+import com.voluble.titanMC.ranks.model.WardId;
+import com.voluble.titanMC.ranks.service.RankCatalog;
 import io.voluble.michellelib.commands.CommandModule;
 import io.voluble.michellelib.commands.CommandRegistration;
 import io.voluble.michellelib.commands.arguments.Args;
@@ -20,14 +22,17 @@ import org.bukkit.util.Vector;
 
 public final class AuctionCommandModule implements CommandModule {
 	private final AuctionService auctions;
+	private final RankCatalog ranks;
 
-	public AuctionCommandModule(AuctionService auctions) {
+	public AuctionCommandModule(AuctionService auctions, RankCatalog ranks) {
 		this.auctions = auctions;
+		this.ranks = ranks;
 	}
 
 	@Override
 	public void register(CommandRegistration registration) {
 		var names = Suggest.fromContext(source -> auctions.positions().stream().map(AuctionPosition::id).toList());
+		var wards = Suggest.fromContext(source -> ranks.wards().stream().map(ward -> ward.id().value()).toList());
 		registration.register(CommandTree.root("auction")
 			.aliases("ah")
 			.description("Manage thrift auction positions")
@@ -35,7 +40,7 @@ public final class AuctionCommandModule implements CommandModule {
 			.requiresPlayerExecutor()
 			.executes(this::root)
 			.literal("position", position -> position
-				.literal("add", add -> add.argument("name", Args.word(), name -> name.executes(this::add)))
+				.literal("add", add -> add.argument("ward", Args.word(), ward -> ward.suggests(wards).executes(this::add)))
 				.literal("remove", remove -> remove.argument("name", Args.word(), name -> name.suggests(names).executes(this::remove)))
 				.literalExec("list", this::list)
 				.literal("teleport", teleport -> teleport.argument("name", Args.word(), name -> name.suggests(names).executes(this::teleport))))
@@ -56,8 +61,13 @@ public final class AuctionCommandModule implements CommandModule {
 		}
 		try {
 			BlockFace facing = player.getFacing().getOppositeFace();
-			auctions.addPosition(context.arg("name", String.class), block.getLocation(), facing);
-			player.sendMessage("Auction position added. The chest and sign will face you from " + facing.name().toLowerCase() + ".");
+			WardId wardId = WardId.of(context.arg("ward", String.class));
+			ranks.requireWard(wardId);
+			AuctionPosition position = auctions.addPosition(wardId, block.getLocation(), facing);
+			player.sendMessage(
+				"Added auction position " + position.id() + " in " + wardId.value()
+					+ " ward. The chest and sign will face you."
+			);
 		} catch (RuntimeException exception) {
 			player.sendMessage(exception.getMessage());
 		}
@@ -85,7 +95,7 @@ public final class AuctionCommandModule implements CommandModule {
 			String coordinates = position.x() + ", " + position.y() + ", " + position.z();
 			var lot = auctions.atPosition(position.id());
 			String status = lot == null ? "free" : lot.state().name().toLowerCase(java.util.Locale.ROOT);
-			player.sendMessage(Component.text("- " + position.id() + " (" + coordinates + ") [" + status + "]")
+			player.sendMessage(Component.text("- " + position.id() + " [" + position.wardId().value() + "] (" + coordinates + ") [" + status + "]")
 				.clickEvent(ClickEvent.runCommand("/auction position teleport " + position.id()))
 				.hoverEvent(HoverEvent.showText(Component.text("Click to teleport"))));
 		}

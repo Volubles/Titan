@@ -4,6 +4,7 @@ import com.voluble.titanMC.auctions.config.AuctionConfiguration;
 import com.voluble.titanMC.auctions.config.AuctionConfigurationManager;
 import com.voluble.titanMC.cells.persistence.CellStorage;
 import com.voluble.titanMC.ranks.model.WardId;
+import com.voluble.titanMC.ranks.service.RankCatalog;
 import com.voluble.titanMC.util.ChatUtils;
 import net.kyori.adventure.text.Component;
 import net.milkbowl.vault.economy.Economy;
@@ -41,6 +42,7 @@ public final class AuctionService implements AutoCloseable {
 	private final CellStorage cellStorage;
 	private final AuctionConfigurationManager configuration;
 	private final Economy economy;
+	private final RankCatalog ranks;
 	private final Map<String, AuctionPosition> positions = new LinkedHashMap<>();
 	private final Map<Long, AuctionLot> auctions = new LinkedHashMap<>();
 	private BukkitTask task;
@@ -50,13 +52,15 @@ public final class AuctionService implements AutoCloseable {
 		AuctionStorage storage,
 		CellStorage cellStorage,
 		AuctionConfigurationManager configuration,
-		Economy economy
+		Economy economy,
+		RankCatalog ranks
 	) {
 		this.plugin = plugin;
 		this.storage = storage;
 		this.cellStorage = cellStorage;
 		this.configuration = configuration;
 		this.economy = economy;
+		this.ranks = ranks;
 	}
 
 	public void start() throws SQLException {
@@ -71,9 +75,9 @@ public final class AuctionService implements AutoCloseable {
 		task = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
 	}
 
-	public void addPosition(String id, Location location, BlockFace facing) {
-		String normalized = normalize(id);
-		if (positions.containsKey(normalized)) throw new IllegalArgumentException("Auction position already exists: " + normalized);
+	public AuctionPosition addPosition(WardId wardId, Location location, BlockFace facing) {
+		ranks.requireWard(wardId);
+		String id = AuctionPositionIds.next(wardId, positions.keySet());
 		for (AuctionPosition existing : positions.values()) {
 			if (existing.worldId().equals(location.getWorld().getUID())
 				&& existing.x() == location.getBlockX() && existing.y() == location.getBlockY() && existing.z() == location.getBlockZ()) {
@@ -81,11 +85,12 @@ public final class AuctionService implements AutoCloseable {
 			}
 		}
 		AuctionPosition position = new AuctionPosition(
-			normalized, WardId.of("e"), location.getWorld().getUID(), location.getBlockX(), location.getBlockY(), location.getBlockZ(), facing
+			id, wardId, location.getWorld().getUID(), location.getBlockX(), location.getBlockY(), location.getBlockZ(), facing
 		);
 		try {
 			storage.savePosition(position);
-			positions.put(normalized, position);
+			positions.put(id, position);
+			return position;
 		} catch (SQLException exception) {
 			throw new IllegalStateException("Could not save auction position", exception);
 		}

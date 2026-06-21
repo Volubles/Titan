@@ -198,7 +198,8 @@ public final class TitanMC extends JavaPlugin {
 				new AuctionStorage(ComponentFiles.resolveData(getDataFolder().toPath(), "auctions", "auctions.db")),
 				cellManager.storage(),
 				auctionConfiguration,
-				economyManager.getEconomy()
+				economyManager.getEconomy(),
+				rankConfiguration.catalog()
 			);
 			auctionService.start();
 			getServer().getPluginManager().registerEvents(new AuctionListener(this, auctionService), this);
@@ -216,7 +217,7 @@ public final class TitanMC extends JavaPlugin {
 			.addModule(new CellCommandModule(
 				cellManager, cellResets, cellSigns, cellSignRenderer, rankConfiguration.catalog()
 			))
-			.addModule(new AuctionCommandModule(auctionService))
+			.addModule(new AuctionCommandModule(auctionService, rankConfiguration.catalog()))
 			.addModule(new RankCommandModule(rankConfiguration.catalog(), rankService, rankupService))
 			.install();
 
