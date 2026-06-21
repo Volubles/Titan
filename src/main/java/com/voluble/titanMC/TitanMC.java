@@ -1,5 +1,10 @@
 package com.voluble.titanMC;
 
+import com.voluble.titanMC.auctions.AuctionListener;
+import com.voluble.titanMC.auctions.AuctionService;
+import com.voluble.titanMC.auctions.AuctionStorage;
+import com.voluble.titanMC.auctions.command.AuctionCommandModule;
+import com.voluble.titanMC.auctions.config.AuctionConfigurationManager;
 import com.voluble.titanMC.cells.CellLeaseScheduler;
 import com.voluble.titanMC.cells.CellManager;
 import com.voluble.titanMC.cells.CellRentalService;
@@ -77,6 +82,8 @@ public final class TitanMC extends JavaPlugin {
 	private CellLeaseScheduler cellLeaseScheduler;
 	private CellSignRenderer cellSignRenderer;
 	private CellsConfigurationManager cellsConfiguration;
+	private AuctionConfigurationManager auctionConfiguration;
+	private AuctionService auctionService;
 
 	@Override
 	public void onEnable() {
@@ -104,11 +111,13 @@ public final class TitanMC extends JavaPlugin {
 		// Register component configs
 		donatorToolsConfiguration = new DonatorToolsConfigurationManager(this);
 		cellsConfiguration = new CellsConfigurationManager(this);
+		auctionConfiguration = new AuctionConfigurationManager(this);
 		try {
 			configManager.registerComponent(donatorToolsConfiguration);
 			configManager.registerComponent(cellsConfiguration);
+			configManager.registerComponent(auctionConfiguration);
 		} catch (IllegalArgumentException | IllegalStateException exception) {
-			getLogger().severe("Invalid donator tools configuration: " + exception.getMessage());
+			getLogger().severe("Invalid component configuration: " + exception.getMessage());
 			getServer().getPluginManager().disablePlugin(this);
 			return;
 		}
@@ -162,6 +171,21 @@ public final class TitanMC extends JavaPlugin {
 		cellResets.resume();
 		cellLeaseScheduler = new CellLeaseScheduler(this, cellManager, cellResets);
 		cellLeaseScheduler.start();
+		try {
+			auctionService = new AuctionService(
+				this,
+				new AuctionStorage(ComponentFiles.resolveData(getDataFolder().toPath(), "auctions", "auctions.db")),
+				cellManager.storage(),
+				auctionConfiguration,
+				economyManager.getEconomy()
+			);
+			auctionService.start();
+			getServer().getPluginManager().registerEvents(new AuctionListener(this, auctionService), this);
+		} catch (Exception exception) {
+			getLogger().severe("Failed to initialize Auctions: " + exception.getMessage());
+			getServer().getPluginManager().disablePlugin(this);
+			return;
+		}
 
 		// MichelleLib commands (dtools, mine)
 		new CommandKit(this)
@@ -169,6 +193,7 @@ public final class TitanMC extends JavaPlugin {
 			.addModule(new MineCommandModule(this))
 			.addModule(new RegionCommandModule(this))
 			.addModule(new CellCommandModule(cellManager, cellResets, cellSigns, cellSignRenderer))
+			.addModule(new AuctionCommandModule(auctionService))
 			.install();
 
 		getLogger().info("TitanMC has been enabled!");
@@ -252,6 +277,10 @@ public final class TitanMC extends JavaPlugin {
 		if (mineScheduler != null) mineScheduler.stop();
 		if (cellLeaseScheduler != null) cellLeaseScheduler.stop();
 		if (cellSignRenderer != null) cellSignRenderer.stop();
+		if (auctionService != null) {
+			try { auctionService.close(); }
+			catch (Exception exception) { getLogger().severe("Failed to close Auctions cleanly: " + exception.getMessage()); }
+		}
 		if (mineManager != null) mineManager.close();
 		if (cellManager != null) {
 			try { cellManager.close(); }

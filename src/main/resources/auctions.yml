@@ -1,0 +1,28 @@
+price:
+  minimum: 500
+  maximum: 5000
+
+timers:
+  sale-seconds: 172800
+  claim-seconds: 300
+
+blocks:
+  chest: CHEST
+  sign: OAK_WALL_SIGN
+
+signs:
+  for-sale:
+    - "<gold><bold>[Auction]"
+    - "<white>Mystery Chest"
+    - "<green>${price}"
+    - "<gray>{time_left}"
+  claimed:
+    - "<green><bold>[Claimed]"
+    - "<white>{buyer}"
+    - "<gray>Exclusive"
+    - "<yellow>{time_left}"
+  public:
+    - "<red><bold>[Expired]"
+    - "<white>Free to take"
+    - ""
+    - "<gray>While supplies last"

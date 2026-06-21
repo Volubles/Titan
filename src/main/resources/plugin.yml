@@ -22,6 +22,11 @@ commands:
     description: Manage rentable cells
     usage: /cell <create|delete|list|info|displayname|reset|sign|member>
     permission: titanmc.cell.admin
+  auction:
+    aliases: [ah]
+    description: Manage thrift auction positions
+    usage: /auction position <add|remove|list|teleport>
+    permission: titanmc.auction.admin
 permissions:
   donatortools.give:
     description: Allows giving donator tools
@@ -44,6 +49,9 @@ permissions:
     default: op
     children:
       titanmc.protection.bypass: true
+  titanmc.auction.admin:
+    description: Allows managing thrift auction positions
+    default: op
   titanmc.protection.bypass:
     description: Bypasses Titan region protection
     default: op
