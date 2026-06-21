@@ -89,7 +89,7 @@ public final class ExplosiveToolListener implements Listener {
 
 	private void breakAdditional(Block block, ItemStack tool) {
 		var location = block.getLocation();
-		if (!block.breakNaturally(tool, true)) return;
+		if (!block.breakNaturally(tool, false)) return;
 		block.getWorld().spawnParticle(
 			Particle.EXPLOSION,
 			location.add(0.5, 0.5, 0.5),
