@@ -168,7 +168,8 @@ public final class TitanMC extends JavaPlugin {
 		try {
 			cellManager = new CellManager(
 				new CellStorage(ComponentFiles.resolveData(getDataFolder().toPath(), "cells", "cells.db")),
-				new CellRegionService(regionEngine)
+				new CellRegionService(regionEngine),
+				rankConfiguration.catalog()
 			);
 			cellManager.load();
 		} catch (Exception exception) {

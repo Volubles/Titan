@@ -7,6 +7,8 @@ import com.voluble.titanMC.cells.model.TrackedCellBlock;
 import com.voluble.titanMC.cells.persistence.CellStorage;
 import com.voluble.titanMC.cells.region.CellRegionService;
 import com.voluble.titanMC.regions.model.RegionAccessSet;
+import com.voluble.titanMC.ranks.model.WardId;
+import com.voluble.titanMC.ranks.service.RankCatalog;
 import com.voluble.titanMC.util.RegionUtils;
 import org.bukkit.Location;
 
@@ -17,6 +19,7 @@ import java.util.concurrent.CompletableFuture;
 public final class CellManager implements AutoCloseable {
 	private final CellStorage storage;
 	private final CellRegionService regions;
+	private final RankCatalog ranks;
 	private final Map<String, CellDefinition> cells = new LinkedHashMap<>();
 	private final Map<String, CellLease> leases = new LinkedHashMap<>();
 	private final Map<RegionUtils.Cuboid, CellDefinition> byCuboid = new LinkedHashMap<>();
@@ -26,14 +29,17 @@ public final class CellManager implements AutoCloseable {
 	private final Map<BlockKey, com.voluble.titanMC.cells.model.CellSign> signs = new LinkedHashMap<>();
 	private final RegionUtils.RegionIndex index = new RegionUtils.RegionIndex();
 
-	public CellManager(CellStorage storage, CellRegionService regions) {
+	public CellManager(CellStorage storage, CellRegionService regions, RankCatalog ranks) {
 		this.storage = Objects.requireNonNull(storage);
 		this.regions = Objects.requireNonNull(regions);
+		this.ranks = Objects.requireNonNull(ranks);
 	}
 
 	public void load() throws SQLException {
 		cells.clear();
-		cells.putAll(storage.loadCells());
+		Map<String, CellDefinition> loadedCells = storage.loadCells();
+		for (CellDefinition cell : loadedCells.values()) validateWard(cell.wardId());
+		cells.putAll(loadedCells);
 		leases.clear();
 		leases.putAll(storage.loadLeases());
 		members.clear();
@@ -102,6 +108,18 @@ public final class CellManager implements AutoCloseable {
 		byCuboid.put(old.cuboid(), updated);
 	}
 
+	public void setWard(String cellId, WardId wardId) {
+		CellDefinition old = Objects.requireNonNull(get(cellId), "Unknown cell: " + cellId);
+		validateWard(wardId);
+		CellDefinition updated = new CellDefinition(
+			old.id(), old.displayName(), wardId, old.cuboid(), old.rentPrice(),
+			old.rentDurationSeconds(), old.maxRentDurationSeconds(), old.enabled()
+		);
+		storage.saveCell(updated).join();
+		cells.put(old.id(), updated);
+		byCuboid.put(old.cuboid(), updated);
+	}
+
 	public void addMember(String cellId, UUID playerId) {
 		CellLease lease = Objects.requireNonNull(leases.get(cellId), "Cell is not rented");
 		if (lease.ownerId().equals(playerId)) return;
@@ -127,6 +145,7 @@ public final class CellManager implements AutoCloseable {
 	}
 
 	public void create(CellDefinition cell) {
+		validateWard(cell.wardId());
 		if (cells.containsKey(cell.id())) throw new IllegalArgumentException("Cell already exists: " + cell.id());
 		for (CellDefinition other : cells.values())
 			if (other.cuboid().intersects(cell.cuboid()))
@@ -136,6 +155,10 @@ public final class CellManager implements AutoCloseable {
 		cells.put(cell.id(), cell);
 		index.add(cell.cuboid());
 		byCuboid.put(cell.cuboid(), cell);
+	}
+
+	private void validateWard(WardId wardId) {
+		ranks.requireWard(Objects.requireNonNull(wardId, "wardId"));
 	}
 
 	public void delete(String id) {
