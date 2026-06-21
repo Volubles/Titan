@@ -33,6 +33,25 @@ class CellStorageTest {
 		try(CellStorage storage=new CellStorage(database)){storage.saveCell(cell).join();storage.saveLease(lease).join();storage.addBlocks(List.of(block)).join();storage.beginReset(lease).join();lot=storage.createRecoveryLot(lease,List.of(new byte[]{1,2,3})).join();assertEquals(com.voluble.titanMC.cells.model.CellResetJob.Phase.PREPARED,storage.loadResetJobs().get("a1").phase());}
 		try(CellStorage storage=new CellStorage(database)){storage.completeReset("a1",3,lot).join();assertEquals(0,storage.loadLeases().size());assertEquals(0,storage.loadBlocks().size());assertEquals(0,storage.loadResetJobs().size());}
 	}
+	@Test void readyRecoveryLotsCanBeClaimedByAuctions() throws Exception {
+		Path database = directory.resolve("recovery.db");
+		UUID world = UUID.randomUUID();
+		UUID owner = UUID.randomUUID();
+		CellDefinition cell = new CellDefinition("a1", new RegionUtils.Cuboid(world, 0, 0, 0, 5, 5, 5), 500, 86400, 604800, true);
+		CellLease lease = new CellLease("a1", owner, 1, 1000, 2000);
+		try (CellStorage storage = new CellStorage(database)) {
+			storage.saveCell(cell).join();
+			storage.saveLease(lease).join();
+			storage.beginReset(lease).join();
+			long lotId = storage.createRecoveryLot(lease, List.of(new byte[]{1})).join();
+			storage.completeReset("a1", 1, lotId).join();
+			var lots = storage.loadReadyRecoveryLots().join();
+			assertEquals(1, lots.size());
+			assertEquals(owner, lots.getFirst().ownerId());
+			storage.markRecoveryLotAuctioned(lotId).join();
+			assertEquals(0, storage.loadReadyRecoveryLots().join().size());
+		}
+	}
 	@Test void schemaOneCellsReceiveDisplayNames() throws Exception {
 		Path database=directory.resolve("v1.db");UUID world=UUID.randomUUID();Class.forName("org.sqlite.JDBC");
 		try(var connection=DriverManager.getConnection("jdbc:sqlite:"+database);var statement=connection.createStatement()){statement.executeUpdate("CREATE TABLE cells(id TEXT PRIMARY KEY,world_id TEXT NOT NULL,min_x INTEGER NOT NULL,min_y INTEGER NOT NULL,min_z INTEGER NOT NULL,max_x INTEGER NOT NULL,max_y INTEGER NOT NULL,max_z INTEGER NOT NULL,rent_price INTEGER NOT NULL,rent_duration_seconds INTEGER NOT NULL,enabled INTEGER NOT NULL)");statement.executeUpdate("INSERT INTO cells VALUES('cell_01','"+world+"',0,0,0,5,5,5,500,86400,1)");statement.execute("PRAGMA user_version=1");}

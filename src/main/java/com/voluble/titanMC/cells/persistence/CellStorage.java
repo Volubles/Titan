@@ -5,6 +5,7 @@ import com.voluble.titanMC.cells.model.CellLease;
 import com.voluble.titanMC.cells.model.TrackedCellBlock;
 import com.voluble.titanMC.cells.model.CellResetJob;
 import com.voluble.titanMC.cells.model.CellSign;
+import com.voluble.titanMC.cells.model.CellRecoveryLot;
 import com.voluble.titanMC.util.RegionUtils;
 
 import java.nio.file.Files;
@@ -305,6 +306,69 @@ public final class CellStorage implements AutoCloseable {
 				throw new IllegalStateException("Failed to persist cell recovery lot", exception);
 			}
 		}, writer);
+	}
+
+	public CompletableFuture<List<CellRecoveryLot>> loadReadyRecoveryLots() {
+		return CompletableFuture.supplyAsync(() -> {
+			try {
+				return readReadyRecoveryLots();
+			} catch (SQLException exception) {
+				throw new IllegalStateException("Could not load ready recovery lots", exception);
+			}
+		}, writer);
+	}
+
+	private List<CellRecoveryLot> readReadyRecoveryLots() throws SQLException {
+		Map<Long, RecoveryBuilder> lots = new LinkedHashMap<>();
+		try (PreparedStatement statement = connection.prepareStatement("""
+			SELECT lot.id, lot.owner_uuid, item.item_data
+			FROM cell_recovery_lots lot
+			LEFT JOIN cell_recovery_items item ON item.lot_id = lot.id
+			WHERE lot.status = 'READY'
+			ORDER BY lot.id, item.sort_index
+			"""); ResultSet result = statement.executeQuery()) {
+			while (result.next()) {
+				long id = result.getLong("id");
+				RecoveryBuilder builder = lots.get(id);
+				if (builder == null) {
+					builder = new RecoveryBuilder(UUID.fromString(result.getString("owner_uuid")));
+					lots.put(id, builder);
+				}
+				byte[] item = result.getBytes("item_data");
+				if (item != null) builder.items.add(item);
+			}
+		}
+		return lots.entrySet().stream()
+			.map(entry -> new CellRecoveryLot(entry.getKey(), entry.getValue().ownerId, entry.getValue().items))
+			.toList();
+	}
+
+	public CompletableFuture<Void> markRecoveryLotAuctioned(long lotId) {
+		return write(() -> markRecoveryLotAuctionedTransaction(lotId));
+	}
+
+	private void markRecoveryLotAuctionedTransaction(long lotId) throws SQLException {
+		boolean oldAutoCommit = connection.getAutoCommit();
+		connection.setAutoCommit(false);
+		try {
+			execute("UPDATE cell_recovery_lots SET status='AUCTIONED' WHERE id=? AND status='READY'", lotId);
+			execute("DELETE FROM cell_recovery_items WHERE lot_id=? AND EXISTS (SELECT 1 FROM cell_recovery_lots WHERE id=? AND status='AUCTIONED')", lotId, lotId);
+			connection.commit();
+		} catch (SQLException exception) {
+			connection.rollback();
+			throw exception;
+		} finally {
+			connection.setAutoCommit(oldAutoCommit);
+		}
+	}
+
+	private static final class RecoveryBuilder {
+		private final UUID ownerId;
+		private final List<byte[]> items = new ArrayList<>();
+
+		private RecoveryBuilder(UUID ownerId) {
+			this.ownerId = ownerId;
+		}
 	}
 
 	private CompletableFuture<Void> write(SqlTask task) {

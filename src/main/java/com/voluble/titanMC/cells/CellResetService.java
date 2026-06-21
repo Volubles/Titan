@@ -9,6 +9,8 @@ import org.bukkit.Chunk;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Container;
+import org.bukkit.block.data.Bisected;
+import org.bukkit.block.data.type.Bed;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
@@ -124,7 +126,17 @@ public final class CellResetService {
 				release();
 				return;
 			}
-			List<byte[]> serialized = items.stream().map(ItemStack::serializeAsBytes).toList();
+			List<ItemStack> recovered = new ArrayList<>(items);
+			for (TrackedCellBlock tracked : cells.tracked(lease)) {
+				World blockWorld = Bukkit.getWorld(tracked.worldId());
+				if (blockWorld == null) continue;
+				var block = blockWorld.getBlockAt(tracked.x(), tracked.y(), tracked.z());
+				if (block.getBlockData() instanceof Bisected bisected && bisected.getHalf() == Bisected.Half.TOP) continue;
+				if (block.getBlockData() instanceof Bed bed && bed.getPart() == Bed.Part.HEAD) continue;
+				if (block.getType().isItem()) recovered.add(new ItemStack(block.getType()));
+				else recovered.addAll(block.getDrops());
+			}
+			List<byte[]> serialized = recovered.stream().map(ItemStack::serializeAsBytes).toList();
 			cells.storage().createRecoveryLot(lease, serialized).whenComplete((lot, error) -> Bukkit.getScheduler().runTask(plugin, () -> {
 				if (error != null) {
 					plugin.getLogger().severe("Failed to prepare reset for " + cell.id() + ": " + error.getMessage());
