@@ -243,6 +243,36 @@ class BlockProtectionListenerTest extends MockBukkitProtectionTestSupport {
 		assertFalse(blockEvent.useInteractedBlock() == Event.Result.DENY);
 	}
 
+	@Test
+	void managedContainerAccessOverridesRegionInteractionDenial() {
+		ProtectionService service = service(request -> ProtectionDecision.DENY, ProtectionBypass.none());
+		Block chest = world.getBlockAt(8, 64, 8);
+		chest.setType(Material.CHEST);
+		ManagedBlockAccess managed = (actor, action, block) ->
+			action == ProtectionAction.CONTAINER_OPEN && block.equals(chest);
+		server.getPluginManager().registerEvents(new BlockProtectionListener(service, managed), plugin);
+		PlayerInteractEvent event = interactEvent(Action.RIGHT_CLICK_BLOCK, chest);
+		Event.Result before = event.useInteractedBlock();
+
+		server.getPluginManager().callEvent(event);
+
+		assertEquals(before, event.useInteractedBlock());
+	}
+
+	@Test
+	void managedInteractionAccessDoesNotOverrideBlockBreakDenial() {
+		ProtectionService service = service(request -> ProtectionDecision.DENY, ProtectionBypass.none());
+		server.getPluginManager().registerEvents(
+			new BlockProtectionListener(service, (actor, action, block) -> true),
+			plugin
+		);
+		BlockBreakEvent event = breakEvent(world.getBlockAt(9, 64, 9));
+
+		server.getPluginManager().callEvent(event);
+
+		assertTrue(event.isCancelled());
+	}
+
 	private void register(
 		com.voluble.titanMC.regions.protection.policy.ProtectionDefaults defaults,
 		ProtectionBypass bypass

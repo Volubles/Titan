@@ -17,9 +17,15 @@ import java.util.Objects;
 public final class BlockProtectionListener implements Listener {
 
 	private final ProtectionService protection;
+	private final ManagedBlockAccess managedAccess;
 
 	public BlockProtectionListener(ProtectionService protection) {
+		this(protection, ManagedBlockAccess.none());
+	}
+
+	public BlockProtectionListener(ProtectionService protection, ManagedBlockAccess managedAccess) {
 		this.protection = Objects.requireNonNull(protection, "protection");
+		this.managedAccess = Objects.requireNonNull(managedAccess, "managedAccess");
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -44,6 +50,7 @@ public final class BlockProtectionListener implements Listener {
 	public void onBlockInteract(PlayerInteractEvent event) {
 		if (event.getClickedBlock() == null) return;
 		if (event.getAction() == Action.PHYSICAL) {
+			if (managedAccess.allows(event.getPlayer(), ProtectionAction.PHYSICAL_INTERACT, event.getClickedBlock())) return;
 			if (!protection.allowed(BukkitProtectionMapper.request(
 				event.getPlayer(), ProtectionAction.PHYSICAL_INTERACT, event.getClickedBlock()
 			))) {
@@ -56,6 +63,7 @@ public final class BlockProtectionListener implements Listener {
 		ProtectionAction action = isContainer(event.getClickedBlock())
 			? ProtectionAction.CONTAINER_OPEN
 			: ProtectionAction.BLOCK_INTERACT;
+		if (managedAccess.allows(event.getPlayer(), action, event.getClickedBlock())) return;
 		if (!protection.allowed(BukkitProtectionMapper.request(
 			event.getPlayer(), action, event.getClickedBlock()
 		))) {
