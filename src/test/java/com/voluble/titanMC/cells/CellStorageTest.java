@@ -21,7 +21,7 @@ class CellStorageTest {
 	@TempDir Path directory;
 	@Test void cellsLeasesAndTrackedBlocksSurviveRestart() throws Exception {
 		Path database=directory.resolve("cells.db"); UUID world=UUID.randomUUID(); UUID owner=UUID.randomUUID();
-		CellDefinition cell=new CellDefinition("a1",WardId.of("e"),new RegionUtils.Cuboid(world,0,0,0,5,5,5),500,86400,604800,true);
+		CellDefinition cell=new CellDefinition("a1",WardId.of("d"),new RegionUtils.Cuboid(world,0,0,0,5,5,5),500,86400,604800,true);
 		CellLease lease=new CellLease("a1",owner,1,1000,2000);
 		TrackedCellBlock block=new TrackedCellBlock("a1",1,world,2,2,2);
 		UUID member=UUID.randomUUID();
@@ -60,6 +60,7 @@ class CellStorageTest {
 			CellDefinition cell = storage.loadCells().get("cell_01");
 			assertEquals("cell_01", cell.displayName());
 			assertEquals(86400L * 30L, cell.maxRentDurationSeconds());
+			assertEquals(WardId.of("e"), cell.wardId());
 		}
 	}
 }

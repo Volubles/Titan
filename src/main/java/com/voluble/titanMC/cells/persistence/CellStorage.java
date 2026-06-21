@@ -30,7 +30,7 @@ import java.util.concurrent.Executors;
 
 public final class CellStorage implements AutoCloseable {
 
-	private static final int SCHEMA_VERSION = 3;
+	private static final int SCHEMA_VERSION = 4;
 	private final Connection connection;
 	private final ExecutorService writer = Executors.newSingleThreadExecutor(
 			Thread.ofPlatform().name("titan-cell-writer").factory()
@@ -72,6 +72,7 @@ public final class CellStorage implements AutoCloseable {
 					CREATE TABLE IF NOT EXISTS cells (
 					    id TEXT PRIMARY KEY NOT NULL,
 					    display_name TEXT NOT NULL,
+					    ward_id TEXT NOT NULL,
 					    world_id TEXT NOT NULL,
 					    min_x INTEGER NOT NULL, min_y INTEGER NOT NULL, min_z INTEGER NOT NULL,
 					    max_x INTEGER NOT NULL, max_y INTEGER NOT NULL, max_z INTEGER NOT NULL,
@@ -88,6 +89,9 @@ public final class CellStorage implements AutoCloseable {
 			if (version > 0 && version < 3) {
 				statement.executeUpdate("ALTER TABLE cells ADD COLUMN max_rent_duration_seconds INTEGER");
 				statement.executeUpdate("UPDATE cells SET max_rent_duration_seconds=rent_duration_seconds*30 WHERE max_rent_duration_seconds IS NULL");
+			}
+			if (version > 0 && version < 4) {
+				statement.executeUpdate("ALTER TABLE cells ADD COLUMN ward_id TEXT NOT NULL DEFAULT 'e'");
 			}
 			statement.executeUpdate("""
 					CREATE TABLE IF NOT EXISTS cell_leases (
@@ -183,7 +187,7 @@ public final class CellStorage implements AutoCloseable {
 				CellDefinition cell = new CellDefinition(
 						result.getString("id"),
 						result.getString("display_name"),
-						WardId.of("e"),
+						WardId.of(result.getString("ward_id")),
 						new RegionUtils.Cuboid(worldId, result.getInt("min_x"), result.getInt("min_y"), result.getInt("min_z"), result.getInt("max_x"), result.getInt("max_y"), result.getInt("max_z")),
 						result.getLong("rent_price"), result.getLong("rent_duration_seconds"), result.getLong("max_rent_duration_seconds"), result.getInt("enabled") != 0
 				);
@@ -385,26 +389,27 @@ public final class CellStorage implements AutoCloseable {
 
 	private void upsertCell(CellDefinition cell) throws SQLException {
 		try (PreparedStatement s = connection.prepareStatement("""
-				INSERT INTO cells(id,display_name,world_id,min_x,min_y,min_z,max_x,max_y,max_z,rent_price,rent_duration_seconds,max_rent_duration_seconds,enabled)
-				VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
-				display_name=excluded.display_name,world_id=excluded.world_id,min_x=excluded.min_x,min_y=excluded.min_y,min_z=excluded.min_z,
+				INSERT INTO cells(id,display_name,ward_id,world_id,min_x,min_y,min_z,max_x,max_y,max_z,rent_price,rent_duration_seconds,max_rent_duration_seconds,enabled)
+				VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
+				display_name=excluded.display_name,ward_id=excluded.ward_id,world_id=excluded.world_id,min_x=excluded.min_x,min_y=excluded.min_y,min_z=excluded.min_z,
 				max_x=excluded.max_x,max_y=excluded.max_y,max_z=excluded.max_z,
 				rent_price=excluded.rent_price,rent_duration_seconds=excluded.rent_duration_seconds,max_rent_duration_seconds=excluded.max_rent_duration_seconds,enabled=excluded.enabled
 				""")) {
 			RegionUtils.Cuboid c = cell.cuboid();
 			s.setString(1, cell.id());
 			s.setString(2, cell.displayName());
-			s.setString(3, c.worldId.toString());
-			s.setInt(4, c.minX);
-			s.setInt(5, c.minY);
-			s.setInt(6, c.minZ);
-			s.setInt(7, c.maxX);
-			s.setInt(8, c.maxY);
-			s.setInt(9, c.maxZ);
-			s.setLong(10, cell.rentPrice());
-			s.setLong(11, cell.rentDurationSeconds());
-			s.setLong(12, cell.maxRentDurationSeconds());
-			s.setInt(13, cell.enabled() ? 1 : 0);
+			s.setString(3, cell.wardId().value());
+			s.setString(4, c.worldId.toString());
+			s.setInt(5, c.minX);
+			s.setInt(6, c.minY);
+			s.setInt(7, c.minZ);
+			s.setInt(8, c.maxX);
+			s.setInt(9, c.maxY);
+			s.setInt(10, c.maxZ);
+			s.setLong(11, cell.rentPrice());
+			s.setLong(12, cell.rentDurationSeconds());
+			s.setLong(13, cell.maxRentDurationSeconds());
+			s.setInt(14, cell.enabled() ? 1 : 0);
 			s.executeUpdate();
 		}
 	}
