@@ -58,6 +58,8 @@ import com.voluble.titanMC.regions.protection.policy.RegionPolicyRegistry;
 import com.voluble.titanMC.regions.protection.service.ProtectionService;
 import com.voluble.titanMC.regions.protection.service.RegionEntryService;
 import com.voluble.titanMC.regions.service.RegionEngine;
+import com.voluble.titanMC.ranks.config.RankConfigurationManager;
+import com.voluble.titanMC.ranks.service.RankCatalog;
 import com.voluble.titanMC.util.ComponentFiles;
 import io.voluble.michellelib.commands.CommandKit;
 import io.voluble.michellelib.menu.MenuService;
@@ -83,6 +85,7 @@ public final class TitanMC extends JavaPlugin {
 	private CellSignRenderer cellSignRenderer;
 	private CellsConfigurationManager cellsConfiguration;
 	private AuctionConfigurationManager auctionConfiguration;
+	private RankConfigurationManager rankConfiguration;
 	private AuctionService auctionService;
 
 	@Override
@@ -104,15 +107,14 @@ public final class TitanMC extends JavaPlugin {
 		// Initialize general config
 		configManager = new ConfigManager(this);
 		configManager.initialize();
-		economyManager = new EconomyManager(this);
-		if (!economyManager.initialize()) getLogger().warning("No Vault economy provider found; cell renting is disabled");
-		if (!initializeProtection()) return;
 
 		// Register component configs
 		donatorToolsConfiguration = new DonatorToolsConfigurationManager(this);
 		cellsConfiguration = new CellsConfigurationManager(this);
 		auctionConfiguration = new AuctionConfigurationManager(this);
+		rankConfiguration = new RankConfigurationManager(this);
 		try {
+			configManager.registerComponent(rankConfiguration);
 			configManager.registerComponent(donatorToolsConfiguration);
 			configManager.registerComponent(cellsConfiguration);
 			configManager.registerComponent(auctionConfiguration);
@@ -121,6 +123,13 @@ public final class TitanMC extends JavaPlugin {
 			getServer().getPluginManager().disablePlugin(this);
 			return;
 		}
+		getLogger().info(
+			"Loaded " + rankConfiguration.catalog().ranks().size()
+				+ " prison ranks across " + rankConfiguration.catalog().wards().size() + " wards"
+		);
+		economyManager = new EconomyManager(this);
+		if (!economyManager.initialize()) getLogger().warning("No Vault economy provider found; cell renting is disabled");
+		if (!initializeProtection()) return;
 
 		// Mines
 		MineManager loadedMineManager = new MineManager(this, new MineRegionService(regionEngine));
@@ -311,4 +320,5 @@ public final class TitanMC extends JavaPlugin {
 	public RegionGroupProvider getRegionGroups() { return regionGroups; }
 	public ProtectionService getProtectionService() { return protectionService; }
 	public CellManager getCellManager() { return cellManager; }
+	public RankCatalog getRanks() { return rankConfiguration.catalog(); }
 }
