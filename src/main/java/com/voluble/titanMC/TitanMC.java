@@ -157,7 +157,7 @@ public final class TitanMC extends JavaPlugin {
 		getServer().getPluginManager().registerEvents(cellSigns, this);
 		cellSignRenderer.start();
 		cellResets.resume();
-		cellLeaseScheduler = new CellLeaseScheduler(this, cellManager, cellResets, cellManagement);
+		cellLeaseScheduler = new CellLeaseScheduler(this, cellManager, cellResets);
 		cellLeaseScheduler.start();
 
 		// MichelleLib commands (dtools, mine)

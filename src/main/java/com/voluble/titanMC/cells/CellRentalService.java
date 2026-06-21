@@ -40,7 +40,7 @@ public final class CellRentalService {
 		}
 		CellLease lease;
 		try {
-			lease = cells.planLease(cell.id(), player.getUniqueId(), false);
+			lease = cells.planLease(cell.id(), player.getUniqueId());
 		} catch (RuntimeException e) {
 			reservations.remove(cell.id());
 			player.sendMessage(e.getMessage());

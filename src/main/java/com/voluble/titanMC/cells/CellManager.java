@@ -96,7 +96,7 @@ public final class CellManager implements AutoCloseable {
 
 	public void setDisplayName(String cellId, String displayName) {
 		CellDefinition old = Objects.requireNonNull(get(cellId), "Unknown cell: " + cellId);
-		CellDefinition updated = new CellDefinition(old.id(), displayName, old.cuboid(), old.rentPrice(), old.rentDurationSeconds(), old.enabled());
+		CellDefinition updated = new CellDefinition(old.id(), displayName, old.cuboid(), old.rentPrice(), old.rentDurationSeconds(), old.maxRentDurationSeconds(), old.enabled());
 		storage.saveCell(updated).join();
 		cells.put(old.id(), updated);
 		byCuboid.put(old.cuboid(), updated);
@@ -148,14 +148,14 @@ public final class CellManager implements AutoCloseable {
 		byCuboid.remove(cell.cuboid());
 	}
 
-	public CellLease planLease(String cellId, UUID ownerId, boolean autoRenew) {
+	public CellLease planLease(String cellId, UUID ownerId) {
 		CellDefinition cell = Objects.requireNonNull(get(cellId), "Unknown cell: " + cellId);
 		if (!cell.enabled()) throw new IllegalStateException("Cell is disabled");
 		if (leases.containsKey(cell.id()) || resetJobs.containsKey(cell.id()))
 			throw new IllegalStateException("Cell is not available");
 		long now = System.currentTimeMillis();
 		long generation = Math.max(1L, tracked.values().stream().filter(b -> b.cellId().equals(cell.id())).mapToLong(TrackedCellBlock::leaseGeneration).max().orElse(0L) + 1L);
-		return new CellLease(cell.id(), ownerId, generation, now, now + cell.rentDurationSeconds() * 1000L, autoRenew);
+		return new CellLease(cell.id(), ownerId, generation, now, now + cell.rentDurationSeconds() * 1000L);
 	}
 
 	public CompletableFuture<Void> persistLease(CellLease lease) {

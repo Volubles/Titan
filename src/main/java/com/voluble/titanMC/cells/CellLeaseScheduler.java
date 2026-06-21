@@ -8,14 +8,12 @@ public final class CellLeaseScheduler {
 	private final Plugin plugin;
 	private final CellManager cells;
 	private final CellResetService resets;
-	private final CellManagementService management;
 	private BukkitTask task;
 
-	public CellLeaseScheduler(Plugin plugin, CellManager cells, CellResetService resets, CellManagementService management) {
+	public CellLeaseScheduler(Plugin plugin, CellManager cells, CellResetService resets) {
 		this.plugin = plugin;
 		this.cells = cells;
 		this.resets = resets;
-		this.management = management;
 	}
 
 	public void start() {
@@ -26,15 +24,7 @@ public final class CellLeaseScheduler {
 				var lease = cells.lease(cell.id());
 				if (lease == null || lease.expiresAtEpochMillis() > now || cells.resetJobs().stream().anyMatch(job -> job.cellId().equals(cell.id())))
 					continue;
-				if (!lease.autoRenew()) {
-					resets.reset(cell.id());
-					continue;
-				}
-				management.renewAutomatically(lease).thenAccept(renewed -> Bukkit.getScheduler().runTask(plugin, () -> {
-					var current = cells.lease(cell.id());
-					if (!renewed && current != null && current.generation() == lease.generation() && cells.resetJobs().stream().noneMatch(job -> job.cellId().equals(cell.id())))
-						resets.reset(cell.id());
-				}));
+				resets.reset(cell.id());
 			}
 		}, 20L, 600L);
 	}

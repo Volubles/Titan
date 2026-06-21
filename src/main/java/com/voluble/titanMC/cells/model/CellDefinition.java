@@ -12,6 +12,7 @@ public record CellDefinition(
 		RegionUtils.Cuboid cuboid,
 		long rentPrice,
 		long rentDurationSeconds,
+		long maxRentDurationSeconds,
 		boolean enabled
 ) {
 	private static final Pattern ID = Pattern.compile("[a-z0-9][a-z0-9_-]{0,31}");
@@ -26,10 +27,13 @@ public record CellDefinition(
 		Objects.requireNonNull(cuboid, "cuboid");
 		if (rentPrice < 0L) throw new IllegalArgumentException("rent price must not be negative");
 		if (rentDurationSeconds < 60L) throw new IllegalArgumentException("rent duration must be at least 60 seconds");
+		if (maxRentDurationSeconds < rentDurationSeconds) {
+			throw new IllegalArgumentException("max rent duration must be at least the initial rent duration");
+		}
 	}
 
-	public CellDefinition(String id, RegionUtils.Cuboid cuboid, long rentPrice, long rentDurationSeconds, boolean enabled) {
-		this(id, defaultDisplayName(id), cuboid, rentPrice, rentDurationSeconds, enabled);
+	public CellDefinition(String id, RegionUtils.Cuboid cuboid, long rentPrice, long rentDurationSeconds, long maxRentDurationSeconds, boolean enabled) {
+		this(id, defaultDisplayName(id), cuboid, rentPrice, rentDurationSeconds, maxRentDurationSeconds, enabled);
 	}
 
 	private static String defaultDisplayName(String id) {

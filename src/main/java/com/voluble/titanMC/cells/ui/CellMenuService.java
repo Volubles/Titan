@@ -135,12 +135,11 @@ public final class CellMenuService {
 				return;
 			}
 			ctx.setItem(4, display(Material.CLOCK, "<green><bold>" + cell.displayName(), List.of("<gray>Time left: <yellow>" + duration(lease.expiresAtEpochMillis() - System.currentTimeMillis()), "<gray>Members: <white>" + cells.members(cell.id()).size())));
-			ctx.setItem(10, button(Material.EMERALD, "<green><bold>Extend rent", List.of("<gray>Cost: <gold>$" + cell.rentPrice(), "<gray>Adds: <white>" + duration(cell.rentDurationSeconds() * 1000L)), click -> management.extend(click.player(), cell.id(), success -> {
+			ctx.setItem(10, button(Material.EMERALD, "<green><bold>Extend rent", List.of("<gray>Time left: <yellow>" + duration(lease.expiresAtEpochMillis() - System.currentTimeMillis()), "<gray>Cost: <gold>$" + cell.rentPrice(), "<gray>Adds: <white>" + duration(cell.rentDurationSeconds() * 1000L)), click -> management.extend(click.player(), cell.id(), success -> {
 				if (success) openManagement(click.player(), cell);
 			})));
-			ctx.setItem(12, button(lease.autoRenew() ? Material.LIME_DYE : Material.GRAY_DYE, (lease.autoRenew() ? "<green>" : "<gray>") + "<bold>Auto-renew", List.of("<gray>Currently: " + (lease.autoRenew() ? "<green>enabled" : "<red>disabled")), click -> management.toggleAutoRenew(click.player(), cell.id(), success -> openManagement(click.player(), cell))));
 			ctx.setItem(14, button(Material.PLAYER_HEAD, "<aqua><bold>Manage members", List.of("<gray>Add or remove access"), click -> click.actions().transition(() -> openMembers(click.player(), cell))));
-			ctx.setItem(16, button(Material.RED_CONCRETE, "<red><bold>Return cell", List.of("<gray>This starts a full reset"), click -> click.actions().transition(() -> openReturnConfirmation(click.player(), cell))));
+			ctx.setItem(16, button(Material.RED_CONCRETE, "<red><bold>Sell back cell", List.of("<gray>This starts a full reset"), click -> click.actions().transition(() -> openReturnConfirmation(click.player(), cell))));
 			ctx.setItem(22, new Items.CloseItem());
 		}).build().open(menus, player);
 	}
@@ -154,9 +153,9 @@ public final class CellMenuService {
 	}
 
 	private void openReturnConfirmation(Player player, CellDefinition cell) {
-		MenuDefinition.chest(3).title(Component.text("Confirm return")).onOpen(ctx -> {
+		MenuDefinition.chest(3).title(Component.text("Confirm sellback")).onOpen(ctx -> {
 			ctx.setItem(11, button(Material.LIME_CONCRETE, "<green><bold>Keep cell", List.of(), click -> click.actions().transition(() -> openManagement(click.player(), cell))));
-			ctx.setItem(15, button(Material.RED_CONCRETE, "<red><bold>Return permanently", List.of("<gray>Stored items will be moved to recovery"), click -> {
+			ctx.setItem(15, button(Material.RED_CONCRETE, "<red><bold>Sell back permanently", List.of("<red>All items in this cell will be removed", "<gray>and sold through the Storage Auction House."), click -> {
 				click.actions().close();
 				management.returnCell(click.player(), cell.id());
 			}));

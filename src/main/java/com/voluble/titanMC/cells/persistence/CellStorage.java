@@ -28,7 +28,7 @@ import java.util.concurrent.Executors;
 
 public final class CellStorage implements AutoCloseable {
 
-	private static final int SCHEMA_VERSION = 2;
+	private static final int SCHEMA_VERSION = 3;
 	private final Connection connection;
 	private final ExecutorService writer = Executors.newSingleThreadExecutor(
 			Thread.ofPlatform().name("titan-cell-writer").factory()
@@ -75,12 +75,17 @@ public final class CellStorage implements AutoCloseable {
 					    max_x INTEGER NOT NULL, max_y INTEGER NOT NULL, max_z INTEGER NOT NULL,
 					    rent_price INTEGER NOT NULL,
 					    rent_duration_seconds INTEGER NOT NULL,
+					    max_rent_duration_seconds INTEGER NOT NULL,
 					    enabled INTEGER NOT NULL
 					)
 					""");
 			if (version == 1) {
 				statement.executeUpdate("ALTER TABLE cells ADD COLUMN display_name TEXT");
 				statement.executeUpdate("UPDATE cells SET display_name=id WHERE display_name IS NULL");
+			}
+			if (version > 0 && version < 3) {
+				statement.executeUpdate("ALTER TABLE cells ADD COLUMN max_rent_duration_seconds INTEGER");
+				statement.executeUpdate("UPDATE cells SET max_rent_duration_seconds=rent_duration_seconds*30 WHERE max_rent_duration_seconds IS NULL");
 			}
 			statement.executeUpdate("""
 					CREATE TABLE IF NOT EXISTS cell_leases (
@@ -89,10 +94,12 @@ public final class CellStorage implements AutoCloseable {
 					    generation INTEGER NOT NULL,
 					    started_at INTEGER NOT NULL,
 					    expires_at INTEGER NOT NULL,
-					    auto_renew INTEGER NOT NULL,
 					    FOREIGN KEY(cell_id) REFERENCES cells(id) ON DELETE CASCADE
 					)
 					""");
+			if (version > 0 && version < 3 && hasColumn("cell_leases", "auto_renew")) {
+				statement.executeUpdate("ALTER TABLE cell_leases DROP COLUMN auto_renew");
+			}
 			statement.executeUpdate("""
 					CREATE TABLE IF NOT EXISTS cell_blocks (
 					    cell_id TEXT NOT NULL,
@@ -154,6 +161,18 @@ public final class CellStorage implements AutoCloseable {
 		}
 	}
 
+	private boolean hasColumn(String table, String column) throws SQLException {
+		try (PreparedStatement statement = connection.prepareStatement(
+			"SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?"
+		)) {
+			statement.setString(1, table);
+			statement.setString(2, column);
+			try (ResultSet result = statement.executeQuery()) {
+				return result.next() && result.getInt(1) > 0;
+			}
+		}
+	}
+
 	public synchronized Map<String, CellDefinition> loadCells() throws SQLException {
 		Map<String, CellDefinition> cells = new LinkedHashMap<>();
 		try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery("SELECT * FROM cells ORDER BY id")) {
@@ -163,7 +182,7 @@ public final class CellStorage implements AutoCloseable {
 						result.getString("id"),
 						result.getString("display_name"),
 						new RegionUtils.Cuboid(worldId, result.getInt("min_x"), result.getInt("min_y"), result.getInt("min_z"), result.getInt("max_x"), result.getInt("max_y"), result.getInt("max_z")),
-						result.getLong("rent_price"), result.getLong("rent_duration_seconds"), result.getInt("enabled") != 0
+						result.getLong("rent_price"), result.getLong("rent_duration_seconds"), result.getLong("max_rent_duration_seconds"), result.getInt("enabled") != 0
 				);
 				cells.put(cell.id(), cell);
 			}
@@ -175,7 +194,7 @@ public final class CellStorage implements AutoCloseable {
 		Map<String, CellLease> leases = new LinkedHashMap<>();
 		try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery("SELECT * FROM cell_leases ORDER BY cell_id")) {
 			while (result.next()) {
-				CellLease lease = new CellLease(result.getString("cell_id"), UUID.fromString(result.getString("owner_uuid")), result.getLong("generation"), result.getLong("started_at"), result.getLong("expires_at"), result.getInt("auto_renew") != 0);
+				CellLease lease = new CellLease(result.getString("cell_id"), UUID.fromString(result.getString("owner_uuid")), result.getLong("generation"), result.getLong("started_at"), result.getLong("expires_at"));
 				leases.put(lease.cellId(), lease);
 			}
 		}
@@ -300,11 +319,11 @@ public final class CellStorage implements AutoCloseable {
 
 	private void upsertCell(CellDefinition cell) throws SQLException {
 		try (PreparedStatement s = connection.prepareStatement("""
-				INSERT INTO cells(id,display_name,world_id,min_x,min_y,min_z,max_x,max_y,max_z,rent_price,rent_duration_seconds,enabled)
-				VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
+				INSERT INTO cells(id,display_name,world_id,min_x,min_y,min_z,max_x,max_y,max_z,rent_price,rent_duration_seconds,max_rent_duration_seconds,enabled)
+				VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
 				display_name=excluded.display_name,world_id=excluded.world_id,min_x=excluded.min_x,min_y=excluded.min_y,min_z=excluded.min_z,
 				max_x=excluded.max_x,max_y=excluded.max_y,max_z=excluded.max_z,
-				rent_price=excluded.rent_price,rent_duration_seconds=excluded.rent_duration_seconds,enabled=excluded.enabled
+				rent_price=excluded.rent_price,rent_duration_seconds=excluded.rent_duration_seconds,max_rent_duration_seconds=excluded.max_rent_duration_seconds,enabled=excluded.enabled
 				""")) {
 			RegionUtils.Cuboid c = cell.cuboid();
 			s.setString(1, cell.id());
@@ -318,19 +337,19 @@ public final class CellStorage implements AutoCloseable {
 			s.setInt(9, c.maxZ);
 			s.setLong(10, cell.rentPrice());
 			s.setLong(11, cell.rentDurationSeconds());
-			s.setInt(12, cell.enabled() ? 1 : 0);
+			s.setLong(12, cell.maxRentDurationSeconds());
+			s.setInt(13, cell.enabled() ? 1 : 0);
 			s.executeUpdate();
 		}
 	}
 
 	private void upsertLease(CellLease lease) throws SQLException {
-		try (PreparedStatement s = connection.prepareStatement("INSERT OR REPLACE INTO cell_leases VALUES(?,?,?,?,?,?)")) {
+		try (PreparedStatement s = connection.prepareStatement("INSERT OR REPLACE INTO cell_leases(cell_id,owner_uuid,generation,started_at,expires_at) VALUES(?,?,?,?,?)")) {
 			s.setString(1, lease.cellId());
 			s.setString(2, lease.ownerId().toString());
 			s.setLong(3, lease.generation());
 			s.setLong(4, lease.startedAtEpochMillis());
 			s.setLong(5, lease.expiresAtEpochMillis());
-			s.setInt(6, lease.autoRenew() ? 1 : 0);
 			s.executeUpdate();
 		}
 	}

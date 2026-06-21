@@ -8,8 +8,7 @@ public record CellLease(
 	UUID ownerId,
 	long generation,
 	long startedAtEpochMillis,
-	long expiresAtEpochMillis,
-	boolean autoRenew
+	long expiresAtEpochMillis
 ) {
 	public CellLease {
 		Objects.requireNonNull(cellId, "cellId");
