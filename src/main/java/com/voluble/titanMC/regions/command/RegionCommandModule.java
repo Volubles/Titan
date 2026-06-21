@@ -71,6 +71,7 @@ public final class RegionCommandModule implements CommandModule {
 		registration.register(
 			CommandTree.root("region")
 				.description("Manage protection regions")
+				.aliases("rg")
 				.requiresPermission("titanmc.region.admin")
 				.requiresPlayerExecutor()
 				.executes(this::handleRoot)

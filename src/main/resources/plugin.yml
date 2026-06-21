@@ -14,6 +14,7 @@ commands:
     permission: titanmc.mine.admin
   region:
     description: Manage protection regions
+    aliases: [rg]
     usage: /region <create|redefine|delete|list|info|priority|test|flag|message>
     permission: titanmc.region.admin
 permissions:
