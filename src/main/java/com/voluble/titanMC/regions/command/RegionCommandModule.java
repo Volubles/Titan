@@ -15,6 +15,7 @@ import com.voluble.titanMC.regions.model.RegionTextFlag;
 import com.voluble.titanMC.regions.protection.model.ProtectionAction;
 import com.voluble.titanMC.regions.protection.model.ProtectionDecision;
 import com.voluble.titanMC.regions.protection.model.ProtectionResolution;
+import com.voluble.titanMC.regions.protection.model.RegionSubject;
 import com.voluble.titanMC.regions.protection.bukkit.BukkitProtectionMapper;
 import com.voluble.titanMC.regions.selection.SelectedRegion;
 import com.voluble.titanMC.regions.selection.SelectionException;
@@ -27,10 +28,13 @@ import io.voluble.michellelib.commands.context.MichelleCommandContext;
 import io.voluble.michellelib.commands.suggest.Suggest;
 import io.voluble.michellelib.commands.tree.CommandTree;
 import org.bukkit.entity.Player;
+import org.bukkit.OfflinePlayer;
 
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 public final class RegionCommandModule implements CommandModule {
@@ -56,6 +60,19 @@ public final class RegionCommandModule implements CommandModule {
 		var textFlags = Arrays.stream(RegionTextFlag.values())
 			.map(flag -> flag.name().toLowerCase(Locale.ROOT))
 			.toList();
+		var players = Suggest.fromContext(source -> plugin.getServer().getOnlinePlayers().stream()
+			.map(Player::getName)
+			.sorted(String.CASE_INSENSITIVE_ORDER)
+			.toList());
+		var subjects = Suggest.fromContext(source -> {
+			List<String> available = new ArrayList<>(List.of(
+				"everyone", "owners", "members", "nonowners", "nonmembers"
+			));
+			available.addAll(plugin.getRegionGroups().groups().stream()
+				.map(group -> "group:" + group)
+				.toList());
+			return available;
+		});
 		var currentPriority = Suggest.contextual((context, args) -> {
 			if (!(context.getSource().getExecutor() instanceof Player player)) return List.of();
 			String name = args.opt("name", String.class).orElse(null);
@@ -111,6 +128,40 @@ public final class RegionCommandModule implements CommandModule {
 							.argument("value", Args.greedyString(), value -> value
 								.suggestStrings(List.of("unset"))
 								.executes(this::handleMessage)))))
+				.literal("owner", owner -> owner
+					.literal("add", add -> add
+						.argument("name", Args.word(), name -> name
+							.suggests(names)
+							.argument("player", Args.word(), player -> player
+								.suggests(players)
+								.executes(context -> handleAccess(context, true, true)))))
+					.literal("remove", remove -> remove
+						.argument("name", Args.word(), name -> name
+							.suggests(names)
+							.argument("player", Args.word(), player -> player
+								.suggests(players)
+								.executes(context -> handleAccess(context, true, false)))))
+					.literal("list", list -> list
+						.argument("name", Args.word(), name -> name
+							.suggests(names)
+							.executes(context -> handleAccessList(context, true)))))
+				.literal("member", member -> member
+					.literal("add", add -> add
+						.argument("name", Args.word(), name -> name
+							.suggests(names)
+							.argument("player", Args.word(), player -> player
+								.suggests(players)
+								.executes(context -> handleAccess(context, false, true)))))
+					.literal("remove", remove -> remove
+						.argument("name", Args.word(), name -> name
+							.suggests(names)
+							.argument("player", Args.word(), player -> player
+								.suggests(players)
+								.executes(context -> handleAccess(context, false, false)))))
+					.literal("list", list -> list
+						.argument("name", Args.word(), name -> name
+							.suggests(names)
+							.executes(context -> handleAccessList(context, false)))))
 				.literal("flag", flag -> flag
 					.argument("name", Args.word(), name -> name
 						.suggests(names)
@@ -118,14 +169,17 @@ public final class RegionCommandModule implements CommandModule {
 							.suggestStrings(actions)
 							.argument("value", Args.word(), value -> value
 								.suggestStrings(List.of("allow", "deny", "unset"))
-								.executes(this::handleFlag)))))
+								.executes(this::handleFlag)
+								.argument("subject", Args.word(), subject -> subject
+									.suggests(subjects)
+									.executes(this::handleFlag))))))
 				.spec()
 		);
 	}
 
 	private int handleRoot(MichelleCommandContext context) throws CommandSyntaxException {
 		context.playerExecutor().sendMessage(
-			"Usage: /region <create|redefine|delete|list|info|priority|test|flag|message>"
+			"Usage: /region <create|redefine|delete|list|info|priority|test|flag|message|owner|member>"
 		);
 		return CommandTree.ok();
 	}
@@ -208,12 +262,16 @@ public final class RegionCommandModule implements CommandModule {
 		}
 		player.sendMessage(region.key() + " | " + geometryName(region.geometry())
 			+ " | priority " + region.priority() + " | revision " + region.revision());
-		if (region.flags().explicitDecisions().isEmpty()) {
+		player.sendMessage("Owners: " + identities(region.access().owners()));
+		player.sendMessage("Members: " + identities(region.access().members()));
+		if (region.flags().explicitRules().isEmpty()) {
 			player.sendMessage("Flags: none (namespace/world defaults apply)");
 		} else {
-			player.sendMessage("Flags: " + region.flags().explicitDecisions().entrySet().stream()
-				.map(entry -> entry.getKey().name().toLowerCase(Locale.ROOT) + "="
-					+ entry.getValue().name().toLowerCase(Locale.ROOT))
+			player.sendMessage("Flags: " + region.flags().explicitRules().entrySet().stream()
+				.flatMap(action -> action.getValue().entrySet().stream()
+					.map(rule -> action.getKey().name().toLowerCase(Locale.ROOT)
+						+ "[" + rule.getKey().externalName() + "]="
+						+ rule.getValue().name().toLowerCase(Locale.ROOT)))
 				.collect(Collectors.joining(", ")));
 		}
 		if (region.text().explicitValues().isEmpty()) {
@@ -240,16 +298,78 @@ public final class RegionCommandModule implements CommandModule {
 				case "unset" -> ProtectionDecision.ABSTAIN;
 				default -> throw new IllegalArgumentException("Flag value must be allow, deny, or unset.");
 			};
-			RegionMutationResult result = regions.setFlag(name, world(player), action, decision);
+			RegionSubject subject = RegionSubject.parse(
+				optionalString(context, "subject", "everyone")
+			);
+			RegionMutationResult result = regions.setFlag(
+				name, world(player), action, subject, decision
+			);
 			sendResult(
 				player,
 				result,
 				"Set " + action.name().toLowerCase(Locale.ROOT) + " to "
-					+ context.arg("value", String.class).toLowerCase(Locale.ROOT) + " for '" + name + "'."
+					+ context.arg("value", String.class).toLowerCase(Locale.ROOT)
+					+ " for " + subject.externalName() + " in '" + name + "'."
 			);
 		} catch (IllegalArgumentException exception) {
 			player.sendMessage(exception.getMessage());
 		}
+		return CommandTree.ok();
+	}
+
+	private int handleAccess(
+		MichelleCommandContext context,
+		boolean owner,
+		boolean add
+	) throws CommandSyntaxException {
+		Player player = context.playerExecutor();
+		String name = context.arg("name", String.class);
+		OfflinePlayer target = resolvePlayer(context.arg("player", String.class));
+		if (target == null) {
+			player.sendMessage("Unknown player. Use an online/cached player name or UUID.");
+			return CommandTree.ok();
+		}
+		RegionMutationResult result;
+		try {
+			result = owner
+				? add
+					? regions.addOwner(name, world(player), target.getUniqueId())
+					: regions.removeOwner(name, world(player), target.getUniqueId())
+				: add
+					? regions.addMember(name, world(player), target.getUniqueId())
+					: regions.removeMember(name, world(player), target.getUniqueId());
+		} catch (IllegalArgumentException exception) {
+			player.sendMessage(exception.getMessage());
+			return CommandTree.ok();
+		}
+		sendResult(
+			player,
+			result,
+			(add ? "Added " : "Removed ") + displayName(target)
+				+ (add ? " as " : " from ") + (owner ? "owner" : "member")
+				+ " in '" + name + "'."
+		);
+		return CommandTree.ok();
+	}
+
+	private int handleAccessList(
+		MichelleCommandContext context,
+		boolean owners
+	) throws CommandSyntaxException {
+		Player player = context.playerExecutor();
+		RegionDefinition region;
+		try {
+			region = regions.find(world(player), context.arg("name", String.class));
+		} catch (IllegalArgumentException exception) {
+			player.sendMessage(exception.getMessage());
+			return CommandTree.ok();
+		}
+		if (region == null) {
+			player.sendMessage("Unknown region in this world.");
+			return CommandTree.ok();
+		}
+		player.sendMessage((owners ? "Owners: " : "Members: ")
+			+ identities(owners ? region.access().owners() : region.access().members()));
 		return CommandTree.ok();
 	}
 
@@ -379,6 +499,41 @@ public final class RegionCommandModule implements CommandModule {
 		} catch (IllegalArgumentException exception) {
 			return fallback;
 		}
+	}
+
+	private static String optionalString(
+		MichelleCommandContext context,
+		String name,
+		String fallback
+	) {
+		try {
+			return context.arg(name, String.class);
+		} catch (IllegalArgumentException exception) {
+			return fallback;
+		}
+	}
+
+	private OfflinePlayer resolvePlayer(String input) {
+		try {
+			return plugin.getServer().getOfflinePlayer(UUID.fromString(input));
+		} catch (IllegalArgumentException ignored) {
+			return plugin.getServer().getOfflinePlayerIfCached(input);
+		}
+	}
+
+	private String identities(java.util.Set<UUID> playerIds) {
+		if (playerIds.isEmpty()) return "none";
+		return playerIds.stream()
+			.map(plugin.getServer()::getOfflinePlayer)
+			.map(RegionCommandModule::displayName)
+			.sorted(String.CASE_INSENSITIVE_ORDER)
+			.collect(Collectors.joining(", "));
+	}
+
+	private static String displayName(OfflinePlayer player) {
+		return player.getName() == null
+			? player.getUniqueId().toString()
+			: player.getName() + " (" + player.getUniqueId() + ")";
 	}
 
 	private static String geometryName(RegionGeometry geometry) {

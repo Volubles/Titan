@@ -13,6 +13,7 @@ import com.voluble.titanMC.regions.protection.model.ProtectionAction;
 import com.voluble.titanMC.regions.protection.model.ProtectionActor;
 import com.voluble.titanMC.regions.protection.model.ProtectionDecision;
 import com.voluble.titanMC.regions.protection.model.ProtectionRequest;
+import com.voluble.titanMC.regions.protection.model.RegionSubject;
 import com.voluble.titanMC.regions.protection.policy.ProtectionBypass;
 import com.voluble.titanMC.regions.protection.policy.RegionPolicyRegistry;
 import com.voluble.titanMC.regions.protection.policy.WorldProtectionDefaults;
@@ -122,6 +123,38 @@ class RegionAdminServiceTest {
 			assertEquals(
 				ProtectionDecision.DENY,
 				protection.resolve(place(player, world, 40, 5, 40)).decision()
+			);
+		}
+	}
+
+	@Test
+	void managesOwnersMembersAndScopedFlagsWithoutLosingOtherAccess() throws Exception {
+		WorldId world = new WorldId(UUID.randomUUID());
+		UUID owner = UUID.randomUUID();
+		UUID member = UUID.randomUUID();
+		try (RegionEngine engine = RegionEngine.open(temporaryDirectory.resolve("access-admin.db"))) {
+			RegionAdminService admin = new RegionAdminService(engine);
+			assertTrue(admin.create(
+				"cell", world, 100, new CuboidGeometry(new BlockBox(0, 0, 0, 10, 10, 10))
+			).successful());
+			assertTrue(admin.addOwner("cell", world, owner).successful());
+			assertTrue(admin.addMember("cell", world, member).successful());
+			assertTrue(admin.setFlag(
+				"cell",
+				world,
+				ProtectionAction.CONTAINER_OPEN,
+				RegionSubject.MEMBERS,
+				ProtectionDecision.ALLOW
+			).successful());
+
+			RegionDefinition region = admin.find(world, "cell");
+
+			assertTrue(region.access().isOwner(owner));
+			assertTrue(region.access().isMember(owner));
+			assertTrue(region.access().isMember(member));
+			assertEquals(
+				ProtectionDecision.ALLOW,
+				region.flags().decision(ProtectionAction.CONTAINER_OPEN, RegionSubject.MEMBERS)
 			);
 		}
 	}
