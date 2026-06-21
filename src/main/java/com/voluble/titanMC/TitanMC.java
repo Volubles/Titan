@@ -1,10 +1,10 @@
 package com.voluble.titanMC;
 
 import com.voluble.titanMC.managers.ConfigManager;
-import com.voluble.titanMC.donatorTools.DonatorToolsCommandModule;
-import com.voluble.titanMC.donatorTools.tools.DonatorToolsConfigManager;
+import com.voluble.titanMC.donatortools.DonatorToolsService;
+import com.voluble.titanMC.donatortools.command.DonatorToolsCommandModule;
+import com.voluble.titanMC.donatortools.config.DonatorToolsConfigurationManager;
 import com.voluble.titanMC.managers.EconomyManager;
-import com.voluble.titanMC.managers.RegistrationManager;
 import com.voluble.titanMC.mines.MineManager;
 import com.voluble.titanMC.mines.protection.MineProtectionPolicy;
 import com.voluble.titanMC.mines.regions.MineRegionException;
@@ -40,7 +40,6 @@ import com.voluble.titanMC.regions.service.RegionEngine;
 import io.voluble.michellelib.commands.CommandKit;
 import io.voluble.michellelib.menu.MenuService;
 import net.milkbowl.vault.economy.Economy;
-import org.bukkit.Material;
 import org.bukkit.plugin.java.JavaPlugin;
 import com.voluble.titanMC.mines.command.MineCommandModule;
 
@@ -48,9 +47,9 @@ public final class TitanMC extends JavaPlugin {
 
 	private static TitanMC instance;
 	private ConfigManager configManager;
-	private DonatorToolsConfigManager donatorToolsConfigManager;
+	private DonatorToolsConfigurationManager donatorToolsConfiguration;
+	private DonatorToolsService donatorTools;
 	private EconomyManager economyManager;
-	private RegistrationManager registrationManager;
 	private MineManager mineManager;
 	private MineScheduler mineScheduler;
 	private MenuService menuService;
@@ -79,12 +78,14 @@ public final class TitanMC extends JavaPlugin {
 		if (!initializeProtection()) return;
 
 		// Register component configs
-		donatorToolsConfigManager = new DonatorToolsConfigManager(this);
-		configManager.registerComponent(donatorToolsConfigManager);
-
-		// Events
-		registrationManager = new RegistrationManager(this);
-		registrationManager.registerEvents();
+		donatorToolsConfiguration = new DonatorToolsConfigurationManager(this);
+		try {
+			configManager.registerComponent(donatorToolsConfiguration);
+		} catch (IllegalArgumentException | IllegalStateException exception) {
+			getLogger().severe("Invalid donator tools configuration: " + exception.getMessage());
+			getServer().getPluginManager().disablePlugin(this);
+			return;
+		}
 
 		// Mines
 		MineManager loadedMineManager = new MineManager(this, new MineRegionService(regionEngine));
@@ -101,10 +102,17 @@ public final class TitanMC extends JavaPlugin {
 		mineScheduler.start();
 		getServer().getPluginManager().registerEvents(new MineBlockListener(this), this);
 		getLogger().info("MineBlockListener registered");
+		donatorTools = new DonatorToolsService(
+			this,
+			donatorToolsConfiguration,
+			mineManager,
+			mineScheduler,
+			protectionService
+		);
 
 		// MichelleLib commands (dtools, mine)
 		new CommandKit(this)
-			.addModule(new DonatorToolsCommandModule())
+			.addModule(new DonatorToolsCommandModule(donatorTools))
 			.addModule(new MineCommandModule(this))
 			.addModule(new RegionCommandModule(this))
 			.install();
@@ -181,15 +189,6 @@ public final class TitanMC extends JavaPlugin {
 
 	public static TitanMC getInstance() {
 		return instance;
-	}
-
-	// Donator Tools Config Delegates
-	public void reloadDonatorToolsConfig() {
-		donatorToolsConfigManager.reload();
-	}
-
-	public boolean isBlockAllowed(Material material) {
-		return donatorToolsConfigManager.isBlockAllowed(material);
 	}
 
 	// Economy Manager Delegates
