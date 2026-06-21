@@ -155,6 +155,10 @@ public final class RankCommandModule implements CommandModule {
 			case RankupResult.EconomyUnavailable ignored -> player.sendMessage(
 				"Rankups are unavailable because no economy provider is active."
 			);
+			case RankupResult.PersistenceFailure failure -> player.sendMessage(failure.refunded()
+				? "The rankup could not be saved. Your payment was refunded."
+				: "The rankup could not be saved and the automatic refund failed. Contact staff."
+			);
 			case RankupResult.NoCurrentRank ignored -> player.sendMessage(
 				"You do not have a rank yet; rejoin to receive the starter rank."
 			);

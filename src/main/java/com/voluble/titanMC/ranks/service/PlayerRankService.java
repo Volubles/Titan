@@ -16,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import java.util.logging.Logger;
+import java.util.logging.Level;
 
 public final class PlayerRankService {
 	private final RankCatalog catalog;
@@ -95,7 +96,15 @@ public final class PlayerRankService {
 		}
 		storage.save(next).join();
 		cache.put(next.playerId(), next);
-		publisher.accept(new PlayerRankChangedEvent(next.playerId(), previous, next));
+		try {
+			publisher.accept(new PlayerRankChangedEvent(next.playerId(), previous, next));
+		} catch (RuntimeException failure) {
+			logger.log(
+				Level.SEVERE,
+				"Failed to publish rank change for " + next.playerId() + " after it was persisted",
+				failure
+			);
+		}
 		return next;
 	}
 

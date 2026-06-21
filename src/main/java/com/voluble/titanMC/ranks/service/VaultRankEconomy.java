@@ -36,4 +36,10 @@ public final class VaultRankEconomy implements RankEconomy {
 		EconomyResponse response = economy.withdrawPlayer(server.getOfflinePlayer(playerId), amount);
 		return response.transactionSuccess();
 	}
+
+	@Override
+	public boolean deposit(UUID playerId, long amount) {
+		EconomyResponse response = economy.depositPlayer(server.getOfflinePlayer(playerId), amount);
+		return response.transactionSuccess();
+	}
 }

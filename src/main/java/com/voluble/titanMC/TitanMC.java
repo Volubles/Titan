@@ -246,7 +246,7 @@ public final class TitanMC extends JavaPlugin {
 			getServer().getPluginManager().disablePlugin(this);
 			return false;
 		}
-		rankupService = new RankupService(rankConfiguration.catalog(), rankService, rankEconomy);
+		rankupService = new RankupService(rankConfiguration.catalog(), rankService, rankEconomy, getLogger());
 		getServer().getPluginManager().registerEvents(new PlayerRankListener(rankService), this);
 		getLogger().info("Player ranks ready (" + (rankEconomy.available() ? "Vault economy" : "no economy") + ")");
 		return true;

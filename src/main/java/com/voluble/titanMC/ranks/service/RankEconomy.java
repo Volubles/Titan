@@ -11,12 +11,15 @@ public interface RankEconomy {
 
 	boolean withdraw(UUID playerId, long amount);
 
+	boolean deposit(UUID playerId, long amount);
+
 	static RankEconomy unavailable() {
 		return new RankEconomy() {
 			@Override public boolean available() { return false; }
 			@Override public boolean has(UUID playerId, long amount) { return false; }
 			@Override public double balance(UUID playerId) { return 0.0; }
 			@Override public boolean withdraw(UUID playerId, long amount) { return false; }
+			@Override public boolean deposit(UUID playerId, long amount) { return false; }
 		};
 	}
 }

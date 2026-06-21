@@ -40,6 +40,13 @@ public sealed interface RankupResult {
 	record EconomyUnavailable() implements RankupResult {
 	}
 
+	record PersistenceFailure(PrisonRank intended, long charged, boolean refunded) implements RankupResult {
+		public PersistenceFailure {
+			Objects.requireNonNull(intended, "intended");
+			if (charged < 0) throw new IllegalArgumentException("charged must not be negative");
+		}
+	}
+
 	record NoCurrentRank(UUID playerId) implements RankupResult {
 		public NoCurrentRank {
 			Objects.requireNonNull(playerId, "playerId");

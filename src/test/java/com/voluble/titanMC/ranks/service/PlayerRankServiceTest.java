@@ -125,6 +125,22 @@ class PlayerRankServiceTest {
 	}
 
 	@Test
+	void publisherFailureDoesNotRollBackPersistedRank() throws Exception {
+		PlayerRankService service = new PlayerRankService(
+			catalog, storage, event -> { throw new IllegalStateException("listener failed"); }, logger, clock::get
+		);
+		UUID player = UUID.randomUUID();
+		service.assignStarting(player);
+
+		PlayerRank applied = service.apply(new PlayerRank(player, E3, 2_000L));
+
+		assertEquals(E3, applied.rankId());
+		assertEquals(E3, service.current(player).orElseThrow().rankId());
+		storage.flush();
+		assertEquals(E3, storage.loadAll().get(player).rankId());
+	}
+
+	@Test
 	void loadRehydratesCacheFromStorage() throws Exception {
 		UUID player = UUID.randomUUID();
 		storage.save(new PlayerRank(player, E3, 5_000L)).join();

@@ -23,6 +23,8 @@ import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RankupServiceTest {
 	private static final WardId E = WardId.of("e");
@@ -63,14 +65,14 @@ class RankupServiceTest {
 
 	@AfterEach
 	void tearDown() throws Exception {
-		storage.close();
+		if (storage != null) storage.close();
 	}
 
 	@Test
 	void rankupChargesAndAdvances() {
 		UUID player = UUID.randomUUID();
 		players.assignStarting(player);
-		economy.deposit(player, 5_000L);
+		economy.fund(player, 5_000L);
 
 		RankupResult result = newService().rankup(player);
 
@@ -86,7 +88,7 @@ class RankupServiceTest {
 	void insufficientFundsLeavesPlayerUnchanged() {
 		UUID player = UUID.randomUUID();
 		players.assignStarting(player);
-		economy.deposit(player, 100L);
+		economy.fund(player, 100L);
 
 		RankupResult result = newService().rankup(player);
 
@@ -102,7 +104,7 @@ class RankupServiceTest {
 		UUID player = UUID.randomUUID();
 		players.assignStarting(player);
 
-		RankupService service = new RankupService(catalog, players, RankEconomy.unavailable(), clock::get);
+		RankupService service = new RankupService(catalog, players, RankEconomy.unavailable(), clock::get, logger());
 		RankupResult result = service.rankup(player);
 
 		assertInstanceOf(RankupResult.EconomyUnavailable.class, result);
@@ -114,7 +116,7 @@ class RankupServiceTest {
 		UUID player = UUID.randomUUID();
 		players.assignStarting(player);
 		players.apply(players.current(player).orElseThrow().withRank(D4, 0L));
-		economy.deposit(player, 1_000_000L);
+		economy.fund(player, 1_000_000L);
 
 		RankupResult result = newService().rankup(player);
 
@@ -133,7 +135,7 @@ class RankupServiceTest {
 		UUID player = UUID.randomUUID();
 		players.assignStarting(player);
 		players.apply(players.current(player).orElseThrow().withRank(E3, 0L));
-		economy.deposit(player, 100_000L);
+		economy.fund(player, 100_000L);
 
 		RankupResult result = newService().rankup(player);
 
@@ -146,7 +148,7 @@ class RankupServiceTest {
 		UUID player = UUID.randomUUID();
 		players.assignStarting(player);
 		players.apply(players.current(player).orElseThrow().withRank(E2, 0L));
-		economy.deposit(player, 50_000L);
+		economy.fund(player, 50_000L);
 
 		RankupResult result = newService().rankup(player);
 
@@ -158,7 +160,7 @@ class RankupServiceTest {
 	void failedWithdrawIsReportedAsInsufficient() {
 		UUID player = UUID.randomUUID();
 		players.assignStarting(player);
-		economy.deposit(player, 5_000L);
+		economy.fund(player, 5_000L);
 		economy.failNextWithdraw();
 
 		RankupResult result = newService().rankup(player);
@@ -167,21 +169,85 @@ class RankupServiceTest {
 		assertEquals(5_000L, economy.balance(player));
 	}
 
+	@Test
+	void persistenceFailureRefundsWithdrawnMoney() throws Exception {
+		UUID player = UUID.randomUUID();
+		players.assignStarting(player);
+		economy.fund(player, 5_000L);
+		storage.close();
+		storage = null;
+
+		RankupResult result = newService().rankup(player);
+
+		RankupResult.PersistenceFailure failure = assertInstanceOf(RankupResult.PersistenceFailure.class, result);
+		assertTrue(failure.refunded());
+		assertEquals(5_000L, economy.balance(player));
+		assertEquals(E4, players.current(player).orElseThrow().rankId());
+	}
+
+	@Test
+	void failedRefundIsReportedExplicitly() throws Exception {
+		UUID player = UUID.randomUUID();
+		players.assignStarting(player);
+		economy.fund(player, 5_000L);
+		economy.failNextDeposit();
+		storage.close();
+		storage = null;
+
+		RankupResult result = newService().rankup(player);
+
+		RankupResult.PersistenceFailure failure = assertInstanceOf(RankupResult.PersistenceFailure.class, result);
+		assertFalse(failure.refunded());
+		assertEquals(4_000L, economy.balance(player));
+	}
+
+	@Test
+	void refundExceptionIsReportedAsFailedRefund() throws Exception {
+		UUID player = UUID.randomUUID();
+		players.assignStarting(player);
+		economy.fund(player, 5_000L);
+		economy.throwOnNextDeposit();
+		storage.close();
+		storage = null;
+
+		RankupResult result = newService().rankup(player);
+
+		RankupResult.PersistenceFailure failure = assertInstanceOf(RankupResult.PersistenceFailure.class, result);
+		assertFalse(failure.refunded());
+		assertEquals(4_000L, economy.balance(player));
+	}
+
 	private RankupService newService() {
-		return new RankupService(catalog, players, economy, clock::get);
+		return new RankupService(catalog, players, economy, clock::get, logger());
+	}
+
+	private static Logger logger() {
+		Logger logger = Logger.getAnonymousLogger();
+		logger.setLevel(Level.OFF);
+		return logger;
 	}
 
 	private static final class TestEconomy implements RankEconomy {
 		private final Map<UUID, Long> balances = new HashMap<>();
 		private final List<UUID> withdrawAttempts = new ArrayList<>();
 		private boolean nextWithdrawFails;
+		private boolean nextDepositFails;
+		private boolean nextDepositThrows;
 
-		void deposit(UUID id, long amount) {
+		void fund(UUID id, long amount) {
 			balances.merge(id, amount, Long::sum);
 		}
 
 		void failNextWithdraw() {
 			nextWithdrawFails = true;
+		}
+
+		void failNextDeposit() {
+			nextDepositFails = true;
+		}
+
+		void throwOnNextDeposit() {
+			nextDepositThrows = true;
 		}
 
 		@Override
@@ -209,6 +275,20 @@ class RankupServiceTest {
 			long current = balances.getOrDefault(playerId, 0L);
 			if (current < amount) return false;
 			balances.put(playerId, current - amount);
+			return true;
+		}
+
+		@Override
+		public boolean deposit(UUID playerId, long amount) {
+			if (nextDepositThrows) {
+				nextDepositThrows = false;
+				throw new IllegalStateException("deposit failed");
+			}
+			if (nextDepositFails) {
+				nextDepositFails = false;
+				return false;
+			}
+			balances.merge(playerId, amount, Long::sum);
 			return true;
 		}
 	}
