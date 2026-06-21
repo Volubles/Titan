@@ -13,9 +13,10 @@ import java.util.*;
 
 public final class MineScheduler {
 
+	private static final long RESET_BUDGET_NANOS = 4_000_000L;
 	private final Plugin plugin;
 	private final MineManager manager;
-	private final Map<String, MineResetRunner> active = new HashMap<>();
+	private final MineResetQueue resetQueue = new MineResetQueue();
 	private final Map<String, Long> resetTimes = new HashMap<>(); // Track when depletion resets are triggered
 	private BukkitTask task;
 	private static final int COUNTDOWN_WARNING_RADIUS = 20; // blocks
@@ -32,7 +33,7 @@ public final class MineScheduler {
 			// Check for time-based resets and show countdowns
 			for (Mine mine : manager.getAll()) {
 				if (!mine.isEnabled()) continue;
-				if (active.containsKey(mine.getName())) continue;
+				if (resetQueue.contains(mine.getName())) continue;
 				
 				long remainingMs = mine.getNextResetEpochMs() - now;
 				long remainingSeconds = remainingMs / 1000L;
@@ -43,20 +44,10 @@ public final class MineScheduler {
 				}
 				
 				if (now >= mine.getNextResetEpochMs()) {
-					active.put(mine.getName(), new MineResetRunner(plugin, mine));
+					resetQueue.replace(new MineResetRunner(plugin, mine));
 				}
 			}
-			// Process active runners
-			Iterator<Map.Entry<String, MineResetRunner>> it = active.entrySet().iterator();
-			while (it.hasNext()) {
-				Map.Entry<String, MineResetRunner> e = it.next();
-				MineResetRunner runner = e.getValue();
-				boolean done = runner.processBatch();
-				if (done) {
-					it.remove();
-					manager.completeReset(e.getKey());
-				}
-			}
+			resetQueue.processTick(RESET_BUDGET_NANOS, manager::completeReset);
 			
 			// Also tick depletion countdowns
 			tickDepletionCountdown();
@@ -68,7 +59,7 @@ public final class MineScheduler {
 			task.cancel();
 			task = null;
 		}
-		active.clear();
+		resetQueue.clear();
 		resetTimes.clear();
 	}
 
@@ -76,22 +67,19 @@ public final class MineScheduler {
 		Mine mine = manager.get(name);
 		if (mine == null) return false;
 		cancelReset(name);
-		active.put(name, new MineResetRunner(plugin, mine));
+		resetQueue.replace(new MineResetRunner(plugin, mine));
 		return true;
 	}
 
 	public void scheduleDepletionReset(String name) {
 		// Don't schedule if already resetting or already scheduled
-		if (active.containsKey(name) || resetTimes.containsKey(name)) return;
+		if (resetQueue.contains(name) || resetTimes.containsKey(name)) return;
 		// Store when this depletion reset was triggered for countdown
 		resetTimes.put(name, System.currentTimeMillis() + 10000); // 10 seconds from now
 	}
 
 	public void cancelReset(String name) {
-		MineResetRunner runner = active.remove(name);
-		if (runner != null) {
-			runner.cancel();
-		}
+		resetQueue.cancel(name);
 		resetTimes.remove(name);
 	}
 
@@ -119,7 +107,7 @@ public final class MineScheduler {
 			long resetTime = entry.getValue();
 
 			// Only show if not already resetting
-			if (active.containsKey(mineName)) {
+			if (resetQueue.contains(mineName)) {
 				it.remove();
 				continue;
 			}
@@ -133,7 +121,7 @@ public final class MineScheduler {
 				it.remove();
 				Mine mine = manager.get(mineName);
 				if (mine != null) {
-					active.put(mineName, new MineResetRunner(plugin, mine));
+					resetQueue.replace(new MineResetRunner(plugin, mine));
 				}
 				continue;
 			}

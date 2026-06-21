@@ -18,7 +18,7 @@ import java.util.Collection;
  * Performs a batched reset of a mine's cuboid area.
  * Invoke processBatch() each tick until it returns true (finished).
  */
-public final class MineResetRunner {
+public final class MineResetRunner implements MineResetTask {
 
 	private final Plugin plugin;
 	private final Mine mine;
@@ -43,16 +43,29 @@ public final class MineResetRunner {
 	}
 
 	public boolean isFinished() { return finished; }
-	
+
+	@Override
+	public String name() {
+		return mine.getName();
+	}
+
+	@Override
+	public int maxBlocksPerSlice() {
+		return mine.getBatchSizePerTick();
+	}
+
+	@Override
 	public void cancel() { this.cancelled = true; }
 
-	public boolean processBatch() {
-		if (finished || cancelled) return true;
+	@Override
+	public MineResetWork process(int maxBlocks, long deadlineNanos) {
+		if (maxBlocks <= 0) throw new IllegalArgumentException("maxBlocks must be positive");
+		if (finished || cancelled) return new MineResetWork(0, 0, true);
 		World world = Bukkit.getWorld(cuboid.worldId);
 		if (world == null) {
 			// World not available; abort this cycle as finished to avoid blocking scheduler
 			finished = true;
-			return true;
+			return new MineResetWork(0, 0, true);
 		}
 		if (!initialized) {
 			teleportPlayersOut();
@@ -62,14 +75,20 @@ public final class MineResetRunner {
 			z = cuboid.minZ;
 			initialized = true;
 		}
-		int remaining = Math.max(1, mine.getBatchSizePerTick());
-		while (remaining-- > 0 && !finished && !cancelled) {
+		int scanned = 0;
+		int changed = 0;
+		while (scanned < maxBlocks && !finished && !cancelled
+				&& (scanned == 0 || System.nanoTime() < deadlineNanos)) {
 			Block block = world.getBlockAt(x, y, z);
 			Material m = palette.pickRandomThreadLocal();
-			block.setType(m, false);
+			if (block.getType() != m) {
+				block.setType(m, false);
+				changed++;
+			}
+			scanned++;
 			advanceCursor();
 		}
-		return finished || cancelled;
+		return new MineResetWork(scanned, changed, finished || cancelled);
 	}
 
 	private void advanceCursor() {
