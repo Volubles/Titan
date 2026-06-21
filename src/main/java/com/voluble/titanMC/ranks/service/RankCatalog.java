@@ -36,6 +36,50 @@ public final class RankCatalog {
 		}
 	}
 
+	private static Map<WardId, WardDefinition> indexWards(List<WardDefinition> wards) {
+		Map<WardId, WardDefinition> indexed = new LinkedHashMap<>();
+		for (WardDefinition ward : wards) {
+			Objects.requireNonNull(ward, "wards must not contain null");
+			if (indexed.putIfAbsent(ward.id(), ward) != null) {
+				throw new IllegalArgumentException("duplicate ward: " + ward.id());
+			}
+		}
+		return Map.copyOf(indexed);
+	}
+
+	private static Map<RankId, PrisonRank> indexRanks(List<PrisonRank> ranks) {
+		Map<RankId, PrisonRank> indexed = new LinkedHashMap<>();
+		for (PrisonRank rank : ranks) {
+			Objects.requireNonNull(rank, "ranks must not contain null");
+			if (indexed.putIfAbsent(rank.id(), rank) != null) {
+				throw new IllegalArgumentException("duplicate rank: " + rank.id());
+			}
+		}
+		return Map.copyOf(indexed);
+	}
+
+	private static List<PrisonRank> buildProgression(
+			List<WardDefinition> wards,
+			Map<WardId, WardDefinition> wardsById,
+			Map<RankId, PrisonRank> ranksById
+	) {
+		List<PrisonRank> progression = new ArrayList<>();
+		for (WardDefinition ward : wards) {
+			for (RankId rankId : ward.ranks()) {
+				PrisonRank rank = ranksById.get(rankId);
+				if (rank == null) throw new IllegalArgumentException("ward references unknown rank: " + rankId);
+				if (!rank.wardId().equals(ward.id())) {
+					throw new IllegalArgumentException("rank " + rankId + " belongs to " + rank.wardId() + ", not " + ward.id());
+				}
+				if (!wardsById.containsKey(rank.wardId())) {
+					throw new IllegalArgumentException("rank references unknown ward: " + rank.wardId());
+				}
+				progression.add(rank);
+			}
+		}
+		return List.copyOf(progression);
+	}
+
 	public List<WardDefinition> wards() {
 		return wards;
 	}
@@ -73,49 +117,5 @@ public final class RankCatalog {
 	public Optional<PrisonRank> nextRank(RankId current) {
 		int nextIndex = progressionIndex(current) + 1;
 		return nextIndex < progression.size() ? Optional.of(progression.get(nextIndex)) : Optional.empty();
-	}
-
-	private static Map<WardId, WardDefinition> indexWards(List<WardDefinition> wards) {
-		Map<WardId, WardDefinition> indexed = new LinkedHashMap<>();
-		for (WardDefinition ward : wards) {
-			Objects.requireNonNull(ward, "wards must not contain null");
-			if (indexed.putIfAbsent(ward.id(), ward) != null) {
-				throw new IllegalArgumentException("duplicate ward: " + ward.id());
-			}
-		}
-		return Map.copyOf(indexed);
-	}
-
-	private static Map<RankId, PrisonRank> indexRanks(List<PrisonRank> ranks) {
-		Map<RankId, PrisonRank> indexed = new LinkedHashMap<>();
-		for (PrisonRank rank : ranks) {
-			Objects.requireNonNull(rank, "ranks must not contain null");
-			if (indexed.putIfAbsent(rank.id(), rank) != null) {
-				throw new IllegalArgumentException("duplicate rank: " + rank.id());
-			}
-		}
-		return Map.copyOf(indexed);
-	}
-
-	private static List<PrisonRank> buildProgression(
-		List<WardDefinition> wards,
-		Map<WardId, WardDefinition> wardsById,
-		Map<RankId, PrisonRank> ranksById
-	) {
-		List<PrisonRank> progression = new ArrayList<>();
-		for (WardDefinition ward : wards) {
-			for (RankId rankId : ward.ranks()) {
-				PrisonRank rank = ranksById.get(rankId);
-				if (rank == null) throw new IllegalArgumentException("ward references unknown rank: " + rankId);
-				if (!rank.wardId().equals(ward.id())) {
-					throw new IllegalArgumentException("rank " + rankId + " belongs to " + rank.wardId() + ", not " + ward.id());
-				}
-				if (!wardsById.containsKey(rank.wardId())) {
-					throw new IllegalArgumentException("rank references unknown ward: " + rank.wardId());
-				}
-				progression.add(rank);
-			}
-		}
-		return List.copyOf(progression);
 	}
 }

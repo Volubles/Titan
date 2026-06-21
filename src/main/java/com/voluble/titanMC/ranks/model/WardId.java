@@ -18,6 +18,12 @@ public record WardId(String value) implements Comparable<WardId> {
 		return new WardId(value);
 	}
 
+	private static String normalize(String value, String name) {
+		String normalized = Objects.requireNonNull(value, name).trim().toLowerCase(Locale.ROOT);
+		if (normalized.isEmpty()) throw new IllegalArgumentException(name + " must not be blank");
+		return normalized;
+	}
+
 	@Override
 	public int compareTo(WardId other) {
 		return value.compareTo(other.value);
@@ -26,11 +32,5 @@ public record WardId(String value) implements Comparable<WardId> {
 	@Override
 	public String toString() {
 		return value;
-	}
-
-	private static String normalize(String value, String name) {
-		String normalized = Objects.requireNonNull(value, name).trim().toLowerCase(Locale.ROOT);
-		if (normalized.isEmpty()) throw new IllegalArgumentException(name + " must not be blank");
-		return normalized;
 	}
 }

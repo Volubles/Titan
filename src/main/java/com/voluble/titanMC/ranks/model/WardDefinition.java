@@ -10,7 +10,8 @@ public record WardDefinition(WardId id, String displayName, List<RankId> ranks) 
 		displayName = requireDisplayName(displayName);
 		ranks = List.copyOf(Objects.requireNonNull(ranks, "ranks"));
 		if (ranks.isEmpty()) throw new IllegalArgumentException("ward must contain at least one rank");
-		if (ranks.stream().anyMatch(Objects::isNull)) throw new IllegalArgumentException("ward ranks must not contain null");
+		if (ranks.stream().anyMatch(Objects::isNull))
+			throw new IllegalArgumentException("ward ranks must not contain null");
 		if (new LinkedHashSet<>(ranks).size() != ranks.size()) {
 			throw new IllegalArgumentException("ward ranks must be unique");
 		}

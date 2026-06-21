@@ -37,10 +37,10 @@ public record RankConfiguration(RankCatalog catalog) {
 	}
 
 	private static List<RankId> loadRanks(
-		Map<?, ?> configuredWard,
-		String path,
-		WardId wardId,
-		List<PrisonRank> definitions
+			Map<?, ?> configuredWard,
+			String path,
+			WardId wardId,
+			List<PrisonRank> definitions
 	) {
 		Object configuredRanks = configuredWard.get("ranks");
 		if (!(configuredRanks instanceof List<?> values) || values.isEmpty()) {
