@@ -12,13 +12,10 @@ import java.util.Set;
 public final class CellProtectionPolicy implements RegionProtectionPolicy {
 	public static final String NAMESPACE = "cell";
 	private static final Set<ProtectionAction> MEMBER_ACTIONS = EnumSet.of(
-			ProtectionAction.BLOCK_BREAK, ProtectionAction.BLOCK_PLACE,
-			ProtectionAction.BLOCK_INTERACT, ProtectionAction.PHYSICAL_INTERACT,
-			ProtectionAction.CONTAINER_OPEN, ProtectionAction.ENTITY_PLACE,
-			ProtectionAction.ENTITY_INTERACT, ProtectionAction.ENTITY_DAMAGE,
-			ProtectionAction.HANGING_MODIFY, ProtectionAction.BUCKET_FILL,
-			ProtectionAction.BUCKET_EMPTY, ProtectionAction.VEHICLE_PLACE,
-			ProtectionAction.VEHICLE_ENTER, ProtectionAction.VEHICLE_MODIFY
+		ProtectionAction.BLOCK_BREAK, ProtectionAction.BLOCK_PLACE,
+		ProtectionAction.BLOCK_INTERACT, ProtectionAction.PHYSICAL_INTERACT,
+		ProtectionAction.CONTAINER_OPEN, ProtectionAction.BUCKET_FILL,
+		ProtectionAction.BUCKET_EMPTY
 	);
 
 	@Override
