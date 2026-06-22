@@ -1,6 +1,7 @@
 package com.voluble.titanMC.cells;
 
 import com.voluble.titanMC.cells.model.CellDefinition;
+import com.voluble.titanMC.cells.baseline.CellBaseline;
 import com.voluble.titanMC.cells.model.CellLease;
 import com.voluble.titanMC.cells.model.TrackedCellBlock;
 import com.voluble.titanMC.cells.model.CellSign;
@@ -22,6 +23,58 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CellStorageTest {
+	private static CellBaseline baseline(CellDefinition cell) {
+		int sizeX = cell.cuboid().maxX - cell.cuboid().minX + 1;
+		int sizeY = cell.cuboid().maxY - cell.cuboid().minY + 1;
+		int sizeZ = cell.cuboid().maxZ - cell.cuboid().minZ + 1;
+		return new CellBaseline(sizeX, sizeY, sizeZ, List.of("minecraft:air"), new int[sizeX * sizeY * sizeZ]);
+	}
+
+	@Test
+	void createsCellAndBaselineAtomically() throws Exception {
+		Path database = directory.resolve("baseline.db");
+		UUID world = UUID.randomUUID();
+		CellDefinition cell = new CellDefinition(
+			"a1",
+			WardId.of("e"),
+			new RegionUtils.Cuboid(world, 0, 0, 0, 2, 1, 1),
+			500,
+			86400,
+			604800,
+			true
+		);
+
+		try (CellStorage storage = new CellStorage(database)) {
+			storage.createCell(cell, baseline(cell)).join();
+
+			CellBaseline loaded = storage.loadBaseline(cell.id()).join();
+			assertEquals(3, loaded.sizeX());
+			assertEquals(2, loaded.sizeY());
+			assertEquals(2, loaded.sizeZ());
+			assertEquals(List.of(), storage.cellsWithoutBaselines());
+		}
+	}
+
+	@Test
+	void reportsCellsCreatedWithoutBaselines() throws Exception {
+		Path database = directory.resolve("missing-baseline.db");
+		CellDefinition cell = new CellDefinition(
+			"legacy",
+			WardId.of("e"),
+			new RegionUtils.Cuboid(UUID.randomUUID(), 0, 0, 0, 1, 1, 1),
+			500,
+			86400,
+			604800,
+			true
+		);
+
+		try (CellStorage storage = new CellStorage(database)) {
+			storage.saveCell(cell).join();
+
+			assertEquals(List.of("legacy"), storage.cellsWithoutBaselines());
+			assertThrows(java.util.concurrent.CompletionException.class, () -> storage.loadBaseline("legacy").join());
+		}
+	}
 	@TempDir Path directory;
 	@Test void cellsLeasesAndTrackedBlocksSurviveRestart() throws Exception {
 		Path database=directory.resolve("cells.db"); UUID world=UUID.randomUUID(); UUID owner=UUID.randomUUID();

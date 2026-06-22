@@ -1,5 +1,7 @@
 package com.voluble.titanMC.cells.persistence;
 
+import com.voluble.titanMC.cells.baseline.CellBaseline;
+import com.voluble.titanMC.cells.baseline.CellBaselineCodec;
 import com.voluble.titanMC.cells.model.CellDefinition;
 import com.voluble.titanMC.cells.model.CellLease;
 import com.voluble.titanMC.cells.model.TrackedCellBlock;
@@ -30,8 +32,9 @@ import java.util.concurrent.Executors;
 
 public final class CellStorage implements AutoCloseable {
 
-	private static final int SCHEMA_VERSION = 5;
+	private static final int SCHEMA_VERSION = 6;
 	private final Connection connection;
+	private final CellBaselineCodec baselineCodec = new CellBaselineCodec();
 	private final ExecutorService writer = Executors.newSingleThreadExecutor(
 			Thread.ofPlatform().name("titan-cell-writer").factory()
 	);
@@ -135,6 +138,13 @@ public final class CellStorage implements AutoCloseable {
 					)
 					""");
 			statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_cell_blocks_cell ON cell_blocks(cell_id, lease_generation)");
+			statement.executeUpdate("""
+					CREATE TABLE IF NOT EXISTS cell_baselines (
+					    cell_id TEXT PRIMARY KEY NOT NULL,
+					    baseline_data BLOB NOT NULL,
+					    FOREIGN KEY(cell_id) REFERENCES cells(id) ON DELETE CASCADE
+					)
+					""");
 			requireUniqueLeaseOwners();
 			statement.executeUpdate("CREATE UNIQUE INDEX IF NOT EXISTS idx_cell_leases_owner ON cell_leases(owner_uuid)");
 			statement.executeUpdate("""
@@ -295,6 +305,44 @@ public final class CellStorage implements AutoCloseable {
 
 	public CompletableFuture<Void> saveCell(CellDefinition cell) {
 		return write(() -> upsertCell(cell));
+	}
+
+	public CompletableFuture<Void> createCell(CellDefinition cell, CellBaseline baseline) {
+		Objects.requireNonNull(cell, "cell");
+		Objects.requireNonNull(baseline, "baseline");
+		return write(() -> createCellTransaction(cell, baselineCodec.encode(baseline)));
+	}
+
+	public CompletableFuture<CellBaseline> loadBaseline(String cellId) {
+		Objects.requireNonNull(cellId, "cellId");
+		return CompletableFuture.supplyAsync(() -> {
+			try (PreparedStatement statement = connection.prepareStatement(
+				"SELECT baseline_data FROM cell_baselines WHERE cell_id=?"
+			)) {
+				statement.setString(1, cellId);
+				try (ResultSet result = statement.executeQuery()) {
+					if (!result.next()) throw new IllegalStateException("Cell has no baseline: " + cellId);
+					return baselineCodec.decode(result.getBytes("baseline_data"));
+				}
+			} catch (Exception exception) {
+				if (exception instanceof IllegalStateException state) throw state;
+				throw new IllegalStateException("Could not load baseline for cell " + cellId, exception);
+			}
+		}, writer);
+	}
+
+	public synchronized List<String> cellsWithoutBaselines() throws SQLException {
+		List<String> missing = new ArrayList<>();
+		try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery("""
+			SELECT cell.id
+			FROM cells cell
+			LEFT JOIN cell_baselines baseline ON baseline.cell_id=cell.id
+			WHERE baseline.cell_id IS NULL
+			ORDER BY cell.id
+			""")) {
+			while (result.next()) missing.add(result.getString("id"));
+		}
+		return missing;
 	}
 
 	public CompletableFuture<Void> deleteCell(String id) {
@@ -459,6 +507,27 @@ public final class CellStorage implements AutoCloseable {
 			s.setLong(13, cell.maxRentDurationSeconds());
 			s.setInt(14, cell.enabled() ? 1 : 0);
 			s.executeUpdate();
+		}
+	}
+
+	private void createCellTransaction(CellDefinition cell, byte[] baselineData) throws SQLException {
+		boolean oldAutoCommit = connection.getAutoCommit();
+		connection.setAutoCommit(false);
+		try {
+			upsertCell(cell);
+			try (PreparedStatement statement = connection.prepareStatement(
+				"INSERT INTO cell_baselines(cell_id,baseline_data) VALUES(?,?)"
+			)) {
+				statement.setString(1, cell.id());
+				statement.setBytes(2, baselineData);
+				statement.executeUpdate();
+			}
+			connection.commit();
+		} catch (SQLException exception) {
+			connection.rollback();
+			throw exception;
+		} finally {
+			connection.setAutoCommit(oldAutoCommit);
 		}
 	}
 
