@@ -2,6 +2,7 @@ package com.voluble.titanMC.mines.storage;
 
 import com.voluble.titanMC.mines.Mine;
 import com.voluble.titanMC.mines.MineResetDefinition;
+import com.voluble.titanMC.mines.breaking.MineBreakProfile;
 import com.voluble.titanMC.mines.WeightedPalette;
 import com.voluble.titanMC.util.RegionUtils;
 import org.bukkit.Material;
@@ -13,6 +14,7 @@ import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -47,6 +49,7 @@ class MineStorageTest {
 			palette
 		);
 		mine.setResetDefinition(new MineResetDefinition.Template("woodfarm_v1"));
+		mine.setBreakProfile(new MineBreakProfile.AllowList(Set.of(Material.OAK_LOG, Material.OAK_STAIRS)));
 
 		try (MineStorage storage = new MineStorage(plugin)) {
 			storage.saveMine(mine);
@@ -60,6 +63,10 @@ class MineStorageTest {
 				assertEquals(
 					"woodfarm_v1",
 					((MineResetDefinition.Template) loaded.get("alpha").getResetDefinition()).templateId()
+				);
+				assertEquals(
+					Set.of(Material.OAK_LOG, Material.OAK_STAIRS),
+					((MineBreakProfile.AllowList) loaded.get("alpha").getBreakProfile()).materials()
 				);
 			}
 

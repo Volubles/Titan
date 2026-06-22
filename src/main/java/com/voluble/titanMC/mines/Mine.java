@@ -1,6 +1,7 @@
 package com.voluble.titanMC.mines;
 
 import com.voluble.titanMC.util.RegionUtils;
+import com.voluble.titanMC.mines.breaking.MineBreakProfile;
 import org.bukkit.Location;
 
 import java.util.Objects;
@@ -14,6 +15,7 @@ public final class Mine {
 	private int batchSizePerTick;
 	private WeightedPalette palette;
 	private MineResetDefinition resetDefinition = new MineResetDefinition.Palette();
+	private MineBreakProfile breakProfile = new MineBreakProfile.Unrestricted();
 	private long nextResetEpochMs;
 	// Safe spawn location to teleport players to during reset. Null means no teleport
 	private Location safeSpawn;
@@ -52,6 +54,10 @@ public final class Mine {
 	public MineResetDefinition getResetDefinition() { return resetDefinition; }
 	public void setResetDefinition(MineResetDefinition definition) {
 		this.resetDefinition = Objects.requireNonNull(definition, "definition");
+	}
+	public MineBreakProfile getBreakProfile() { return breakProfile; }
+	public void setBreakProfile(MineBreakProfile profile) {
+		this.breakProfile = Objects.requireNonNull(profile, "profile");
 	}
 	public long getNextResetEpochMs() { return nextResetEpochMs; }
 	public void setNextResetEpochMs(long epochMs) { this.nextResetEpochMs = epochMs; }

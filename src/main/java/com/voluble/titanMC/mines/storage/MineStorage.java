@@ -2,6 +2,7 @@ package com.voluble.titanMC.mines.storage;
 
 import com.voluble.titanMC.mines.Mine;
 import com.voluble.titanMC.mines.MineResetDefinition;
+import com.voluble.titanMC.mines.breaking.MineBreakProfile;
 import com.voluble.titanMC.mines.WeightedPalette;
 import com.voluble.titanMC.util.RegionUtils;
 import com.voluble.titanMC.util.ComponentFiles;
@@ -85,6 +86,18 @@ public final class MineStorage implements AutoCloseable {
 			}
 
 			Mine mine = new Mine(name, cuboid, interval, enabled, batch, palette);
+			String breakMode = s.getString("diggable.mode", "UNRESTRICTED");
+			if ("ALLOW_LIST".equalsIgnoreCase(breakMode)) {
+				Set<Material> materials = new LinkedHashSet<>();
+				for (String value : s.getStringList("diggable.materials")) {
+					Material material = Material.matchMaterial(value);
+					if (material == null) throw new IllegalStateException("Unknown diggable material for mine " + name + ": " + value);
+					materials.add(material);
+				}
+				mine.setBreakProfile(new MineBreakProfile.AllowList(materials));
+			} else if (!"UNRESTRICTED".equalsIgnoreCase(breakMode)) {
+				throw new IllegalStateException("Unknown diggable mode for mine " + name + ": " + breakMode);
+			}
 			String resetType = s.getString("reset.type", "PALETTE");
 			if ("TEMPLATE".equalsIgnoreCase(resetType)) {
 				mine.setResetDefinition(new MineResetDefinition.Template(s.getString("reset.template_id")));
@@ -227,6 +240,8 @@ public final class MineStorage implements AutoCloseable {
 		s.set("next_reset_epoch_ms", mine.nextResetEpochMs());
 		s.set("reset.type", mine.resetType());
 		s.set("reset.template_id", mine.templateId());
+		s.set("diggable.mode", mine.breakMode());
+		s.set("diggable.materials", mine.diggableMaterials().stream().sorted().toList());
 		MineSnapshot.SafeSpawnSnapshot safeSpawn = mine.safeSpawn();
 		if (safeSpawn != null) {
 			ConfigurationSection safeSec = s.createSection("safe_spawn");
