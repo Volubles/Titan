@@ -5,6 +5,7 @@ import com.voluble.titanMC.cells.CellManager;
 import com.voluble.titanMC.cells.CellResetService;
 import com.voluble.titanMC.cells.CellSignRenderer;
 import com.voluble.titanMC.cells.CellSignService;
+import com.voluble.titanMC.cells.baseline.CellBaselineCaptureService;
 import com.voluble.titanMC.cells.model.CellDefinition;
 import com.voluble.titanMC.regions.model.CuboidGeometry;
 import com.voluble.titanMC.regions.selection.SelectionException;
@@ -34,19 +35,22 @@ public final class CellCommandModule implements CommandModule {
 	private final CellSignService signs;
 	private final CellSignRenderer renderer;
 	private final RankCatalog ranks;
+	private final CellBaselineCaptureService baselineCapture;
 
 	public CellCommandModule(
 		CellManager cells,
 		CellResetService resets,
 		CellSignService signs,
 		CellSignRenderer renderer,
-		RankCatalog ranks
+		RankCatalog ranks,
+		CellBaselineCaptureService baselineCapture
 	) {
 		this.cells = cells;
 		this.resets = resets;
 		this.signs = signs;
 		this.renderer = renderer;
 		this.ranks = ranks;
+		this.baselineCapture = baselineCapture;
 	}
 
 	@Override
@@ -113,12 +117,29 @@ public final class CellCommandModule implements CommandModule {
 				maximum.toSeconds(),
 				true
 			);
-			cells.create(cell);
-			player.sendMessage("Created cell '" + cell.id() + "' in " + cell.wardId().value() + " ward.");
+			player.sendMessage("Capturing the cell baseline...");
+			baselineCapture.capture(cell).whenComplete((baseline, failure) -> {
+				if (failure != null) {
+					player.sendMessage("Cell creation failed: " + rootMessage(failure));
+					return;
+				}
+				try {
+					cells.create(cell, baseline);
+					player.sendMessage("Created cell '" + cell.id() + "' in " + cell.wardId().value() + " ward.");
+				} catch (RuntimeException exception) {
+					player.sendMessage("Cell creation failed: " + rootMessage(exception));
+				}
+			});
 		} catch (SelectionException | RuntimeException exception) {
 			player.sendMessage(exception.getMessage());
 		}
 		return CommandTree.ok();
+	}
+
+	private static String rootMessage(Throwable failure) {
+		Throwable cause = failure;
+		while (cause.getCause() != null) cause = cause.getCause();
+		return cause.getMessage() == null ? cause.getClass().getSimpleName() : cause.getMessage();
 	}
 
 	private WardId parseWard(MichelleCommandContext context) {

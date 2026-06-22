@@ -13,6 +13,7 @@ import com.voluble.titanMC.cells.CellResetService;
 import com.voluble.titanMC.cells.CellSignService;
 import com.voluble.titanMC.cells.CellTrackingListener;
 import com.voluble.titanMC.cells.command.CellCommandModule;
+import com.voluble.titanMC.cells.baseline.CellBaselineCaptureService;
 import com.voluble.titanMC.cells.config.CellsConfigurationManager;
 import com.voluble.titanMC.cells.persistence.CellStorage;
 import com.voluble.titanMC.cells.region.CellProtectionPolicy;
@@ -103,6 +104,7 @@ public final class TitanMC extends JavaPlugin {
 	private RankupService rankupService;
 	private AuctionService auctionService;
 	private ManagedBlockAccessRegistry managedBlockAccess;
+	private CellBaselineCaptureService cellBaselineCapture;
 
 	@Override
 	public void onEnable() {
@@ -192,6 +194,7 @@ public final class TitanMC extends JavaPlugin {
 			return;
 		}
 		CellResetService cellResets = new CellResetService(this, cellManager);
+		cellBaselineCapture = new CellBaselineCaptureService(this);
 		cellSignRenderer = new CellSignRenderer(this, cellManager, cellsConfiguration);
 		cellResets.stateListener(cellSignRenderer::refresh);
 		CellRentalService cellRentals = new CellRentalService(
@@ -233,7 +236,7 @@ public final class TitanMC extends JavaPlugin {
 			.addModule(new MineCommandModule(this))
 			.addModule(new RegionCommandModule(this))
 			.addModule(new CellCommandModule(
-				cellManager, cellResets, cellSigns, cellSignRenderer, rankConfiguration.catalog()
+				cellManager, cellResets, cellSigns, cellSignRenderer, rankConfiguration.catalog(), cellBaselineCapture
 			))
 			.addModule(new AuctionCommandModule(auctionService, rankConfiguration.catalog()))
 			.addModule(new RankCommandModule(rankConfiguration.catalog(), rankService, rankupService))
@@ -355,6 +358,7 @@ public final class TitanMC extends JavaPlugin {
 		if (mineScheduler != null) mineScheduler.stop();
 		if (cellLeaseScheduler != null) cellLeaseScheduler.stop();
 		if (cellSignRenderer != null) cellSignRenderer.stop();
+		if (cellBaselineCapture != null) cellBaselineCapture.close();
 		if (auctionService != null) {
 			try { auctionService.close(); }
 			catch (Exception exception) { getLogger().severe("Failed to close Auctions cleanly: " + exception.getMessage()); }

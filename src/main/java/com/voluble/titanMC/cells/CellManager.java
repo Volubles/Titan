@@ -1,6 +1,7 @@
 package com.voluble.titanMC.cells;
 
 import com.voluble.titanMC.cells.model.CellDefinition;
+import com.voluble.titanMC.cells.baseline.CellBaseline;
 import com.voluble.titanMC.cells.model.CellLease;
 import com.voluble.titanMC.cells.model.CellResetJob;
 import com.voluble.titanMC.cells.model.TrackedCellBlock;
@@ -40,6 +41,10 @@ public final class CellManager implements AutoCloseable {
 		Map<String, CellDefinition> loadedCells = storage.loadCells();
 		for (CellDefinition cell : loadedCells.values()) validateWard(cell.wardId());
 		cells.putAll(loadedCells);
+		List<String> missingBaselines = storage.cellsWithoutBaselines();
+		if (!missingBaselines.isEmpty()) {
+			throw new SQLException("Cells are missing baselines: " + String.join(", ", missingBaselines));
+		}
 		leases.clear();
 		leases.putAll(storage.loadLeases());
 		members.clear();
@@ -153,17 +158,28 @@ public final class CellManager implements AutoCloseable {
 		return c == null ? null : byCuboid.get(c);
 	}
 
-	public void create(CellDefinition cell) {
+	public void create(CellDefinition cell, CellBaseline baseline) {
+		Objects.requireNonNull(baseline, "baseline");
 		validateWard(cell.wardId());
 		if (cells.containsKey(cell.id())) throw new IllegalArgumentException("Cell already exists: " + cell.id());
 		for (CellDefinition other : cells.values())
 			if (other.cuboid().intersects(cell.cuboid()))
 				throw new IllegalArgumentException("Cell overlaps: " + other.id());
 		regions.reconcile(cell);
-		storage.saveCell(cell).join();
+		validateBaselineDimensions(cell, baseline);
+		storage.createCell(cell, baseline).join();
 		cells.put(cell.id(), cell);
 		index.add(cell.cuboid());
 		byCuboid.put(cell.cuboid(), cell);
+	}
+
+	private static void validateBaselineDimensions(CellDefinition cell, CellBaseline baseline) {
+		RegionUtils.Cuboid cuboid = cell.cuboid();
+		if (baseline.sizeX() != cuboid.maxX - cuboid.minX + 1
+			|| baseline.sizeY() != cuboid.maxY - cuboid.minY + 1
+			|| baseline.sizeZ() != cuboid.maxZ - cuboid.minZ + 1) {
+			throw new IllegalArgumentException("Cell baseline dimensions do not match its region");
+		}
 	}
 
 	private void validateWard(WardId wardId) {
