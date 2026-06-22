@@ -29,7 +29,7 @@ class DonatorToolProtectionTest extends MockBukkitDonatorToolsTestSupport {
 				: ProtectionDecision.DENY,
 			ProtectionBypass.permission("titanmc.protection.bypass")
 		);
-		DonatorToolProtection tools = new DonatorToolProtection(protection);
+		DonatorToolProtection tools = new DonatorToolProtection(protection, (actor, block) -> true);
 		var allowed = world.getBlockAt(0, 64, 0);
 		var denied = world.getBlockAt(1, 64, 0);
 		allowed.setType(Material.STONE);

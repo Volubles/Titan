@@ -10,6 +10,7 @@ import com.voluble.titanMC.donatortools.tool.SingleBlockToolListener;
 import com.voluble.titanMC.donatortools.tracking.MineBreakTracker;
 import com.voluble.titanMC.mines.MineManager;
 import com.voluble.titanMC.mines.reset.MineScheduler;
+import com.voluble.titanMC.mines.breaking.MineBlockAccess;
 import com.voluble.titanMC.regions.protection.service.ProtectionService;
 import org.bukkit.plugin.Plugin;
 
@@ -25,7 +26,8 @@ public final class DonatorToolsService {
 		DonatorToolsConfigurationManager configuration,
 		MineManager mines,
 		MineScheduler mineScheduler,
-		ProtectionService protection
+		ProtectionService protection,
+		MineBlockAccess mineAccess
 	) {
 		Objects.requireNonNull(plugin, "plugin");
 		this.configuration = Objects.requireNonNull(configuration, "configuration");
@@ -43,7 +45,7 @@ public final class DonatorToolsService {
 			new ExplosiveToolListener(
 				registry,
 				configuration,
-				new DonatorToolProtection(protection),
+				new DonatorToolProtection(protection, mineAccess::canBreak),
 				new MineBreakTracker(mines, mineScheduler)
 			),
 			plugin

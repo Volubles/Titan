@@ -39,6 +39,10 @@ permissions:
     default: op
     children:
       titanmc.protection.bypass: true
+      titanmc.mine.break-bypass: true
+  titanmc.mine.break-bypass:
+    description: Bypasses per-mine diggable block restrictions
+    default: op
   titanmc.region.admin:
     description: Allows managing protection regions
     default: op

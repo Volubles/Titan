@@ -31,6 +31,8 @@ import com.voluble.titanMC.mines.regions.MineRegionException;
 import com.voluble.titanMC.mines.regions.MineRegionService;
 import com.voluble.titanMC.mines.reset.MineScheduler;
 import com.voluble.titanMC.mines.listeners.MineBlockListener;
+import com.voluble.titanMC.mines.breaking.MineBlockAccess;
+import com.voluble.titanMC.mines.breaking.MineBlockAccessListener;
 import com.voluble.titanMC.regions.persistence.RegionStorageException;
 import com.voluble.titanMC.regions.protection.bukkit.BlockProtectionListener;
 import com.voluble.titanMC.regions.protection.bukkit.BlockAutomationProtectionListener;
@@ -160,6 +162,8 @@ public final class TitanMC extends JavaPlugin {
 		getLogger().info("Loaded " + mineManager.getAll().size() + " mines");
 		mineScheduler = new MineScheduler(this, mineManager);
 		mineScheduler.start();
+		MineBlockAccess mineBlockAccess = new MineBlockAccess(mineManager);
+		getServer().getPluginManager().registerEvents(new MineBlockAccessListener(mineBlockAccess), this);
 		getServer().getPluginManager().registerEvents(new MineBlockListener(this), this);
 		getLogger().info("MineBlockListener registered");
 		donatorTools = new DonatorToolsService(
@@ -167,7 +171,8 @@ public final class TitanMC extends JavaPlugin {
 			donatorToolsConfiguration,
 			mineManager,
 			mineScheduler,
-			protectionService
+			protectionService,
+			mineBlockAccess
 		);
 
 		WardRankRequirements cellEligibility;
