@@ -182,7 +182,10 @@ public final class CellStorage implements AutoCloseable {
 					    lease_generation INTEGER NOT NULL,
 					    owner_uuid TEXT NOT NULL,
 					    phase TEXT NOT NULL,
-					    recovery_lot_id INTEGER
+					    recovery_lot_id INTEGER,
+					    attempts INTEGER NOT NULL DEFAULT 0,
+					    next_attempt_at INTEGER NOT NULL DEFAULT 0,
+					    last_error TEXT
 					)
 					""");
 			statement.executeUpdate("""
@@ -287,7 +290,16 @@ public final class CellStorage implements AutoCloseable {
 			while (r.next()) {
 				Object value = r.getObject("recovery_lot_id");
 				Long lot = value instanceof Number number ? number.longValue() : null;
-				CellResetJob j = new CellResetJob(r.getString("cell_id"), r.getLong("lease_generation"), UUID.fromString(r.getString("owner_uuid")), CellResetJob.Phase.valueOf(r.getString("phase")), lot);
+				CellResetJob j = new CellResetJob(
+					r.getString("cell_id"),
+					r.getLong("lease_generation"),
+					UUID.fromString(r.getString("owner_uuid")),
+					CellResetJob.Phase.valueOf(r.getString("phase")),
+					lot,
+					r.getInt("attempts"),
+					r.getLong("next_attempt_at"),
+					r.getString("last_error")
+				);
 				jobs.put(j.cellId(), j);
 			}
 		}
@@ -378,7 +390,19 @@ public final class CellStorage implements AutoCloseable {
 	}
 
 	public CompletableFuture<Void> beginReset(CellLease lease) {
-		return write(() -> execute("INSERT OR REPLACE INTO cell_reset_jobs VALUES(?,?,?,?,NULL)", lease.cellId(), lease.generation(), lease.ownerId().toString(), CellResetJob.Phase.COLLECTING.name()));
+		return write(() -> execute("""
+			INSERT OR REPLACE INTO cell_reset_jobs(
+			 cell_id,lease_generation,owner_uuid,phase,recovery_lot_id,attempts,next_attempt_at,last_error
+			) VALUES(?,?,?,?,NULL,0,0,NULL)
+			""", lease.cellId(), lease.generation(), lease.ownerId().toString(), CellResetJob.Phase.COLLECTING.name()));
+	}
+
+	public CompletableFuture<Void> recordResetFailure(CellResetJob job) {
+		return write(() -> execute("""
+			UPDATE cell_reset_jobs
+			SET attempts=?,next_attempt_at=?,last_error=?
+			WHERE cell_id=? AND lease_generation=?
+			""", job.attempts(), job.nextAttemptAt(), job.lastError(), job.cellId(), job.leaseGeneration()));
 	}
 
 	public CompletableFuture<Void> completeReset(String cellId, long generation, long lotId) {
@@ -607,7 +631,11 @@ public final class CellStorage implements AutoCloseable {
 				}
 				s.executeBatch();
 			}
-			execute("UPDATE cell_reset_jobs SET phase=?, recovery_lot_id=? WHERE cell_id=?", CellResetJob.Phase.PREPARED.name(), lotId, lease.cellId());
+			execute("""
+				UPDATE cell_reset_jobs
+				SET phase=?,recovery_lot_id=?,attempts=0,next_attempt_at=0,last_error=NULL
+				WHERE cell_id=?
+				""", CellResetJob.Phase.PREPARED.name(), lotId, lease.cellId());
 			connection.commit();
 			return lotId;
 		} catch (SQLException e) {

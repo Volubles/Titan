@@ -95,6 +95,10 @@ public final class CellManager implements AutoCloseable {
 		return List.copyOf(resetJobs.values());
 	}
 
+	public CellResetJob resetJob(String cellId) {
+		return resetJobs.get(cellId);
+	}
+
 	public java.util.Set<UUID> members(String cellId) {
 		return java.util.Set.copyOf(members.getOrDefault(cellId, java.util.Set.of()));
 	}
@@ -251,7 +255,15 @@ public final class CellManager implements AutoCloseable {
 	}
 
 	public void markPrepared(CellResetJob job, long lotId) {
-		resetJobs.put(job.cellId(), new CellResetJob(job.cellId(), job.leaseGeneration(), job.ownerId(), CellResetJob.Phase.PREPARED, lotId));
+		resetJobs.put(job.cellId(), job.prepared(lotId));
+	}
+
+	public void recordResetFailure(CellResetJob job, long nextAttemptAt, String error) {
+		CellResetJob current = resetJobs.get(job.cellId());
+		if (current == null || current.leaseGeneration() != job.leaseGeneration()) return;
+		CellResetJob failed = current.failed(nextAttemptAt, error);
+		storage.recordResetFailure(failed).join();
+		resetJobs.put(failed.cellId(), failed);
 	}
 
 	public void completeReset(CellResetJob job, long lotId) {

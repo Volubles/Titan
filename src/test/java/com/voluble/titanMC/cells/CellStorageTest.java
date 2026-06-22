@@ -91,6 +91,37 @@ class CellStorageTest {
 		try(CellStorage storage=new CellStorage(database)){storage.saveCell(cell).join();storage.saveLease(lease).join();storage.addBlocks(List.of(block)).join();storage.beginReset(lease).join();lot=storage.createRecoveryLot(lease,cell.wardId(),List.of(new byte[]{1,2,3})).join();assertEquals(com.voluble.titanMC.cells.model.CellResetJob.Phase.PREPARED,storage.loadResetJobs().get("a1").phase());}
 		try(CellStorage storage=new CellStorage(database)){storage.completeReset("a1",3,lot).join();assertEquals(0,storage.loadLeases().size());assertEquals(0,storage.loadBlocks().size());assertEquals(0,storage.loadResetJobs().size());}
 	}
+
+	@Test
+	void resetFailureMetadataSurvivesReopening() throws Exception {
+		Path database = directory.resolve("reset-retry.db");
+		UUID owner = UUID.randomUUID();
+		CellDefinition cell = new CellDefinition(
+			"a1",
+			WardId.of("e"),
+			new RegionUtils.Cuboid(UUID.randomUUID(), 0, 0, 0, 1, 1, 1),
+			500,
+			86400,
+			604800,
+			true
+		);
+		CellLease lease = new CellLease(cell.id(), owner, 1, 1000, 2000);
+
+		try (CellStorage storage = new CellStorage(database)) {
+			storage.saveCell(cell).join();
+			storage.saveLease(lease).join();
+			storage.beginReset(lease).join();
+			var failed = storage.loadResetJobs().get(cell.id()).failed(5000, "world is unavailable");
+			storage.recordResetFailure(failed).join();
+		}
+
+		try (CellStorage storage = new CellStorage(database)) {
+			var recovered = storage.loadResetJobs().get(cell.id());
+			assertEquals(1, recovered.attempts());
+			assertEquals(5000, recovered.nextAttemptAt());
+			assertEquals("world is unavailable", recovered.lastError());
+		}
+	}
 	@Test void readyRecoveryLotsCanBeClaimedByAuctions() throws Exception {
 		Path database = directory.resolve("recovery.db");
 		UUID world = UUID.randomUUID();
