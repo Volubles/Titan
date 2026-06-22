@@ -56,6 +56,34 @@ class CellStorageTest {
 	}
 
 	@Test
+	void replacesAnExistingBaseline() throws Exception {
+		Path database = directory.resolve("replace-baseline.db");
+		CellDefinition cell = new CellDefinition(
+			"a1",
+			WardId.of("e"),
+			new RegionUtils.Cuboid(UUID.randomUUID(), 0, 0, 0, 1, 0, 0),
+			500,
+			86400,
+			604800,
+			true
+		);
+		CellBaseline replacement = new CellBaseline(
+			2,
+			1,
+			1,
+			List.of("minecraft:stone"),
+			new int[]{0, 0}
+		);
+
+		try (CellStorage storage = new CellStorage(database)) {
+			storage.createCell(cell, baseline(cell)).join();
+			storage.replaceBaseline(cell.id(), replacement).join();
+
+			assertEquals(List.of("minecraft:stone"), storage.loadBaseline(cell.id()).join().blockPalette());
+		}
+	}
+
+	@Test
 	void reportsCellsCreatedWithoutBaselines() throws Exception {
 		Path database = directory.resolve("missing-baseline.db");
 		CellDefinition cell = new CellDefinition(

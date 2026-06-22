@@ -186,6 +186,14 @@ public final class CellManager implements AutoCloseable {
 		}
 	}
 
+	public void replaceBaseline(String cellId, CellBaseline baseline) {
+		CellDefinition cell = Objects.requireNonNull(get(cellId), "Unknown cell: " + cellId);
+		if (leases.containsKey(cell.id())) throw new IllegalStateException("Cannot update the baseline of a rented cell");
+		if (resetJobs.containsKey(cell.id())) throw new IllegalStateException("Cannot update the baseline while a reset is running");
+		validateBaselineDimensions(cell, Objects.requireNonNull(baseline, "baseline"));
+		storage.replaceBaseline(cell.id(), baseline).join();
+	}
+
 	private void validateWard(WardId wardId) {
 		ranks.requireWard(Objects.requireNonNull(wardId, "wardId"));
 	}

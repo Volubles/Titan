@@ -343,6 +343,22 @@ public final class CellStorage implements AutoCloseable {
 		}, writer);
 	}
 
+	public CompletableFuture<Void> replaceBaseline(String cellId, CellBaseline baseline) {
+		Objects.requireNonNull(cellId, "cellId");
+		Objects.requireNonNull(baseline, "baseline");
+		return write(() -> {
+			try (PreparedStatement statement = connection.prepareStatement(
+				"UPDATE cell_baselines SET baseline_data=? WHERE cell_id=?"
+			)) {
+				statement.setBytes(1, baselineCodec.encode(baseline));
+				statement.setString(2, cellId);
+				if (statement.executeUpdate() != 1) {
+					throw new SQLException("Cell baseline does not exist: " + cellId);
+				}
+			}
+		});
+	}
+
 	public synchronized List<String> cellsWithoutBaselines() throws SQLException {
 		List<String> missing = new ArrayList<>();
 		try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery("""

@@ -77,6 +77,10 @@ public final class CellCommandModule implements CommandModule {
 			.literal("ward", node -> node.argument("name", Args.word(), name -> name.suggests(names)
 				.argument("ward", Args.word(), ward -> ward.suggests(wards).executes(this::setWard))))
 			.literal("reset", node -> node.argument("name", Args.word(), name -> name.suggests(names).executes(this::reset)))
+			.literal("baseline", node -> node
+				.literal("capture", capture -> capture.argument(
+					"name", Args.word(), name -> name.suggests(names).executes(this::captureBaseline)
+				)))
 			.literal("member", node -> node
 				.literal("add", add -> add.argument("name", Args.word(), name -> name.suggests(names)
 					.argument("player", Args.word(), player -> player.executes(context -> member(context, true)))))
@@ -219,6 +223,33 @@ public final class CellCommandModule implements CommandModule {
 		} catch (RuntimeException exception) {
 			context.playerExecutor().sendMessage(exception.getMessage());
 		}
+		return CommandTree.ok();
+	}
+
+	private int captureBaseline(MichelleCommandContext context) throws CommandSyntaxException {
+		Player player = context.playerExecutor();
+		CellDefinition cell = cells.get(context.arg("name", String.class));
+		if (cell == null) {
+			player.sendMessage("Unknown cell.");
+			return CommandTree.ok();
+		}
+		if (cells.lease(cell.id()) != null || cells.resetJob(cell.id()) != null) {
+			player.sendMessage("The cell must be available before its baseline can be updated.");
+			return CommandTree.ok();
+		}
+		player.sendMessage("Capturing the cell baseline...");
+		baselineCapture.capture(cell).whenComplete((baseline, failure) -> {
+			if (failure != null) {
+				player.sendMessage("Baseline capture failed: " + rootMessage(failure));
+				return;
+			}
+			try {
+				cells.replaceBaseline(cell.id(), baseline);
+				player.sendMessage("Updated the baseline for cell '" + cell.id() + "'.");
+			} catch (RuntimeException exception) {
+				player.sendMessage("Baseline update failed: " + rootMessage(exception));
+			}
+		});
 		return CommandTree.ok();
 	}
 
