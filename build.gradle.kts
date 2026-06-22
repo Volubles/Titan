@@ -92,6 +92,14 @@ tasks.register<JavaExec>("regionBenchmark") {
     mainClass = "com.voluble.titanMC.regions.benchmark.RegionIndexBenchmark"
 }
 
+tasks.register<JavaExec>("mineTemplateBenchmark") {
+    group = "verification"
+    description = "Benchmarks Titan mine template compression and decoding."
+    dependsOn(tasks.testClasses)
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass = "com.voluble.titanMC.mines.template.MineTemplateFormatBenchmark"
+}
+
 tasks.processResources {
     val properties = mapOf("version" to project.version)
     inputs.properties(properties)
