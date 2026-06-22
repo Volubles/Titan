@@ -92,7 +92,9 @@ public final class CellCommandModule implements CommandModule {
 	}
 
 	private int root(MichelleCommandContext context) throws CommandSyntaxException {
-		context.playerExecutor().sendMessage("Usage: /cell <create|delete|list|info|displayname|ward|reset|sign|member>");
+		context.playerExecutor().sendMessage(
+			"Usage: /cell <create|delete|list|info|displayname|ward|reset|baseline|sign|member>"
+		);
 		return CommandTree.ok();
 	}
 
