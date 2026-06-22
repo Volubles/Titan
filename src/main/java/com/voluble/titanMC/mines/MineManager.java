@@ -4,6 +4,7 @@ import com.voluble.titanMC.TitanMC;
 import com.voluble.titanMC.mines.regions.MineRegionService;
 import com.voluble.titanMC.mines.storage.MineStorage;
 import com.voluble.titanMC.mines.template.MineTemplateService;
+import com.voluble.titanMC.mines.breaking.MineBreakProfile;
 import com.voluble.titanMC.util.RegionUtils;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -130,12 +131,14 @@ public final class MineManager {
 	public void paletteAddOrUpdate(String name, Material material, int weight) {
 		Mine mine = requireMine(name);
 		mine.getPalette().addOrUpdate(material, weight);
+		disableInvalidDepletion(mine);
 		storage.saveMine(mine);
 	}
 
 	public void paletteRemove(String name, Material material) {
 		Mine mine = requireMine(name);
 		mine.getPalette().remove(material);
+		disableInvalidDepletion(mine);
 		storage.saveMine(mine);
 	}
 
@@ -147,8 +150,47 @@ public final class MineManager {
 
 	public void setDepletionThreshold(String name, int percent) {
 		Mine mine = requireMine(name);
+		if (percent >= 0 && !supportsDepletion(mine)) {
+			throw new IllegalStateException("Depletion reset requires a palette mine where every generated material is diggable");
+		}
 		mine.setAutoResetBelowPercent(percent);
 		storage.saveMine(mine);
+	}
+
+	public void useUnrestrictedBreaking(String name) {
+		Mine mine = requireMine(name);
+		mine.setBreakProfile(new MineBreakProfile.Unrestricted());
+		storage.saveMine(mine);
+	}
+
+	public void useDiggableAllowList(String name) {
+		Mine mine = requireMine(name);
+		mine.setBreakProfile(new MineBreakProfile.AllowList(Set.of()));
+		disableInvalidDepletion(mine);
+		storage.saveMine(mine);
+	}
+
+	public void addDiggableMaterial(String name, Material material) {
+		Mine mine = requireMine(name);
+		MineBreakProfile.AllowList allowList = requireAllowList(mine);
+		mine.setBreakProfile(allowList.with(material));
+		disableInvalidDepletion(mine);
+		storage.saveMine(mine);
+	}
+
+	public void removeDiggableMaterial(String name, Material material) {
+		Mine mine = requireMine(name);
+		MineBreakProfile.AllowList allowList = requireAllowList(mine);
+		mine.setBreakProfile(allowList.without(material));
+		disableInvalidDepletion(mine);
+		storage.saveMine(mine);
+	}
+
+	public boolean supportsDepletion(Mine mine) {
+		if (!(mine.getResetDefinition() instanceof MineResetDefinition.Palette)) return false;
+		if (mine.getBreakProfile() instanceof MineBreakProfile.Unrestricted) return true;
+		MineBreakProfile.AllowList allowList = (MineBreakProfile.AllowList) mine.getBreakProfile();
+		return allowList.materials().containsAll(mine.getPalette().getEntriesView().keySet());
 	}
 
 	public List<Mine> getAt(Location location) {
@@ -174,6 +216,15 @@ public final class MineManager {
 		mine.setAutoResetBelowPercent(-1);
 		mine.resetDepletionCounters();
 		storage.saveMine(mine);
+	}
+
+	private void disableInvalidDepletion(Mine mine) {
+		if (!supportsDepletion(mine)) mine.setAutoResetBelowPercent(-1);
+	}
+
+	private static MineBreakProfile.AllowList requireAllowList(Mine mine) {
+		if (mine.getBreakProfile() instanceof MineBreakProfile.AllowList allowList) return allowList;
+		throw new IllegalStateException("Enable the diggable allowlist before editing materials");
 	}
 
 	public void setPaletteReset(String name) {

@@ -4,6 +4,7 @@ import com.voluble.titanMC.TitanMC;
 import com.voluble.titanMC.mines.Mine;
 import com.voluble.titanMC.mines.MineManager;
 import com.voluble.titanMC.mines.MineValidation;
+import com.voluble.titanMC.mines.MineResetDefinition;
 import com.voluble.titanMC.regions.selection.SelectionException;
 import com.voluble.titanMC.mines.selection.WorldEditSelection;
 import com.voluble.titanMC.util.ChatUtils;
@@ -46,7 +47,11 @@ public class MineEditMenu {
 				ctx.setItem(10, createBatchSizeItem(mine.getName(), manager));
 				ctx.setItem(11, createDepletionItem(mine.getName(), manager));
 
-				ctx.setItem(15, createPaletteButton(mine.getName(), manager));
+				Mine current = manager.get(mine.getName());
+				if (current != null && current.getResetDefinition() instanceof MineResetDefinition.Palette) {
+					ctx.setItem(14, createPaletteButton(mine.getName(), manager));
+				}
+				ctx.setItem(15, createDiggableBlocksButton(mine.getName(), manager));
 				ctx.setItem(16, createForceResetButton(mine.getName(), manager));
 
 				ctx.setItem(18, new Items.BackItem(() -> MineListMenu.open(player, manager)));
@@ -289,6 +294,10 @@ public class MineEditMenu {
 			public boolean onClick(ClickContext ctx) {
 				Mine mine = manager.get(mineName);
 				if (mine == null) return true;
+				if (!ctx.shiftClick() && !manager.supportsDepletion(mine)) {
+					ctx.player().sendMessage("Depletion reset is unavailable for this mine's reset and diggable-block configuration.");
+					return true;
+				}
 				if (ctx.shiftClick()) {
 					manager.setDepletionThreshold(mineName, -1);
 				} else {
@@ -314,7 +323,7 @@ public class MineEditMenu {
 				ItemMeta meta = item.getItemMeta();
 				if (meta == null) return item;
 
-				meta.displayName(ChatUtils.formatItem("<gold><bold>Edit Palette"));
+				meta.displayName(ChatUtils.formatItem("<gold><bold>Edit Reset Palette"));
 				meta.lore(List.of(ChatUtils.formatItem("<green>Click to edit")));
 				item.setItemMeta(meta);
 				return item;
@@ -326,6 +335,30 @@ public class MineEditMenu {
 				if (mine != null) {
 					ctx.actions().transition(() -> PaletteEditMenu.open(ctx.player(), mine, manager));
 				}
+				return true;
+			}
+		};
+	}
+
+	private static MenuItem createDiggableBlocksButton(String mineName, MineManager manager) {
+		return new MenuItem() {
+			@Override
+			public ItemStack render(Player viewer) {
+				Mine mine = manager.get(mineName);
+				ItemStack item = new ItemStack(Material.IRON_PICKAXE);
+				ItemMeta meta = item.getItemMeta();
+				meta.displayName(ChatUtils.formatItem("<aqua><bold>Edit Diggable Blocks"));
+				String mode = mine != null && mine.getBreakProfile() instanceof com.voluble.titanMC.mines.breaking.MineBreakProfile.AllowList
+					? "Allow list" : "Unrestricted";
+				meta.lore(List.of(ChatUtils.formatItem("<gray>Mode: <white>" + mode), ChatUtils.formatItem("<green>Click to edit")));
+				item.setItemMeta(meta);
+				return item;
+			}
+
+			@Override
+			public boolean onClick(ClickContext ctx) {
+				Mine mine = manager.get(mineName);
+				if (mine != null) ctx.actions().transition(() -> DiggableBlocksMenu.open(ctx.player(), mine, manager));
 				return true;
 			}
 		};

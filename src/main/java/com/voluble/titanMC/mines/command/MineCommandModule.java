@@ -216,8 +216,12 @@ public final class MineCommandModule implements CommandModule {
 			player.sendMessage("Unknown mine.");
 			return CommandTree.ok();
 		}
-		manager().setDepletionThreshold(name, percent);
-		player.sendMessage("Depletion auto-reset for '" + name + "' set to " + percent + "%. (-1 disables)");
+		try {
+			manager().setDepletionThreshold(name, percent);
+			player.sendMessage("Depletion auto-reset for '" + name + "' set to " + percent + "%. (-1 disables)");
+		} catch (IllegalStateException failure) {
+			player.sendMessage(failure.getMessage());
+		}
 		return CommandTree.ok();
 	}
 
