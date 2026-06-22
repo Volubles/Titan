@@ -1,6 +1,5 @@
 package com.voluble.titanMC.mines.breaking;
 
-import com.voluble.titanMC.util.ChatUtils;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -19,6 +18,5 @@ public final class MineBlockAccessListener implements Listener {
 	public void onBlockBreak(BlockBreakEvent event) {
 		if (access.evaluate(event.getPlayer(), event.getBlock()) != MineBreakDecision.MATERIAL_DENIED) return;
 		event.setCancelled(true);
-		ChatUtils.sendActionBar(event.getPlayer(), "<red>You cannot break that block in this mine.");
 	}
 }
