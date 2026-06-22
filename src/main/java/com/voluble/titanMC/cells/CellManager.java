@@ -37,36 +37,48 @@ public final class CellManager implements AutoCloseable {
 	}
 
 	public void load() throws SQLException {
-		cells.clear();
 		Map<String, CellDefinition> loadedCells = storage.loadCells();
 		for (CellDefinition cell : loadedCells.values()) validateWard(cell.wardId());
-		cells.putAll(loadedCells);
 		List<String> missingBaselines = storage.cellsWithoutBaselines();
 		if (!missingBaselines.isEmpty()) {
 			throw new SQLException("Cells are missing baselines: " + String.join(", ", missingBaselines));
 		}
+		Map<String, CellLease> loadedLeases = storage.loadLeases();
+		Map<String, java.util.Set<UUID>> loadedMembers = storage.loadMembers(loadedLeases);
+		Map<String, CellResetJob> loadedResetJobs = storage.loadResetJobs();
+		List<com.voluble.titanMC.cells.model.CellSign> loadedSigns = storage.loadSigns();
+		List<TrackedCellBlock> loadedBlocks = storage.loadBlocks();
+
+		Map<String, RegionAccessSet> projectedAccess = new LinkedHashMap<>();
+		for (CellDefinition cell : loadedCells.values()) {
+			CellLease lease = loadedLeases.get(cell.id());
+			RegionAccessSet access = lease == null || loadedResetJobs.containsKey(cell.id())
+				? RegionAccessSet.empty()
+				: RegionAccessSet.of(
+					java.util.Set.of(lease.ownerId()),
+					loadedMembers.getOrDefault(cell.id(), java.util.Set.of())
+				);
+			projectedAccess.put(cell.id(), access);
+		}
+		regions.reconcile(loadedCells.values(), projectedAccess);
+
+		cells.clear();
+		cells.putAll(loadedCells);
 		leases.clear();
-		leases.putAll(storage.loadLeases());
+		leases.putAll(loadedLeases);
 		members.clear();
-		members.putAll(storage.loadMembers(leases));
+		members.putAll(loadedMembers);
 		resetJobs.clear();
-		resetJobs.putAll(storage.loadResetJobs());
+		resetJobs.putAll(loadedResetJobs);
 		tracked.clear();
+		for (TrackedCellBlock block : loadedBlocks) tracked.put(BlockKey.of(block), block);
 		signs.clear();
-		for (var sign : storage.loadSigns())
-			signs.put(new BlockKey(sign.worldId(), sign.x(), sign.y(), sign.z()), sign);
+		for (var sign : loadedSigns) signs.put(new BlockKey(sign.worldId(), sign.x(), sign.y(), sign.z()), sign);
 		index.clear();
 		byCuboid.clear();
 		for (CellDefinition cell : cells.values()) {
 			index.add(cell.cuboid());
 			byCuboid.put(cell.cuboid(), cell);
-			regions.reconcile(cell);
-		}
-		for (TrackedCellBlock block : storage.loadBlocks()) tracked.put(BlockKey.of(block), block);
-		for (CellLease lease : leases.values()) {
-			CellDefinition cell = cells.get(lease.cellId());
-			if (cell != null)
-				regions.setAccess(cell, resetJobs.containsKey(cell.id()) ? RegionAccessSet.empty() : RegionAccessSet.of(java.util.Set.of(lease.ownerId()), members.getOrDefault(cell.id(), java.util.Set.of())));
 		}
 	}
 
@@ -169,7 +181,7 @@ public final class CellManager implements AutoCloseable {
 		for (CellDefinition other : cells.values())
 			if (other.cuboid().intersects(cell.cuboid()))
 				throw new IllegalArgumentException("Cell overlaps: " + other.id());
-		regions.reconcile(cell);
+		regions.create(cell);
 		validateBaselineDimensions(cell, baseline);
 		storage.createCell(cell, baseline).join();
 		cells.put(cell.id(), cell);
