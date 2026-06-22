@@ -1,6 +1,7 @@
 package com.voluble.titanMC.mines.storage;
 
 import com.voluble.titanMC.mines.Mine;
+import com.voluble.titanMC.mines.MineResetDefinition;
 import com.voluble.titanMC.util.RegionUtils;
 import org.bukkit.Location;
 
@@ -25,6 +26,8 @@ record MineSnapshot(
 	int brokenBlocks,
 	long nextResetEpochMs,
 	SafeSpawnSnapshot safeSpawn,
+	String resetType,
+	String templateId,
 	Map<String, Integer> palette
 ) {
 	static MineSnapshot from(Mine mine) {
@@ -41,6 +44,7 @@ record MineSnapshot(
 				safeSpawn.getPitch()
 			);
 		}
+		MineResetDefinition reset = mine.getResetDefinition();
 		return new MineSnapshot(
 			mine.getName(),
 			cuboid.worldId,
@@ -57,6 +61,8 @@ record MineSnapshot(
 			mine.getBrokenBlocks(),
 			mine.getNextResetEpochMs(),
 			safeSpawnSnapshot,
+			reset instanceof MineResetDefinition.Template ? "TEMPLATE" : "PALETTE",
+			reset instanceof MineResetDefinition.Template template ? template.templateId() : null,
 			Collections.unmodifiableMap(new LinkedHashMap<>(mine.getPalette().toConfigMap()))
 		);
 	}

@@ -1,6 +1,7 @@
 package com.voluble.titanMC.mines.storage;
 
 import com.voluble.titanMC.mines.Mine;
+import com.voluble.titanMC.mines.MineResetDefinition;
 import com.voluble.titanMC.mines.WeightedPalette;
 import com.voluble.titanMC.util.RegionUtils;
 import com.voluble.titanMC.util.ComponentFiles;
@@ -84,6 +85,12 @@ public final class MineStorage implements AutoCloseable {
 			}
 
 			Mine mine = new Mine(name, cuboid, interval, enabled, batch, palette);
+			String resetType = s.getString("reset.type", "PALETTE");
+			if ("TEMPLATE".equalsIgnoreCase(resetType)) {
+				mine.setResetDefinition(new MineResetDefinition.Template(s.getString("reset.template_id")));
+			} else if (!"PALETTE".equalsIgnoreCase(resetType)) {
+				throw new IllegalStateException("Unknown reset type for mine " + name + ": " + resetType);
+			}
 			mine.setAutoResetBelowPercent(autoBelow);
 			mine.setBrokenBlocks(s.getInt("broken_blocks", 0));
 			long nextReset = s.getLong("next_reset_epoch_ms", mine.getNextResetEpochMs());
@@ -218,6 +225,8 @@ public final class MineStorage implements AutoCloseable {
 		s.set("auto_reset_below_percent", mine.autoResetBelowPercent());
 		s.set("broken_blocks", mine.brokenBlocks());
 		s.set("next_reset_epoch_ms", mine.nextResetEpochMs());
+		s.set("reset.type", mine.resetType());
+		s.set("reset.template_id", mine.templateId());
 		MineSnapshot.SafeSpawnSnapshot safeSpawn = mine.safeSpawn();
 		if (safeSpawn != null) {
 			ConfigurationSection safeSec = s.createSection("safe_spawn");

@@ -1,6 +1,7 @@
 package com.voluble.titanMC.mines.storage;
 
 import com.voluble.titanMC.mines.Mine;
+import com.voluble.titanMC.mines.MineResetDefinition;
 import com.voluble.titanMC.mines.WeightedPalette;
 import com.voluble.titanMC.util.RegionUtils;
 import org.bukkit.Material;
@@ -45,6 +46,7 @@ class MineStorageTest {
 			100,
 			palette
 		);
+		mine.setResetDefinition(new MineResetDefinition.Template("woodfarm_v1"));
 
 		try (MineStorage storage = new MineStorage(plugin)) {
 			storage.saveMine(mine);
@@ -55,6 +57,10 @@ class MineStorageTest {
 			try (MineStorage reader = new MineStorage(plugin)) {
 				Map<String, Mine> loaded = reader.loadAll();
 				assertEquals(120, loaded.get("alpha").getResetIntervalSeconds());
+				assertEquals(
+					"woodfarm_v1",
+					((MineResetDefinition.Template) loaded.get("alpha").getResetDefinition()).templateId()
+				);
 			}
 
 			storage.deleteMine("alpha");

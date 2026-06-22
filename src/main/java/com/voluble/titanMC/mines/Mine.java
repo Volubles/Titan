@@ -13,6 +13,7 @@ public final class Mine {
 	private boolean enabled;
 	private int batchSizePerTick;
 	private WeightedPalette palette;
+	private MineResetDefinition resetDefinition = new MineResetDefinition.Palette();
 	private long nextResetEpochMs;
 	// Safe spawn location to teleport players to during reset. Null means no teleport
 	private Location safeSpawn;
@@ -48,6 +49,10 @@ public final class Mine {
 	public void setBatchSizePerTick(int batchSizePerTick) { this.batchSizePerTick = Math.max(1, batchSizePerTick); }
 	public WeightedPalette getPalette() { return palette; }
 	public void setPalette(WeightedPalette palette) { this.palette = Objects.requireNonNullElseGet(palette, WeightedPalette::new); }
+	public MineResetDefinition getResetDefinition() { return resetDefinition; }
+	public void setResetDefinition(MineResetDefinition definition) {
+		this.resetDefinition = Objects.requireNonNull(definition, "definition");
+	}
 	public long getNextResetEpochMs() { return nextResetEpochMs; }
 	public void setNextResetEpochMs(long epochMs) { this.nextResetEpochMs = epochMs; }
 	public void scheduleNextAfterInterval() { this.nextResetEpochMs = System.currentTimeMillis() + (long) resetIntervalSeconds * 1000L; }
