@@ -33,6 +33,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 
 public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
@@ -44,8 +47,11 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 	private final RankCatalog ranks;
 	private final PlayerRankService playerRanks;
 	private final WardRankRequirements purchaseRequirements;
+	private final AuctionDeliveryService deliveries;
 	private final Map<String, AuctionPosition> positions = new LinkedHashMap<>();
 	private final Map<Long, AuctionLot> auctions = new LinkedHashMap<>();
+	private final Set<Long> purchasesInFlight = new HashSet<>();
+	private boolean ingestionRunning;
 	private BukkitTask task;
 
 	public AuctionService(
@@ -65,6 +71,7 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 		this.ranks = ranks;
 		this.playerRanks = playerRanks;
 		this.purchaseRequirements = new WardRankRequirements(ranks, configuration.current().minimumRanksByWard());
+		this.deliveries = new AuctionDeliveryService(plugin, storage);
 	}
 
 	public void start() throws SQLException {
@@ -75,7 +82,7 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 			if (auctions.values().stream().noneMatch(lot -> position.id().equals(lot.positionId()))) removeBlocks(position);
 		}
 		for (AuctionLot lot : auctions.values()) {
-			if (lot.positionId() != null) render(lot, true);
+			if (lot.positionId() != null) render(lot);
 		}
 		task = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
 	}
@@ -165,6 +172,88 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 		};
 	}
 
+	public void open(Player player, AuctionLot original) {
+		deliveries.recover(player);
+		AuctionLot lot = auctions.get(original.id());
+		if (lot == null || !canOpen(player, lot)) {
+			player.sendMessage("This auction is not available to you.");
+			return;
+		}
+		AuctionInventoryHolder holder = new AuctionInventoryHolder(lot.id());
+		Inventory inventory = Bukkit.createInventory(holder, 27, Component.text("Auction Chest"));
+		holder.inventory(inventory);
+		for (AuctionItem item : lot.items()) {
+			holder.bind(item.slot(), item.id());
+			inventory.setItem(item.slot(), ItemStack.deserializeBytes(item.data()));
+		}
+		player.openInventory(inventory);
+	}
+
+	public void claim(Player player, AuctionInventoryHolder holder, int slot) {
+		AuctionLot lot = auctions.get(holder.auctionId());
+		Long itemId = holder.itemId(slot);
+		if (lot == null || itemId == null || !canOpen(player, lot)) return;
+		AuctionItem item = lot.items().stream().filter(candidate -> candidate.id() == itemId).findFirst().orElse(null);
+		if (item == null) {
+			holder.remove(slot);
+			holder.getInventory().setItem(slot, null);
+			return;
+		}
+		holder.remove(slot);
+		holder.getInventory().setItem(slot, null);
+		storage.reserveItem(lot.id(), item.id(), player.getUniqueId()).whenComplete((delivery, failure) ->
+			Bukkit.getScheduler().runTask(plugin, () -> finishClaim(player, holder, slot, item, delivery, failure))
+		);
+	}
+
+	private void finishClaim(
+		Player player,
+		AuctionInventoryHolder holder,
+		int slot,
+		AuctionItem item,
+		AuctionDelivery delivery,
+		Throwable failure
+	) {
+		AuctionLot lot = auctions.get(holder.auctionId());
+		if (failure != null) {
+			if (lot != null && lot.items().stream().anyMatch(candidate -> candidate.id() == item.id())) {
+				holder.bind(slot, item.id());
+				holder.getInventory().setItem(slot, ItemStack.deserializeBytes(item.data()));
+			}
+			player.sendMessage("That auction item is no longer available.");
+			return;
+		}
+		if (lot == null) {
+			deliveries.deliver(player, delivery);
+			return;
+		}
+		List<AuctionItem> remaining = lot.items().stream().filter(candidate -> candidate.id() != item.id()).toList();
+		AuctionLot updated = copyWithItems(lot, remaining);
+		auctions.put(updated.id(), updated);
+		deliveries.deliver(player, delivery);
+		if (remaining.isEmpty()) removeEmptyAuction(updated);
+	}
+
+	private void removeEmptyAuction(AuctionLot lot) {
+		storage.deleteAuctionAsync(lot.id()).whenComplete((ignored, failure) -> Bukkit.getScheduler().runTask(plugin, () -> {
+			if (failure != null) {
+				plugin.getLogger().log(java.util.logging.Level.SEVERE, "Could not remove empty auction " + lot.id(), failure);
+				return;
+			}
+			auctions.remove(lot.id());
+			AuctionPosition position = positions.get(lot.positionId());
+			if (position != null) removeBlocks(position);
+		}));
+	}
+
+	public void recoverDeliveries(Player player) {
+		deliveries.recover(player);
+	}
+
+	public boolean hasDeliveryReceipt(ItemStack item) {
+		return deliveries.hasReceipt(item);
+	}
+
 	public boolean discardAt(Block block) {
 		AuctionLot lot = atChest(block);
 		if (lot == null) lot = atSign(block);
@@ -179,11 +268,12 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 
 	public void purchase(Player player, AuctionLot original) {
 		AuctionLot lot = auctions.get(original.id());
-		if (lot == null || lot.state() != AuctionState.FOR_SALE) {
+		if (lot == null || lot.state() != AuctionState.FOR_SALE || !purchasesInFlight.add(lot.id())) {
 			player.sendMessage("This auction is no longer for sale.");
 			return;
 		}
 		if (lot.saleExpiresAt() <= System.currentTimeMillis()) {
+			purchasesInFlight.remove(lot.id());
 			try {
 				delete(lot);
 			} catch (SQLException exception) {
@@ -194,10 +284,12 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 		}
 		var currentRank = playerRanks.current(player.getUniqueId());
 		if (currentRank.isEmpty()) {
+			purchasesInFlight.remove(lot.id());
 			player.sendMessage("Your prison rank is not available yet.");
 			return;
 		}
 		if (!purchaseRequirements.allows(currentRank.get().rankId(), lot.wardId())) {
+			purchasesInFlight.remove(lot.id());
 			player.sendMessage(
 				"You need rank " + purchaseRequirements.requiredRank(lot.wardId()).value().toUpperCase(java.util.Locale.ROOT)
 					+ " to buy an auction in ward " + lot.wardId().value().toUpperCase(java.util.Locale.ROOT) + "."
@@ -205,57 +297,43 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 			return;
 		}
 		if (economy == null) {
+			purchasesInFlight.remove(lot.id());
 			player.sendMessage("The economy is unavailable.");
 			return;
 		}
 		if (!economy.has(player, lot.price())) {
+			purchasesInFlight.remove(lot.id());
 			player.sendMessage("You do not have enough money.");
 			return;
 		}
 		var withdrawal = economy.withdrawPlayer(player, lot.price());
 		if (!withdrawal.transactionSuccess()) {
+			purchasesInFlight.remove(lot.id());
 			player.sendMessage("The payment failed.");
 			return;
 		}
 		long claimExpiry = System.currentTimeMillis() + configuration.current().claimDurationMillis();
 		AuctionLot claimed = lot.claimed(player.getUniqueId(), player.getName(), claimExpiry);
-		try {
-			storage.saveAuction(claimed);
+		storage.saveAuctionAsync(claimed).whenComplete((ignored, failure) -> Bukkit.getScheduler().runTask(plugin, () -> {
+			purchasesInFlight.remove(lot.id());
+			if (failure != null) {
+				var refund = economy.depositPlayer(player, lot.price());
+				if (refund.transactionSuccess()) player.sendMessage("The purchase failed; your payment was refunded.");
+				else {
+					plugin.getLogger().log(java.util.logging.Level.SEVERE, "Auction purchase refund failed for " + player.getUniqueId(), failure);
+					player.sendMessage("The purchase and automatic refund failed. Contact an administrator.");
+				}
+				return;
+			}
 			auctions.put(claimed.id(), claimed);
 			updateSign(claimed);
 			player.sendMessage("You bought the mystery chest. You have " + shortTime(configuration.current().claimDurationMillis()) + " of exclusive access.");
-		} catch (SQLException exception) {
-			economy.depositPlayer(player, lot.price());
-			player.sendMessage("The purchase failed; your payment was refunded.");
-		}
-	}
-
-	public void synchronizeInventory(AuctionLot original) {
-		AuctionLot lot = auctions.get(original.id());
-		if (lot == null || lot.positionId() == null) return;
-		AuctionPosition position = positions.get(lot.positionId());
-		World world = world(position);
-		if (world == null || !(world.getBlockAt(position.x(), position.y(), position.z()).getState() instanceof Chest chest)) return;
-		List<byte[]> items = new ArrayList<>();
-		for (ItemStack item : chest.getBlockInventory().getContents()) {
-			if (item != null && !item.getType().isAir()) items.add(item.serializeAsBytes());
-		}
-		try {
-			if (items.isEmpty()) {
-				delete(lot);
-			} else {
-				storage.replaceItems(lot.id(), items);
-				AuctionLot updated = copyWithItems(lot, items);
-				auctions.put(updated.id(), updated);
-			}
-		} catch (SQLException exception) {
-			plugin.getLogger().severe("Could not persist auction inventory: " + exception.getMessage());
-		}
+		}));
 	}
 
 	private void tick() {
 		try {
-			ingestReadyLots();
+			startIngestion();
 			long now = System.currentTimeMillis();
 			for (AuctionLot lot : List.copyOf(auctions.values())) {
 				if (lot.items().isEmpty()) {
@@ -277,17 +355,28 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 		}
 	}
 
-	private void ingestReadyLots() throws SQLException {
-		boolean changed = false;
-		for (var source : cellStorage.loadReadyRecoveryLots().join()) {
-			storage.ingest(source, this::randomPrice);
-			cellStorage.markRecoveryLotAuctioned(source.id()).join();
-			changed = true;
-		}
-		if (changed) {
-			auctions.clear();
-			auctions.putAll(index(storage.loadAuctions()));
-		}
+	private void startIngestion() {
+		if (ingestionRunning) return;
+		ingestionRunning = true;
+		cellStorage.loadReadyRecoveryLots().thenCompose(sources -> {
+			if (sources.isEmpty()) return CompletableFuture.completedFuture(null);
+			CompletableFuture<Void> chain = CompletableFuture.completedFuture(null);
+			for (var source : sources) {
+				chain = chain.thenCompose(ignored -> storage.ingestAsync(source, this::randomPrice))
+					.thenCompose(ignored -> cellStorage.markRecoveryLotAuctioned(source.id()));
+			}
+			return chain.thenCompose(ignored -> storage.loadAuctionsAsync());
+		}).whenComplete((loaded, failure) -> Bukkit.getScheduler().runTask(plugin, () -> {
+			ingestionRunning = false;
+			if (failure != null) {
+				plugin.getLogger().log(java.util.logging.Level.SEVERE, "Auction ingestion failed", failure);
+				return;
+			}
+			if (loaded != null) {
+				auctions.clear();
+				auctions.putAll(index(loaded));
+			}
+		}));
 	}
 
 	private void assignQueued() throws SQLException {
@@ -299,7 +388,7 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 			AuctionLot assigned = lot.atPosition(position.id(), System.currentTimeMillis() + configuration.current().saleDurationMillis());
 			storage.saveAuction(assigned);
 			auctions.put(assigned.id(), assigned);
-			render(assigned, true);
+			render(assigned);
 		}
 	}
 
@@ -321,7 +410,7 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 		}
 	}
 
-	private void render(AuctionLot lot, boolean populate) {
+	private void render(AuctionLot lot) {
 		AuctionPosition position = positions.get(lot.positionId());
 		World world = world(position);
 		if (world == null) return;
@@ -335,10 +424,9 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 			}
 			chestBlock.setBlockData(directional, false);
 		}
-		if (populate && chestBlock.getState() instanceof Chest chest) {
+		if (chestBlock.getState() instanceof Chest chest) {
 			Inventory inventory = chest.getBlockInventory();
 			inventory.clear();
-			for (byte[] data : lot.items()) inventory.addItem(ItemStack.deserializeBytes(data));
 		}
 		Block signBlock = chestBlock.getRelative(position.facing());
 		signBlock.setType(config.signMaterial(), false);
@@ -355,7 +443,7 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 		if (world == null) return;
 		Block signBlock = world.getBlockAt(position.x(), position.y(), position.z()).getRelative(position.facing());
 		if (!(signBlock.getState() instanceof Sign sign)) {
-			render(lot, false);
+			render(lot);
 			return;
 		}
 		AuctionConfiguration config = configuration.current();
@@ -403,7 +491,7 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 		return indexed;
 	}
 
-	private static AuctionLot copyWithItems(AuctionLot lot, List<byte[]> items) {
+	private static AuctionLot copyWithItems(AuctionLot lot, List<AuctionItem> items) {
 		return new AuctionLot(lot.id(), lot.sourceLotId(), lot.batchIndex(), lot.wardId(), lot.positionId(), lot.price(), lot.state(), lot.buyerId(), lot.buyerName(), lot.saleExpiresAt(), lot.claimExpiresAt(), items);
 	}
 

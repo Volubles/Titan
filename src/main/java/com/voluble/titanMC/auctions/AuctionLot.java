@@ -18,7 +18,7 @@ public record AuctionLot(
 	String buyerName,
 	long saleExpiresAt,
 	long claimExpiresAt,
-	List<byte[]> items
+	List<AuctionItem> items
 ) {
 	public AuctionLot {
 		Objects.requireNonNull(wardId, "wardId");

@@ -72,7 +72,7 @@ class AuctionAssignmentPlannerTest {
 	private static AuctionLot queued(long id, WardId wardId) {
 		return new AuctionLot(
 			id, id, 0, wardId, null, 500, AuctionState.QUEUED,
-			null, null, 0, 0, List.of(new byte[]{1})
+			null, null, 0, 0, List.of(new AuctionItem(id, 0, new byte[]{1}))
 		);
 	}
 }

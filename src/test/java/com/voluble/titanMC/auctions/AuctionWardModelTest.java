@@ -15,7 +15,7 @@ class AuctionWardModelTest {
 	void stateTransitionsPreserveWard() {
 		AuctionLot queued = new AuctionLot(
 			1, 2, 0, WardId.of("d"), null, 500, AuctionState.QUEUED,
-			null, null, 0, 0, List.of(new byte[]{1})
+			null, null, 0, 0, List.of(new AuctionItem(1, 0, new byte[]{1}))
 		);
 
 		AuctionLot forSale = queued.atPosition("d-001", 1000);

@@ -14,6 +14,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AuctionStorageTest {
@@ -68,29 +69,63 @@ class AuctionStorageTest {
 	}
 
 	@Test
-	void stateAndRemainingItemsAreDurable() throws Exception {
+	void itemReservationAndDeliveryAreDurable() throws Exception {
 		Path database = directory.resolve("state.db");
 		AuctionPosition position = new AuctionPosition("slot", WardId.of("e"), UUID.randomUUID(), 3, 70, 4, BlockFace.NORTH);
+		UUID buyer = UUID.randomUUID();
+		long deliveryId;
 		try (AuctionStorage storage = new AuctionStorage(database)) {
 			storage.savePosition(position);
 			storage.ingest(new CellRecoveryLot(7, UUID.randomUUID(), WardId.of("e"), List.of(new byte[]{1}, new byte[]{2})), () -> 500);
 			AuctionLot queued = storage.loadAuctions().getFirst();
-			AuctionLot forSale = queued.atPosition(position.id(), 12345);
-			storage.saveAuction(forSale);
-			storage.replaceItems(forSale.id(), List.of(new byte[]{2}));
+			AuctionLot claimed = queued.atPosition(position.id(), 12345).claimed(buyer, "Buyer", 54321);
+			storage.saveAuction(claimed);
+			deliveryId = storage.reserveItem(claimed.id(), claimed.items().getFirst().id(), buyer).join().id();
 		}
 
 		try (AuctionStorage storage = new AuctionStorage(database)) {
 			AuctionLot loaded = storage.loadAuctions().getFirst();
-			assertEquals(AuctionState.FOR_SALE, loaded.state());
+			assertEquals(AuctionState.CLAIMED, loaded.state());
 			assertEquals("slot", loaded.positionId());
 			assertEquals(12345, loaded.saleExpiresAt());
 			assertEquals(1, loaded.items().size());
+			AuctionDelivery pending = storage.loadDeliveries(buyer).join().getFirst();
+			assertEquals(AuctionDelivery.State.PENDING, pending.state());
+			assertEquals(deliveryId, pending.id());
+			storage.completeDelivery(deliveryId, buyer).join();
+		}
+
+		try (AuctionStorage storage = new AuctionStorage(database)) {
+			assertEquals(AuctionDelivery.State.DELIVERED, storage.loadDeliveries(buyer).join().getFirst().state());
 		}
 	}
 
 	@Test
-	void legacyAuctionsMigrateToEWard() throws Exception {
+	void unauthorizedReservationLeavesTheItemAvailable() throws Exception {
+		Path database = directory.resolve("unauthorized-reservation.db");
+		UUID buyer = UUID.randomUUID();
+		UUID visitor = UUID.randomUUID();
+
+		try (AuctionStorage storage = new AuctionStorage(database)) {
+			storage.ingest(
+				new CellRecoveryLot(13, UUID.randomUUID(), WardId.of("e"), List.of(new byte[]{9})),
+				() -> 500
+			);
+			AuctionLot queued = storage.loadAuctions().getFirst();
+			AuctionLot claimed = queued.claimed(buyer, "Buyer", 2000);
+			storage.saveAuction(claimed);
+
+			assertThrows(
+				java.util.concurrent.CompletionException.class,
+				() -> storage.reserveItem(claimed.id(), claimed.items().getFirst().id(), visitor).join()
+			);
+			assertEquals(1, storage.loadAuctions().getFirst().items().size());
+			assertTrue(storage.loadDeliveries(visitor).join().isEmpty());
+		}
+	}
+
+	@Test
+	void oldDevelopmentSchemaIsRejectedExplicitly() throws Exception {
 		Path database = directory.resolve("legacy.db");
 		UUID world = UUID.randomUUID();
 		Class.forName("org.sqlite.JDBC");
@@ -115,11 +150,13 @@ class AuctionStorageTest {
 				)
 				""");
 			statement.executeUpdate("INSERT INTO auctions(source_lot_id,batch_index,position_id,price,state) VALUES(7,0,'legacy',500,'FOR_SALE')");
+			statement.execute("PRAGMA user_version=1");
 		}
 
-		try (AuctionStorage storage = new AuctionStorage(database)) {
-			assertEquals(WardId.of("e"), storage.loadPositions().get("legacy").wardId());
-			assertEquals(WardId.of("e"), storage.loadAuctions().getFirst().wardId());
-		}
+		var failure = org.junit.jupiter.api.Assertions.assertThrows(
+			java.sql.SQLException.class,
+			() -> new AuctionStorage(database)
+		);
+		assertTrue(failure.getMessage().contains("recreate"));
 	}
 }
