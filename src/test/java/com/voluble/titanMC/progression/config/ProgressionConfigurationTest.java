@@ -132,6 +132,69 @@ class ProgressionConfigurationTest {
 	}
 
 	@Test
+	void notificationsDefaultWhenMissing() {
+		YamlConfiguration yaml = yaml("""
+			level-curve: { type: polynomial, base: 100.0, exponent: 1.5 }
+			max-level: 100
+			sources:
+			  mining:
+			    display-name: Mining
+			    blocks:
+			      stone: 1
+			""");
+
+		ProgressionConfiguration config = ProgressionConfiguration.load(yaml);
+		NotificationConfig notifications = config.notifications();
+		assertEquals(5, notifications.broadcastEvery());
+		assertTrue(notifications.broadcastsEnabled());
+		assertTrue(notifications.playerSound().isPresent());
+	}
+
+	@Test
+	void notificationsRespectOverridesAndDisabling() {
+		YamlConfiguration yaml = yaml("""
+			level-curve: { type: polynomial, base: 100.0, exponent: 1.5 }
+			max-level: 100
+			notifications:
+			  player-message: "<aqua>level {level}</aqua>"
+			  broadcast-message: "<red>{player} hit {level}</red>"
+			  broadcast-every: 0
+			  sound: "entity.experience_orb.pickup"
+			  broadcast-sound: ""
+			  sound-overrides:
+			    10: "block.beacon.activate"
+			sources:
+			  mining:
+			    display-name: Mining
+			    blocks:
+			      stone: 1
+			""");
+
+		ProgressionConfiguration config = ProgressionConfiguration.load(yaml);
+		NotificationConfig notifications = config.notifications();
+		assertTrue(!notifications.broadcastsEnabled());
+		assertTrue(notifications.broadcastSound().isEmpty());
+		assertEquals("block.beacon.activate", notifications.soundForLevel(10).orElseThrow());
+		assertEquals("entity.experience_orb.pickup", notifications.soundForLevel(11).orElseThrow());
+	}
+
+	@Test
+	void rejectsBadSoundOverrideKey() {
+		assertThrows(IllegalArgumentException.class, () -> ProgressionConfiguration.load(yaml("""
+			level-curve: { type: polynomial, base: 100.0, exponent: 1.5 }
+			max-level: 100
+			notifications:
+			  sound-overrides:
+			    abc: "block.beacon.activate"
+			sources:
+			  mining:
+			    display-name: Mining
+			    blocks:
+			      stone: 1
+			""")));
+	}
+
+	@Test
 	void bundledConfigurationLoads() throws Exception {
 		try (var source = getClass().getClassLoader().getResourceAsStream("progression/progression.yml")) {
 			assertNotNull(source);
@@ -145,6 +208,8 @@ class ProgressionConfigurationTest {
 			assertTrue(config.sources().containsKey(CredSource.of("woodcutting")));
 			assertTrue(config.sources().get(CredSource.of("mining"))
 				.blockValues().get(Material.DIAMOND_ORE).value() > 0);
+			assertEquals(5, config.notifications().broadcastEvery());
+			assertTrue(config.notifications().soundForLevel(100).isPresent());
 		}
 	}
 

@@ -11,12 +11,19 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
-public record ProgressionConfiguration(LevelCurve curve, int maxLevel, Map<CredSource, ProgressionSourceConfig> sources) {
+public record ProgressionConfiguration(
+		LevelCurve curve,
+		int maxLevel,
+		Map<CredSource, ProgressionSourceConfig> sources,
+		NotificationConfig notifications
+) {
 	public ProgressionConfiguration {
 		Objects.requireNonNull(curve, "curve");
 		if (maxLevel < 1) throw new IllegalArgumentException("max-level must be >= 1");
 		sources = Map.copyOf(Objects.requireNonNull(sources, "sources"));
+		Objects.requireNonNull(notifications, "notifications");
 	}
 
 	public static ProgressionConfiguration load(ConfigurationSection yaml) {
@@ -40,7 +47,59 @@ public record ProgressionConfiguration(LevelCurve curve, int maxLevel, Map<CredS
 		}
 		if (sources.isEmpty()) throw new IllegalArgumentException("sources must contain at least one entry");
 
-		return new ProgressionConfiguration(curve, maxLevel, sources);
+		NotificationConfig notifications = readNotifications(yaml.getConfigurationSection("notifications"));
+		return new ProgressionConfiguration(curve, maxLevel, sources, notifications);
+	}
+
+	private static NotificationConfig readNotifications(ConfigurationSection section) {
+		NotificationConfig defaults = NotificationConfig.defaults();
+		if (section == null) return defaults;
+
+		String playerMessage = section.getString("player-message", defaults.playerMessage());
+		String broadcastMessage = section.getString("broadcast-message", defaults.broadcastMessage());
+		int broadcastEvery = section.getInt("broadcast-every", defaults.broadcastEvery());
+		if (broadcastEvery < 0) {
+			throw new IllegalArgumentException("notifications.broadcast-every must be >= 0 (was " + broadcastEvery + ")");
+		}
+		Optional<String> playerSound = readOptionalString(section, "sound", defaults.playerSound());
+		Optional<String> broadcastSound = readOptionalString(section, "broadcast-sound", defaults.broadcastSound());
+
+		Map<Integer, String> overrides = new LinkedHashMap<>();
+		ConfigurationSection overridesSection = section.getConfigurationSection("sound-overrides");
+		if (overridesSection != null) {
+			for (String key : overridesSection.getKeys(false)) {
+				int level;
+				try {
+					level = Integer.parseInt(key);
+				} catch (NumberFormatException nfe) {
+					throw new IllegalArgumentException(
+						"notifications.sound-overrides." + key + " must be a level number"
+					);
+				}
+				if (level < 1) {
+					throw new IllegalArgumentException(
+						"notifications.sound-overrides." + key + " must be a positive level"
+					);
+				}
+				String sound = overridesSection.getString(key);
+				if (sound == null || sound.isBlank()) {
+					throw new IllegalArgumentException(
+						"notifications.sound-overrides." + key + " must be a non-blank sound id"
+					);
+				}
+				overrides.put(level, sound);
+			}
+		}
+
+		return new NotificationConfig(playerMessage, broadcastMessage, broadcastEvery,
+			playerSound, broadcastSound, overrides);
+	}
+
+	private static Optional<String> readOptionalString(ConfigurationSection section, String key, Optional<String> fallback) {
+		if (!section.isSet(key)) return fallback;
+		String value = section.getString(key);
+		if (value == null || value.isBlank()) return Optional.empty();
+		return Optional.of(value);
 	}
 
 	private static LevelCurve readCurve(ConfigurationSection section) {
