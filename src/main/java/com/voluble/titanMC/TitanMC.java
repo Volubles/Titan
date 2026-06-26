@@ -25,6 +25,7 @@ import com.voluble.titanMC.managers.ConfigManager;
 import com.voluble.titanMC.donatortools.DonatorToolsService;
 import com.voluble.titanMC.donatortools.command.DonatorToolsCommandModule;
 import com.voluble.titanMC.donatortools.config.DonatorToolsConfigurationManager;
+import com.voluble.titanMC.donatortools.item.DonatorToolRegistry;
 import com.voluble.titanMC.display.message.DisplayBroadcastService;
 import com.voluble.titanMC.display.notice.MessageConfigurationManager;
 import com.voluble.titanMC.display.notice.MessageDefaults;
@@ -108,6 +109,7 @@ public final class TitanMC extends JavaPlugin {
 	private static TitanMC instance;
 	private ConfigManager configManager;
 	private DonatorToolsConfigurationManager donatorToolsConfiguration;
+	private DonatorToolRegistry donatorToolRegistry;
 	private DonatorToolsService donatorTools;
 	private EconomyManager economyManager;
 	private MineManager mineManager;
@@ -156,6 +158,7 @@ public final class TitanMC extends JavaPlugin {
 		// Initialize menu service
 		menuService = MenuService.create(this);
 		displayBroadcastService = DisplayBroadcastService.create(getServer());
+		donatorToolRegistry = new DonatorToolRegistry(this);
 
 		// Initialize general config
 		configManager = new ConfigManager(this);
@@ -216,6 +219,7 @@ public final class TitanMC extends JavaPlugin {
 		donatorTools = new DonatorToolsService(
 			this,
 			donatorToolsConfiguration,
+			donatorToolRegistry,
 			mineManager,
 			mineScheduler,
 			protectionService,
@@ -372,7 +376,7 @@ public final class TitanMC extends JavaPlugin {
 			getServer(), milestoneConfiguration, progressionEngine, economyManager.getEconomy(), displayBroadcastService
 		);
 		getServer().getPluginManager().registerEvents(
-			new MiningMilestoneListener(milestoneService, completionHandler), this
+			new MiningMilestoneListener(milestoneService, completionHandler, donatorToolRegistry), this
 		);
 		getLogger().info("Milestones ready");
 		return true;

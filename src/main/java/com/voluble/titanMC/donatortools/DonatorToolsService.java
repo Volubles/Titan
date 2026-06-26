@@ -24,6 +24,7 @@ public final class DonatorToolsService {
 	public DonatorToolsService(
 		Plugin plugin,
 		DonatorToolsConfigurationManager configuration,
+		DonatorToolRegistry registry,
 		MineManager mines,
 		MineScheduler mineScheduler,
 		ProtectionService protection,
@@ -31,7 +32,7 @@ public final class DonatorToolsService {
 	) {
 		Objects.requireNonNull(plugin, "plugin");
 		this.configuration = Objects.requireNonNull(configuration, "configuration");
-		this.registry = new DonatorToolRegistry(plugin);
+		this.registry = Objects.requireNonNull(registry, "registry");
 		plugin.getServer().getPluginManager().registerEvents(
 			new SingleBlockToolListener(
 				registry,
