@@ -16,11 +16,22 @@ public final class PlayerRankChangedEvent extends Event {
 	private final UUID playerId;
 	private final PlayerRank previous;
 	private final PlayerRank current;
+	private final PlayerRankChangeCause cause;
 
 	public PlayerRankChangedEvent(UUID playerId, @Nullable PlayerRank previous, PlayerRank current) {
+		this(playerId, previous, current, PlayerRankChangeCause.ADMIN);
+	}
+
+	public PlayerRankChangedEvent(
+		UUID playerId,
+		@Nullable PlayerRank previous,
+		PlayerRank current,
+		PlayerRankChangeCause cause
+	) {
 		this.playerId = Objects.requireNonNull(playerId, "playerId");
 		this.previous = previous;
 		this.current = Objects.requireNonNull(current, "current");
+		this.cause = Objects.requireNonNull(cause, "cause");
 		if (!current.playerId().equals(playerId)) {
 			throw new IllegalArgumentException("current rank player id does not match event player id");
 		}
@@ -39,6 +50,10 @@ public final class PlayerRankChangedEvent extends Event {
 
 	public PlayerRank current() {
 		return current;
+	}
+
+	public PlayerRankChangeCause cause() {
+		return cause;
 	}
 
 	@Override

@@ -1,6 +1,7 @@
 package com.voluble.titanMC.ranks.service;
 
 import com.voluble.titanMC.ranks.event.PlayerRankChangedEvent;
+import com.voluble.titanMC.ranks.event.PlayerRankChangeCause;
 import com.voluble.titanMC.ranks.model.PlayerRank;
 import com.voluble.titanMC.ranks.model.PrisonRank;
 import com.voluble.titanMC.ranks.model.RankId;
@@ -78,16 +79,21 @@ public final class PlayerRankService {
 		PlayerRank existing = cache.get(playerId);
 		if (existing != null) return existing;
 		PlayerRank starter = new PlayerRank(playerId, starterRank().id(), clock.getAsLong());
-		return persistAndPublish(null, starter);
+		return persistAndPublish(null, starter, PlayerRankChangeCause.STARTING_ASSIGNMENT);
 	}
 
 	public PlayerRank apply(PlayerRank updated) {
-		Objects.requireNonNull(updated, "updated");
-		PlayerRank previous = cache.get(updated.playerId());
-		return persistAndPublish(previous, updated);
+		return apply(updated, PlayerRankChangeCause.ADMIN);
 	}
 
-	private PlayerRank persistAndPublish(PlayerRank previous, PlayerRank next) {
+	public PlayerRank apply(PlayerRank updated, PlayerRankChangeCause cause) {
+		Objects.requireNonNull(updated, "updated");
+		Objects.requireNonNull(cause, "cause");
+		PlayerRank previous = cache.get(updated.playerId());
+		return persistAndPublish(previous, updated, cause);
+	}
+
+	private PlayerRank persistAndPublish(PlayerRank previous, PlayerRank next, PlayerRankChangeCause cause) {
 		if (catalog.findRank(next.rankId()).isEmpty()) {
 			throw new IllegalArgumentException("Unknown rank: " + next.rankId().value());
 		}
@@ -97,7 +103,7 @@ public final class PlayerRankService {
 		storage.save(next).join();
 		cache.put(next.playerId(), next);
 		try {
-			publisher.accept(new PlayerRankChangedEvent(next.playerId(), previous, next));
+			publisher.accept(new PlayerRankChangedEvent(next.playerId(), previous, next, cause));
 		} catch (RuntimeException failure) {
 			logger.log(
 				Level.SEVERE,

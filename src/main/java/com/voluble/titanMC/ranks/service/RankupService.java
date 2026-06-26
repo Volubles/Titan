@@ -1,5 +1,6 @@
 package com.voluble.titanMC.ranks.service;
 
+import com.voluble.titanMC.ranks.event.PlayerRankChangeCause;
 import com.voluble.titanMC.ranks.model.PlayerRank;
 import com.voluble.titanMC.ranks.model.PrisonRank;
 import com.voluble.titanMC.ranks.model.RankId;
@@ -65,7 +66,10 @@ public final class RankupService {
 		}
 
 		try {
-			PlayerRank applied = players.apply(current.withRank(next.id(), clock.getAsLong()));
+			PlayerRank applied = players.apply(
+				current.withRank(next.id(), clock.getAsLong()),
+				PlayerRankChangeCause.RANKUP
+			);
 			return new RankupResult.Success(current, applied, requirement.cost());
 		} catch (RuntimeException failure) {
 			boolean refunded = refund(playerId, requirement.cost());

@@ -78,6 +78,7 @@ import com.voluble.titanMC.progression.service.CredSourceRegistry;
 import com.voluble.titanMC.progression.service.MineBlockCredPolicy;
 import com.voluble.titanMC.progression.service.ProgressionEngine;
 import com.voluble.titanMC.ranks.bukkit.PlayerRankListener;
+import com.voluble.titanMC.ranks.bukkit.RankNotificationService;
 import com.voluble.titanMC.ranks.command.RankCommandModule;
 import com.voluble.titanMC.ranks.config.RankConfigurationManager;
 import com.voluble.titanMC.ranks.persistence.PlayerRankStorage;
@@ -365,6 +366,10 @@ public final class TitanMC extends JavaPlugin {
 		}
 		rankupService = new RankupService(rankConfiguration.catalog(), rankService, rankEconomy, getLogger());
 		getServer().getPluginManager().registerEvents(new PlayerRankListener(rankService), this);
+		getServer().getPluginManager().registerEvents(
+			new RankNotificationService(getServer(), displayBroadcastService, rankConfiguration::current),
+			this
+		);
 		getLogger().info("Player ranks ready (" + (rankEconomy.available() ? "Vault economy" : "no economy") + ")");
 		return true;
 	}

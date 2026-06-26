@@ -150,9 +150,8 @@ public final class RankCommandModule implements CommandModule {
 	private int rankup(Player player) {
 		RankupResult result = rankups.rankup(player.getUniqueId());
 		switch (result) {
-			case RankupResult.Success success -> messages.send(player, MessageDefaults.RANKUP_SUCCESS, args -> args
-				.plain("rank", catalog.requireRank(success.current().rankId()).displayName())
-				.plain("cost", success.charged()));
+			case RankupResult.Success ignored -> {
+			}
 			case RankupResult.AtMaxRank ignored -> messages.send(player, MessageDefaults.RANKUP_MAX);
 			case RankupResult.MissingRequirement missing -> messages.send(player, MessageDefaults.RANKUP_MISSING_REQUIREMENT, args -> args
 				.plain("required", catalog.requireRank(missing.required()).displayName())

@@ -13,10 +13,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
-public record RankConfiguration(RankCatalog catalog) {
+public record RankConfiguration(RankCatalog catalog, RankNotificationConfig notifications) {
 	public RankConfiguration {
 		Objects.requireNonNull(catalog, "catalog");
+		Objects.requireNonNull(notifications, "notifications");
 	}
 
 	public static RankConfiguration load(ConfigurationSection yaml) {
@@ -38,7 +40,45 @@ public record RankConfiguration(RankCatalog catalog) {
 			firstRankSeen = true;
 			wards.add(new WardDefinition(wardId, displayName, wardRanks));
 		}
-		return new RankConfiguration(new RankCatalog(wards, ranks));
+		return new RankConfiguration(new RankCatalog(wards, ranks), loadNotifications(yaml.getConfigurationSection("notifications")));
+	}
+
+	private static RankNotificationConfig loadNotifications(ConfigurationSection section) {
+		RankNotificationConfig defaults = RankNotificationConfig.defaults();
+		if (section == null) return defaults;
+		return new RankNotificationConfig(
+			loadEvent(section.getConfigurationSection("rankup"), defaults.rankup()),
+			loadEvent(section.getConfigurationSection("ward-entry"), defaults.wardEntry())
+		);
+	}
+
+	private static RankNotificationEvent loadEvent(ConfigurationSection section, RankNotificationEvent defaults) {
+		if (section == null) return defaults;
+		boolean enabled = section.getBoolean("enabled", defaults.enabled());
+		RankNotificationMessage playerMessage = loadMessage(
+			section.getConfigurationSection("player-message"), defaults.playerMessage()
+		);
+		RankNotificationMessage broadcastMessage = loadMessage(
+			section.getConfigurationSection("broadcast-message"), defaults.broadcastMessage()
+		);
+		Optional<String> sound = optionalString(section, "sound", defaults.sound());
+		Optional<String> broadcastSound = optionalString(section, "broadcast-sound", defaults.broadcastSound());
+		return new RankNotificationEvent(enabled, playerMessage, broadcastMessage, sound, broadcastSound);
+	}
+
+	private static RankNotificationMessage loadMessage(ConfigurationSection section, RankNotificationMessage defaults) {
+		if (section == null) return defaults;
+		boolean enabled = section.getBoolean("enabled", defaults.enabled());
+		boolean centered = section.getBoolean("centered", defaults.centered());
+		List<String> lines = section.isList("lines") ? section.getStringList("lines") : defaults.lines();
+		return new RankNotificationMessage(enabled, centered, lines);
+	}
+
+	private static Optional<String> optionalString(ConfigurationSection section, String key, Optional<String> fallback) {
+		if (!section.isSet(key)) return fallback;
+		String value = section.getString(key);
+		if (value == null || value.isBlank()) return Optional.empty();
+		return Optional.of(value);
 	}
 
 	private static List<RankId> loadRanks(

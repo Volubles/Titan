@@ -1,3 +1,45 @@
+notifications:
+  rankup:
+    enabled: true
+    player-message:
+      enabled: true
+      centered: true
+      lines:
+        - ""
+        - "<gold><bold>RANK UP</bold></gold>"
+        - "<gray>You advanced to <yellow>{rank}</yellow><gray>."
+        - ""
+    broadcast-message:
+      enabled: true
+      centered: true
+      lines:
+        - ""
+        - "<gold>{player}</gold> <gray>ranked up to <yellow>{rank}</yellow><gray>."
+        - ""
+    sound: "entity.player.levelup"
+    broadcast-sound: "entity.experience_orb.pickup"
+
+  ward-entry:
+    enabled: true
+    player-message:
+      enabled: true
+      centered: true
+      lines:
+        - ""
+        - "<gradient:#f7d774:#f09c2e><bold>NEW WARD UNLOCKED</bold></gradient>"
+        - "<gray>You entered <yellow>{ward}</yellow><gray>."
+        - ""
+    broadcast-message:
+      enabled: true
+      centered: true
+      lines:
+        - ""
+        - "<gradient:#f7d774:#f09c2e><bold>NEW WARD UNLOCKED</bold></gradient>"
+        - "<gold>{player}</gold> <gray>entered <yellow>{ward}</yellow><gray>."
+        - ""
+    sound: "ui.toast.challenge_complete"
+    broadcast-sound: "ui.toast.challenge_complete"
+
 wards:
   - id: E
     display-name: E Ward
