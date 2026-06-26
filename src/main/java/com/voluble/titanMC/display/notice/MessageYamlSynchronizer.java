@@ -36,8 +36,8 @@ final class MessageYamlSynchronizer {
 		}
 		for (MessageDefinition definition : defaults) {
 			String path = "messages." + definition.key().value();
-			if (!yaml.isSet(path)) {
-				yaml.set(path, definition.defaultText());
+			if (!yaml.isList(path)) {
+				yaml.set(path, definition.defaultLines());
 				changed = true;
 			}
 		}

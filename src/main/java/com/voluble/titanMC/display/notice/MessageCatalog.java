@@ -5,18 +5,19 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 public final class MessageCatalog {
 	private final Map<MessageType, String> templates;
-	private final Map<MessageKey, String> messages;
+	private final Map<MessageKey, List<String>> messages;
 	private final Map<String, String> glyphs;
 
-	private MessageCatalog(Map<MessageType, String> templates, Map<MessageKey, String> messages, Map<String, String> glyphs) {
+	private MessageCatalog(Map<MessageType, String> templates, Map<MessageKey, List<String>> messages, Map<String, String> glyphs) {
 		this.templates = copyTemplates(templates);
-		this.messages = Map.copyOf(messages);
+		this.messages = copyMessages(messages);
 		this.glyphs = Map.copyOf(glyphs);
 	}
 
@@ -27,12 +28,12 @@ public final class MessageCatalog {
 			String template = yaml.getString("templates." + type.configKey());
 			if (template != null && !template.isBlank()) templates.put(type, template);
 		}
-		Map<MessageKey, String> messages = new LinkedHashMap<>();
+		Map<MessageKey, List<String>> messages = new LinkedHashMap<>();
 		ConfigurationSection section = yaml.getConfigurationSection("messages");
 		if (section != null) {
 			for (String key : section.getKeys(true)) {
-				if (!section.isString(key)) continue;
-				messages.put(MessageKey.of(key), Objects.toString(section.getString(key), ""));
+				if (!section.isList(key)) continue;
+				messages.put(MessageKey.of(key), section.getStringList(key));
 			}
 		}
 		Map<String, String> glyphs = new LinkedHashMap<>();
@@ -47,9 +48,9 @@ public final class MessageCatalog {
 
 	public Optional<MessageEntry> find(MessageDefinition definition) {
 		Objects.requireNonNull(definition, "definition");
-		String text = messages.get(definition.key());
-		if (text == null) return Optional.empty();
-		return Optional.of(new MessageEntry(definition.type(), definition.key(), text));
+		List<String> lines = messages.get(definition.key());
+		if (lines == null) return Optional.empty();
+		return Optional.of(new MessageEntry(definition.type(), definition.key(), lines));
 	}
 
 	public String template(MessageType type) {
@@ -63,6 +64,14 @@ public final class MessageCatalog {
 	private static Map<MessageType, String> copyTemplates(Map<MessageType, String> source) {
 		Map<MessageType, String> copy = new EnumMap<>(MessageType.class);
 		copy.putAll(source);
+		return Map.copyOf(copy);
+	}
+
+	private static Map<MessageKey, List<String>> copyMessages(Map<MessageKey, List<String>> source) {
+		Map<MessageKey, List<String>> copy = new LinkedHashMap<>();
+		for (var entry : source.entrySet()) {
+			copy.put(entry.getKey(), List.copyOf(entry.getValue()));
+		}
 		return Map.copyOf(copy);
 	}
 }

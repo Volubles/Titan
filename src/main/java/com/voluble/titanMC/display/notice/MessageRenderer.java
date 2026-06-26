@@ -4,7 +4,6 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -28,9 +27,9 @@ public final class MessageRenderer {
 		Objects.requireNonNull(definition, "definition");
 		Objects.requireNonNull(arguments, "arguments");
 		MessageEntry entry = catalog.find(definition).orElseGet(() ->
-			new MessageEntry(definition.type(), definition.key(), definition.defaultText())
+			new MessageEntry(definition.type(), definition.key(), definition.defaultLines())
 		);
-		return Arrays.stream(splitLines(entry.text()))
+		return entry.lines().stream()
 			.map(line -> style(catalog, entry.type(), renderLine(line, arguments), arguments))
 			.toList();
 	}
@@ -59,10 +58,6 @@ public final class MessageRenderer {
 			Placeholder.component("message", content),
 			arguments.resolver(catalog)
 		);
-	}
-
-	private static String[] splitLines(String input) {
-		return input.split("\\R", -1);
 	}
 
 	private static String normalizePlaceholders(String input) {

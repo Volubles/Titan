@@ -9,8 +9,10 @@ public final class MessageDefaults {
 	public static final MessageDefinition DONATOR_TOOLS_HELP_TITLE = MessageDefinition.of(
 		"donator-tools.help.title", MessageType.INFO, "Donator Tools"
 	);
-	public static final MessageDefinition DONATOR_TOOLS_HELP_USAGE = MessageDefinition.of(
-		"donator-tools.help.usage", MessageType.INFO, "/dtools <tool> [player]\n/dtools reload"
+	public static final MessageDefinition DONATOR_TOOLS_HELP_USAGE = MessageDefinition.ofLines(
+		"donator-tools.help.usage", MessageType.INFO,
+		"/dtools <tool> [player]",
+		"/dtools reload"
 	);
 	public static final MessageDefinition DONATOR_TOOLS_HELP_TOOL = MessageDefinition.of(
 		"donator-tools.help.tool", MessageType.INFO, "{{tool}} - {{description}}"

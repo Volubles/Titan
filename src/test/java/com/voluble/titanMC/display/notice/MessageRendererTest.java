@@ -17,7 +17,7 @@ class MessageRendererTest {
 	void rendersPlainMessageWithArguments() {
 		YamlConfiguration yaml = new YamlConfiguration();
 		yaml.set("templates.success", "<green>[OK] {{message}}</green>");
-		yaml.set("messages.cells.created", "Created {{cell}}.");
+		yaml.set("messages.cells.created", List.of("Created {{cell}}."));
 		MessageCatalog catalog = MessageCatalog.load(yaml);
 		MessageRenderer renderer = new MessageRenderer(MiniMessage.miniMessage());
 
@@ -53,7 +53,7 @@ class MessageRendererTest {
 
 		MessageCatalog catalog = MessageCatalog.load(yaml);
 
-		assertEquals("Reloaded.", catalog.find(definition).orElseThrow().text());
+		assertEquals(List.of("Reloaded."), catalog.find(definition).orElseThrow().lines());
 	}
 
 	@Test
@@ -69,9 +69,9 @@ class MessageRendererTest {
 	}
 
 	@Test
-	void multilineMessagesRenderOneComponentPerLineIncludingEmptyLines() {
+	void listMessagesRenderOneComponentPerEntryIncludingEmptyStrings() {
 		YamlConfiguration yaml = new YamlConfiguration();
-		yaml.set("messages.help", "Line one\n\nLine three");
+		yaml.set("messages.help", List.of("Line one", "", "Line three"));
 		MessageCatalog catalog = MessageCatalog.load(yaml);
 		MessageRenderer renderer = new MessageRenderer(MiniMessage.miniMessage());
 
@@ -91,7 +91,7 @@ class MessageRendererTest {
 	void glyphTemplateInsertsConfiguredGlyph() {
 		YamlConfiguration yaml = new YamlConfiguration();
 		yaml.set("glyphs.prefix_successchat", "[+]");
-		yaml.set("messages.done", "Done.");
+		yaml.set("messages.done", List.of("Done."));
 		MessageCatalog catalog = MessageCatalog.load(yaml);
 		MessageRenderer renderer = new MessageRenderer(MiniMessage.miniMessage());
 

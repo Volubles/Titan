@@ -15,21 +15,32 @@ glyphs:
 
 messages:
   command:
-    player-only: "Only players can use this command."
+    player-only:
+      - "Only players can use this command."
   donator-tools:
     help:
-      title: "Donator Tools"
-      usage: |-
-        /dtools <tool> [player]
-        /dtools reload
-      tool: "{{tool}} - {{description}}"
+      title:
+        - "Donator Tools"
+      usage:
+        - "/dtools <tool> [player]"
+        - "/dtools reload"
+      tool:
+        - "{{tool}} - {{description}}"
     reload:
-      denied: "You may not reload donator tools."
-      success: "Donator tools reloaded."
-      failed: "Donator tools reload failed: {{reason}}"
+      denied:
+        - "You may not reload donator tools."
+      success:
+        - "Donator tools reloaded."
+      failed:
+        - "Donator tools reload failed: {{reason}}"
     give:
-      denied: "You may not give donator tools."
-    unknown: "Unknown tool. Available: {{tools}}"
-    inventory-full: "Your inventory was full, so the {{tool}} was dropped."
-    received: "You received a {{tool}}."
-    gave: "Gave {{tool}} to {{player}}."
+      denied:
+        - "You may not give donator tools."
+    unknown:
+      - "Unknown tool. Available: {{tools}}"
+    inventory-full:
+      - "Your inventory was full, so the {{tool}} was dropped."
+    received:
+      - "You received a {{tool}}."
+    gave:
+      - "Gave {{tool}} to {{player}}."
