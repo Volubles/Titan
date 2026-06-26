@@ -16,15 +16,22 @@ notifications:
       enabled: true
       centered: true
       lines:
-        - "<green>Milestone completed: <yellow>{milestone}</yellow>"
-        - "<gray>{rewards}"
+        - ""
+        - "<gradient:#42d829:#30bbf1><bold>MILESTONE COMPLETE</bold></gradient>"
+        - "<gray>You completed <yellow>{milestone}</yellow><gray>."
+        - "<dark_gray>{track} <gray>| Reward: <#42d829>{rewards}"
+        - ""
     sound: "entity.player.levelup"
     broadcast:
       enabled: true
       centered: true
       minimum-target: 100000
       lines:
+        - ""
+        - "<gradient:#42d829:#30bbf1><bold>MILESTONE COMPLETE</bold></gradient>"
         - "<gold>{player}</gold> <gray>completed <yellow>{milestone}</yellow><gray>."
+        - "<dark_gray>{track} <gray>| Reward: <#42d829>{rewards}"
+        - ""
       sound: "ui.toast.challenge_complete"
 
 categories:
