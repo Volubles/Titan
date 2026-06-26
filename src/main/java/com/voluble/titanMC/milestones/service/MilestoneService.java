@@ -69,6 +69,21 @@ public final class MilestoneService implements AutoCloseable {
 		return completions.contains(CompletionKey.of(playerId, tierId));
 	}
 
+	public synchronized List<MilestoneProgress> progress(UUID playerId) {
+		Objects.requireNonNull(playerId, "playerId");
+		return progress.values().stream()
+			.filter(entry -> entry.key().playerId().equals(playerId))
+			.toList();
+	}
+
+	public synchronized void reset(UUID playerId) {
+		Objects.requireNonNull(playerId, "playerId");
+		progress.keySet().removeIf(key -> key.playerId().equals(playerId));
+		completions.removeIf(key -> key.playerId().equals(playerId));
+		storage.deletePlayer(playerId, failure ->
+			logger.log(Level.SEVERE, "Failed to delete milestone progress for " + playerId, failure));
+	}
+
 	public synchronized MilestoneUpdate addProgress(UUID playerId, MilestoneMetric metric, String subject, long amount) {
 		Objects.requireNonNull(playerId, "playerId");
 		Objects.requireNonNull(metric, "metric");

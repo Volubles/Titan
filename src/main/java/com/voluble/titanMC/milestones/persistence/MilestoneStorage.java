@@ -143,6 +143,18 @@ public final class MilestoneStorage implements AutoCloseable {
 		}
 	}
 
+	public void deletePlayer(UUID playerId, Consumer<RuntimeException> failureHandler) {
+		Objects.requireNonNull(playerId, "playerId");
+		Objects.requireNonNull(failureHandler, "failureHandler");
+		writer.execute(() -> {
+			try {
+				deletePlayerSync(playerId);
+			} catch (SQLException exception) {
+				failureHandler.accept(new IllegalStateException("Milestones database delete failed", exception));
+			}
+		});
+	}
+
 	private void drain(Consumer<RuntimeException> failureHandler) {
 		while (true) {
 			List<MilestoneProgress> progressBatch;
@@ -223,6 +235,27 @@ public final class MilestoneStorage implements AutoCloseable {
 				statement.addBatch();
 			}
 			statement.executeBatch();
+		}
+	}
+
+	private synchronized void deletePlayerSync(UUID playerId) throws SQLException {
+		boolean autoCommit = connection.getAutoCommit();
+		connection.setAutoCommit(false);
+		try {
+			try (PreparedStatement statement = connection.prepareStatement("DELETE FROM milestone_progress WHERE player_uuid = ?")) {
+				statement.setString(1, playerId.toString());
+				statement.executeUpdate();
+			}
+			try (PreparedStatement statement = connection.prepareStatement("DELETE FROM milestone_completions WHERE player_uuid = ?")) {
+				statement.setString(1, playerId.toString());
+				statement.executeUpdate();
+			}
+			connection.commit();
+		} catch (SQLException exception) {
+			connection.rollback();
+			throw exception;
+		} finally {
+			connection.setAutoCommit(autoCommit);
 		}
 	}
 

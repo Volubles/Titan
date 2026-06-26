@@ -34,7 +34,7 @@ commands:
   milestones:
     aliases: [milestone]
     description: View milestone progress
-    usage: /milestones
+    usage: /milestones [admin <reload|progress|reset>]
     permission: titanmc.milestones.use
 permissions:
   donatortools.give:
@@ -80,6 +80,9 @@ permissions:
   titanmc.milestones.use:
     description: Allows viewing milestone progress
     default: true
+  titanmc.milestones.admin:
+    description: Allows reloading and managing milestone progress
+    default: op
   titanmc.protection.bypass:
     description: Bypasses Titan region protection
     default: op

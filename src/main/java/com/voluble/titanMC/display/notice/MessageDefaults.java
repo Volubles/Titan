@@ -334,6 +334,21 @@ public final class MessageDefaults {
 	public static final MessageDefinition MILESTONE_COMPLETED = message(
 		"milestones.completed", MessageType.SUCCESS, "Milestone completed: {{milestone}}"
 	);
+	public static final MessageDefinition MILESTONES_RELOADED = message(
+		"milestones.reloaded", MessageType.SUCCESS, "Milestones reloaded."
+	);
+	public static final MessageDefinition MILESTONES_PROGRESS_EMPTY = message(
+		"milestones.progress.empty", MessageType.INFO, "{{player}} has no milestone progress."
+	);
+	public static final MessageDefinition MILESTONES_PROGRESS_HEADER = message(
+		"milestones.progress.header", MessageType.INFO, "Milestone progress for {{player}}:"
+	);
+	public static final MessageDefinition MILESTONES_PROGRESS_ROW = message(
+		"milestones.progress.row", MessageType.INFO, "{{track}}: {{amount}}"
+	);
+	public static final MessageDefinition MILESTONES_RESET = message(
+		"milestones.reset", MessageType.SUCCESS, "Reset milestone progress for {{player}}."
+	);
 
 	public static final MessageDefinition MINES_LIST = message(
 		"mines.list", MessageType.INFO, "Mines: {{mines}}"

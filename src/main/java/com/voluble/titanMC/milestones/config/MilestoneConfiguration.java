@@ -2,6 +2,7 @@ package com.voluble.titanMC.milestones.config;
 
 import com.voluble.titanMC.milestones.model.MilestoneCategory;
 import com.voluble.titanMC.milestones.model.MilestoneMetric;
+import com.voluble.titanMC.milestones.model.MilestoneRewards;
 import com.voluble.titanMC.milestones.model.MilestoneTier;
 import com.voluble.titanMC.milestones.model.MilestoneTrack;
 import org.bukkit.Material;
@@ -14,16 +15,19 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 public record MilestoneConfiguration(
 	MilestoneMenuConfig overviewMenu,
 	MilestoneMenuConfig categoryMenu,
+	MilestoneNotificationConfig notifications,
 	MilestoneCatalog catalog,
 	FileConfiguration yaml
 ) {
 	public MilestoneConfiguration {
 		Objects.requireNonNull(overviewMenu, "overviewMenu");
 		Objects.requireNonNull(categoryMenu, "categoryMenu");
+		Objects.requireNonNull(notifications, "notifications");
 		Objects.requireNonNull(catalog, "catalog");
 		Objects.requireNonNull(yaml, "yaml");
 	}
@@ -32,9 +36,10 @@ public record MilestoneConfiguration(
 		Objects.requireNonNull(yaml, "yaml");
 		MilestoneMenuConfig overviewMenu = menu(yaml, "overview", 5, "<gold><bold>Milestones</bold>");
 		MilestoneMenuConfig categoryMenu = menu(yaml, "category", 6, "<gold><bold>{category}</bold>");
+		MilestoneNotificationConfig notifications = notifications(yaml);
 		Map<String, MilestoneCategory> categories = categories(requireSection(yaml, "categories"));
 		Map<String, MilestoneTrack> tracks = tracks(requireSection(yaml, "tracks"), categories);
-		return new MilestoneConfiguration(overviewMenu, categoryMenu, new MilestoneCatalog(categories, tracks), yaml);
+		return new MilestoneConfiguration(overviewMenu, categoryMenu, notifications, new MilestoneCatalog(categories, tracks), yaml);
 	}
 
 	private static MilestoneMenuConfig menu(FileConfiguration yaml, String key, int rows, String title) {
@@ -92,9 +97,55 @@ public record MilestoneConfiguration(
 			if (!(targetValue instanceof Number number)) {
 				throw new IllegalArgumentException("track " + trackId + " tier " + id + " target must be a number");
 			}
-			tiers.add(new MilestoneTier(id, name, number.longValue()));
+			tiers.add(new MilestoneTier(id, name, number.longValue(), rewards(values)));
 		}
 		return tiers;
+	}
+
+	private static MilestoneRewards rewards(Map<?, ?> values) {
+		Object raw = values.get("rewards");
+		if (!(raw instanceof Map<?, ?> rewards)) return MilestoneRewards.NONE;
+		return new MilestoneRewards(asLong(rewards.get("cred")), asLong(rewards.get("money")));
+	}
+
+	private static long asLong(Object value) {
+		if (value == null) return 0L;
+		if (!(value instanceof Number number)) throw new IllegalArgumentException("milestone reward values must be numbers");
+		return number.longValue();
+	}
+
+	private static MilestoneNotificationConfig notifications(FileConfiguration yaml) {
+		ConfigurationSection completion = yaml.getConfigurationSection("notifications.completion");
+		if (completion == null) {
+			return new MilestoneNotificationConfig(new MilestoneNotificationConfig.Completion(
+				true,
+				true,
+				List.of("<green>Milestone completed: <yellow>{milestone}</yellow>"),
+				Optional.of("entity.player.levelup"),
+				new MilestoneNotificationConfig.Broadcast(false, 0L, List.of(), Optional.empty())
+			));
+		}
+		ConfigurationSection playerMessage = completion.getConfigurationSection("player-message");
+		ConfigurationSection broadcast = completion.getConfigurationSection("broadcast");
+		return new MilestoneNotificationConfig(new MilestoneNotificationConfig.Completion(
+			completion.getBoolean("enabled", true),
+			playerMessage == null || playerMessage.getBoolean("enabled", true),
+			playerMessage == null
+				? List.of("<green>Milestone completed: <yellow>{milestone}</yellow>")
+				: playerMessage.getStringList("lines"),
+			optionalString(completion, "sound"),
+			new MilestoneNotificationConfig.Broadcast(
+				broadcast != null && broadcast.getBoolean("enabled", false),
+				broadcast == null ? 0L : broadcast.getLong("minimum-target", 0L),
+				broadcast == null ? List.of() : broadcast.getStringList("lines"),
+				broadcast == null ? Optional.empty() : optionalString(broadcast, "sound")
+			)
+		));
+	}
+
+	private static Optional<String> optionalString(ConfigurationSection section, String key) {
+		String value = section.getString(key);
+		return value == null || value.isBlank() ? Optional.empty() : Optional.of(value.trim());
 	}
 
 	private static MilestoneMetric metric(ConfigurationSection section, String key) {

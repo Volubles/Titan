@@ -31,6 +31,7 @@ import com.voluble.titanMC.display.notice.MessageDefaults;
 import com.voluble.titanMC.display.notice.PluginMessageService;
 import com.voluble.titanMC.integrations.placeholderapi.TitanPlaceholderExpansion;
 import com.voluble.titanMC.managers.EconomyManager;
+import com.voluble.titanMC.milestones.bukkit.MilestoneCompletionHandler;
 import com.voluble.titanMC.milestones.command.MilestoneCommandModule;
 import com.voluble.titanMC.milestones.config.MilestoneConfigurationManager;
 import com.voluble.titanMC.milestones.persistence.MilestoneStorage;
@@ -306,7 +307,7 @@ public final class TitanMC extends JavaPlugin {
 			.addModule(new AuctionCommandModule(auctionService, rankConfiguration.catalog(), messages))
 			.addModule(new RankCommandModule(rankConfiguration.catalog(), rankService, rankupService, messages))
 			.addModule(new CredCommandModule(progressionEngine, progressionBars, messages))
-			.addModule(new MilestoneCommandModule(milestoneMenus))
+			.addModule(new MilestoneCommandModule(milestoneMenus, milestoneConfiguration, milestoneService, messages))
 			.install();
 
 		getLogger().info("TitanMC has been enabled!");
@@ -367,8 +368,11 @@ public final class TitanMC extends JavaPlugin {
 			return false;
 		}
 		milestoneMenus = new MilestoneMenuService(menuService, milestoneConfiguration, milestoneService);
+		MilestoneCompletionHandler completionHandler = new MilestoneCompletionHandler(
+			getServer(), milestoneConfiguration, progressionEngine, economyManager.getEconomy(), displayBroadcastService
+		);
 		getServer().getPluginManager().registerEvents(
-			new MiningMilestoneListener(milestoneService, milestoneConfiguration, messages), this
+			new MiningMilestoneListener(milestoneService, completionHandler), this
 		);
 		getLogger().info("Milestones ready");
 		return true;

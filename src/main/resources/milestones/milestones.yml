@@ -6,6 +6,22 @@ menus:
     rows: 6
     title: "<gradient:#30bbf1:#275ced><bold>{category}</bold></gradient>"
 
+notifications:
+  completion:
+    enabled: true
+    player-message:
+      enabled: true
+      lines:
+        - "<green>Milestone completed: <yellow>{milestone}</yellow>"
+        - "<gray>{rewards}"
+    sound: "entity.player.levelup"
+    broadcast:
+      enabled: true
+      minimum-target: 100000
+      lines:
+        - "<gold>{player}</gold> <gray>completed <yellow>{milestone}</yellow><gray>."
+      sound: "ui.toast.challenge_complete"
+
 categories:
   mining:
     name: "Mining"
@@ -38,15 +54,25 @@ tracks:
       - id: mine_blocks_1
         name: "First Swing"
         target: 1
+        rewards:
+          cred: 10
       - id: mine_blocks_100
         name: "Getting Started"
         target: 100
+        rewards:
+          cred: 100
       - id: mine_blocks_1000
         name: "Miner"
         target: 1000
+        rewards:
+          cred: 500
       - id: mine_blocks_10000
         name: "Dedicated Miner"
         target: 10000
+        rewards:
+          cred: 2500
       - id: mine_blocks_100000
         name: "Relentless Miner"
         target: 100000
+        rewards:
+          cred: 10000
