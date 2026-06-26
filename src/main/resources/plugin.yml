@@ -31,6 +31,11 @@ commands:
     description: Show or manage cred and player levels
     usage: /cred [info <player>|give <player> <amount> [source]|take <player> <amount>]
     permission: titanmc.cred.use
+  milestones:
+    aliases: [milestone]
+    description: View milestone progress
+    usage: /milestones
+    permission: titanmc.milestones.use
 permissions:
   donatortools.give:
     description: Allows giving donator tools
@@ -72,6 +77,9 @@ permissions:
   titanmc.cred.admin:
     description: Allows viewing and adjusting other players' cred
     default: op
+  titanmc.milestones.use:
+    description: Allows viewing milestone progress
+    default: true
   titanmc.protection.bypass:
     description: Bypasses Titan region protection
     default: op

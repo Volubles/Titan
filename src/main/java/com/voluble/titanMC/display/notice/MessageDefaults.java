@@ -331,6 +331,10 @@ public final class MessageDefaults {
 		"cred.changed", MessageType.SUCCESS, "{{verb}} {{player}} {{amount}} cred{{level_change}} [{{source}}]"
 	);
 
+	public static final MessageDefinition MILESTONE_COMPLETED = message(
+		"milestones.completed", MessageType.SUCCESS, "Milestone completed: {{milestone}}"
+	);
+
 	public static final MessageDefinition MINES_LIST = message(
 		"mines.list", MessageType.INFO, "Mines: {{mines}}"
 	);

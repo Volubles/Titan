@@ -31,6 +31,12 @@ import com.voluble.titanMC.display.notice.MessageDefaults;
 import com.voluble.titanMC.display.notice.PluginMessageService;
 import com.voluble.titanMC.integrations.placeholderapi.TitanPlaceholderExpansion;
 import com.voluble.titanMC.managers.EconomyManager;
+import com.voluble.titanMC.milestones.command.MilestoneCommandModule;
+import com.voluble.titanMC.milestones.config.MilestoneConfigurationManager;
+import com.voluble.titanMC.milestones.persistence.MilestoneStorage;
+import com.voluble.titanMC.milestones.service.MilestoneService;
+import com.voluble.titanMC.milestones.tracking.MiningMilestoneListener;
+import com.voluble.titanMC.milestones.ui.MilestoneMenuService;
 import com.voluble.titanMC.mines.MineManager;
 import com.voluble.titanMC.mines.protection.MineProtectionPolicy;
 import com.voluble.titanMC.mines.regions.MineRegionException;
@@ -126,6 +132,9 @@ public final class TitanMC extends JavaPlugin {
 	private ProgressionEngine progressionEngine;
 	private ProgressionBarService progressionBars;
 	private CredSourceRegistry credSources;
+	private MilestoneConfigurationManager milestoneConfiguration;
+	private MilestoneService milestoneService;
+	private MilestoneMenuService milestoneMenus;
 	private DisplayBroadcastService displayBroadcastService;
 	private MessageConfigurationManager messageConfiguration;
 	private PluginMessageService messages;
@@ -157,11 +166,13 @@ public final class TitanMC extends JavaPlugin {
 		auctionConfiguration = new AuctionConfigurationManager(this);
 		rankConfiguration = new RankConfigurationManager(this);
 		progressionConfiguration = new ProgressionConfigurationManager(this);
+		milestoneConfiguration = new MilestoneConfigurationManager(this);
 		messageConfiguration = new MessageConfigurationManager(this, MessageDefaults.all());
 		try {
 			configManager.registerComponent(messageConfiguration);
 			configManager.registerComponent(rankConfiguration);
 			configManager.registerComponent(progressionConfiguration);
+			configManager.registerComponent(milestoneConfiguration);
 			configManager.registerComponent(donatorToolsConfiguration);
 			configManager.registerComponent(cellsConfiguration);
 			configManager.registerComponent(auctionConfiguration);
@@ -179,6 +190,7 @@ public final class TitanMC extends JavaPlugin {
 		if (!economyManager.initialize()) getLogger().warning("No Vault economy provider found; cell renting is disabled");
 		if (!initializeRanks()) return;
 		if (!initializeProgression()) return;
+		if (!initializeMilestones()) return;
 		registerTitanPlaceholders();
 		managedBlockAccess = new ManagedBlockAccessRegistry(getLogger());
 		if (!initializeProtection()) return;
@@ -294,6 +306,7 @@ public final class TitanMC extends JavaPlugin {
 			.addModule(new AuctionCommandModule(auctionService, rankConfiguration.catalog(), messages))
 			.addModule(new RankCommandModule(rankConfiguration.catalog(), rankService, rankupService, messages))
 			.addModule(new CredCommandModule(progressionEngine, progressionBars, messages))
+			.addModule(new MilestoneCommandModule(milestoneMenus))
 			.install();
 
 		getLogger().info("TitanMC has been enabled!");
@@ -338,6 +351,26 @@ public final class TitanMC extends JavaPlugin {
 			"Progression engine ready (max level " + progressionEngine.maxLevel()
 				+ ", " + credSources.registered().size() + " cred source(s))"
 		);
+		return true;
+	}
+
+	private boolean initializeMilestones() {
+		try {
+			milestoneService = new MilestoneService(
+				new MilestoneStorage(ComponentFiles.resolveData(getDataFolder().toPath(), "milestones", "milestones.db")),
+				milestoneConfiguration::current,
+				getLogger()
+			);
+		} catch (java.sql.SQLException exception) {
+			getLogger().severe("Failed to open milestone storage: " + exception.getMessage());
+			getServer().getPluginManager().disablePlugin(this);
+			return false;
+		}
+		milestoneMenus = new MilestoneMenuService(menuService, milestoneConfiguration, milestoneService);
+		getServer().getPluginManager().registerEvents(
+			new MiningMilestoneListener(milestoneService, milestoneConfiguration, messages), this
+		);
+		getLogger().info("Milestones ready");
 		return true;
 	}
 
@@ -484,6 +517,10 @@ public final class TitanMC extends JavaPlugin {
 		if (progressionEngine != null) {
 			try { progressionEngine.close(); }
 			catch (Exception exception) { getLogger().severe("Failed to close Progression cleanly: " + exception.getMessage()); }
+		}
+		if (milestoneService != null) {
+			try { milestoneService.close(); }
+			catch (Exception exception) { getLogger().severe("Failed to close Milestones cleanly: " + exception.getMessage()); }
 		}
 		if (regionEngine != null) {
 			try {
