@@ -9,8 +9,10 @@ import io.voluble.michellelib.menu.template.MenuDefinition;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.entity.Player;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 final class TrackMilestoneMenu {
 	private final MenuService menus;
@@ -44,7 +46,7 @@ final class TrackMilestoneMenu {
 				for (int index = 0; index < slots.size(); index++) {
 					int tierIndex = start + index;
 					context.setItem(
-						slots.get(index),
+						tierSlot(track, tierIndex, slots.get(index), config.trackMenu().rows()),
 						new DisplayItem(items.tier(player, track, track.tiers().get(tierIndex)))
 					);
 				}
@@ -61,6 +63,23 @@ final class TrackMilestoneMenu {
 			})
 			.build()
 			.open(menus, player);
+	}
+
+	private int tierSlot(MilestoneTrack track, int tierIndex, int fallback, int rows) {
+		int slot = track.tiers().get(tierIndex).menuSlot();
+		if (slot < 0 || slot >= rows * 9 || reservedFooterSlot(slot, rows)) return fallback;
+		Set<Integer> occupied = new HashSet<>();
+		for (int index = 0; index < tierIndex; index++) {
+			int previous = track.tiers().get(index).menuSlot();
+			if (previous >= 0) occupied.add(previous);
+		}
+		return occupied.contains(slot) ? fallback : slot;
+	}
+
+	private boolean reservedFooterSlot(int slot, int rows) {
+		return slot == MilestoneMenuLayout.previousSlot(rows)
+			|| slot == MilestoneMenuLayout.centerFooterSlot(rows)
+			|| slot == MilestoneMenuLayout.nextSlot(rows);
 	}
 
 }

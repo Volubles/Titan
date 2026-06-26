@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 public final class MineResetWindowTracker implements Listener {
 	private final Duration window;
@@ -25,13 +26,25 @@ public final class MineResetWindowTracker implements Listener {
 	}
 
 	public boolean active(String mineName, long nowEpochMillis) {
-		Long completedAt = completedResets.get(normalize(mineName));
-		if (completedAt == null) return false;
+		return activeReset(mineName, nowEpochMillis).isPresent();
+	}
+
+	public Optional<ResetWindow> activeReset(String mineName, long nowEpochMillis) {
+		String normalizedMineName = normalize(mineName);
+		Long completedAt = completedResets.get(normalizedMineName);
+		if (completedAt == null) return Optional.empty();
 		long age = nowEpochMillis - completedAt;
-		return age >= 0L && age <= window.toMillis();
+		if (age < 0L || age > window.toMillis()) return Optional.empty();
+		return Optional.of(new ResetWindow(normalizedMineName, completedAt));
 	}
 
 	private static String normalize(String mineName) {
 		return Objects.requireNonNull(mineName, "mineName").trim().toLowerCase(Locale.ROOT);
+	}
+
+	public record ResetWindow(String mineName, long completedAtEpochMillis) {
+		public ResetWindow {
+			mineName = normalize(mineName);
+		}
 	}
 }

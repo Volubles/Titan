@@ -118,7 +118,8 @@ public record MilestoneConfiguration(
 					string(values, "subject", defaultSubject),
 					number.longValue()
 				),
-				rewards(values)
+				rewards(values),
+				integer(values, "slot", -1, "track " + trackId + " tier " + id)
 			));
 		}
 		return tiers;
@@ -197,6 +198,13 @@ public record MilestoneConfiguration(
 		if (value == null) return fallback;
 		if (!(value instanceof String text)) throw new IllegalArgumentException(key + " must be a string");
 		return text.trim();
+	}
+
+	private static int integer(Map<?, ?> values, String key, int fallback, String path) {
+		Object value = values.get(key);
+		if (value == null) return fallback;
+		if (!(value instanceof Number number)) throw new IllegalArgumentException(path + "." + key + " must be a number");
+		return number.intValue();
 	}
 
 	private static Material material(ConfigurationSection section, String key) {
