@@ -42,6 +42,7 @@ class MineBlockListenerTest {
 	void successfulMineBreakPublishesMinedEventAndUpdatesDepletion() {
 		World world = server.addSimpleWorld("mine");
 		Mine mine = mineAt(world, "mine_a");
+		mine.setCredMultiplier(1.75D);
 		List<String> depletionResets = new ArrayList<>();
 		List<MineBlockMinedEvent> minedEvents = new ArrayList<>();
 		server.getPluginManager().registerEvents(new MineBlockListener(plugin, location -> mine, depletionResets::add), plugin);
@@ -64,6 +65,7 @@ class MineBlockListenerTest {
 		assertEquals(player, mined.player());
 		assertEquals("mine_a", mined.mineName());
 		assertEquals(Material.STONE, mined.material());
+		assertEquals(1.75D, mined.credMultiplier());
 		assertEquals(0.0, mined.location().getX());
 		assertEquals(64.0, mined.location().getY());
 		assertEquals(0.0, mined.location().getZ());

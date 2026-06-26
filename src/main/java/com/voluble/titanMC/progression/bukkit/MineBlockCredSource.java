@@ -42,7 +42,7 @@ public final class MineBlockCredSource implements Listener {
 		if (!registry.isEnabled(sourceId)) return;
 		Player player = event.player();
 		if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) return;
-		CredAmount value = policy.rewardFor(event.material()).orElse(null);
+		CredAmount value = policy.rewardFor(event.material(), event.credMultiplier()).orElse(null);
 		if (value == null) return;
 		engine.give(player.getUniqueId(), value, sourceId);
 	}

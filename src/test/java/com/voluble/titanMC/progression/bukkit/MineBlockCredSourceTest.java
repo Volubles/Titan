@@ -109,11 +109,27 @@ class MineBlockCredSourceTest {
 		assertEquals(0L, engine.current(player.getUniqueId()).totalCred());
 	}
 
+	@Test
+	void appliesMineCredMultiplier() {
+		registry.register(MINING, "Mining", true);
+		MineBlockCredSource listener = listener(Map.of(Material.REDSTONE_ORE, CredAmount.of(6L)));
+		server.getPluginManager().registerEvents(listener, plugin);
+
+		Player player = server.addPlayer();
+		server.getPluginManager().callEvent(mined(player, Material.REDSTONE_ORE, 1.50D));
+
+		assertEquals(9L, engine.current(player.getUniqueId()).totalCred());
+	}
+
 	private MineBlockCredSource listener(Map<Material, CredAmount> values) {
 		return new MineBlockCredSource(engine, registry, MINING, new MineBlockCredPolicy(values));
 	}
 
 	private MineBlockMinedEvent mined(Player player, Material material) {
-		return new MineBlockMinedEvent(player, "test_mine", material, new Location(world, 0, 64, 0));
+		return mined(player, material, 1.0D);
+	}
+
+	private MineBlockMinedEvent mined(Player player, Material material, double multiplier) {
+		return new MineBlockMinedEvent(player, "test_mine", material, new Location(world, 0, 64, 0), multiplier);
 	}
 }

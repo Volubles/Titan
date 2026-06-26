@@ -18,6 +18,20 @@ class MineBlockCredPolicyTest {
 	}
 
 	@Test
+	void appliesMultiplierAndRoundsToWholeCred() {
+		MineBlockCredPolicy policy = new MineBlockCredPolicy(Map.of(Material.REDSTONE_ORE, CredAmount.of(6L)));
+
+		assertEquals(9L, policy.rewardFor(Material.REDSTONE_ORE, 1.5D).orElseThrow().value());
+	}
+
+	@Test
+	void zeroMultiplierDisablesReward() {
+		MineBlockCredPolicy policy = new MineBlockCredPolicy(Map.of(Material.STONE, CredAmount.of(1L)));
+
+		assertTrue(policy.rewardFor(Material.STONE, 0.0D).isEmpty());
+	}
+
+	@Test
 	void returnsEmptyForUnconfiguredMaterial() {
 		MineBlockCredPolicy policy = new MineBlockCredPolicy(Map.of(Material.STONE, CredAmount.of(1L)));
 

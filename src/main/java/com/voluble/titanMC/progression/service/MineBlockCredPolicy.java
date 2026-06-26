@@ -15,8 +15,15 @@ public final class MineBlockCredPolicy {
 	}
 
 	public Optional<CredAmount> rewardFor(Material material) {
+		return rewardFor(material, 1.0D);
+	}
+
+	public Optional<CredAmount> rewardFor(Material material, double multiplier) {
 		Objects.requireNonNull(material, "material");
+		if (!Double.isFinite(multiplier) || multiplier <= 0.0D) return Optional.empty();
 		CredAmount amount = values.get(material);
-		return amount == null || amount.isZero() ? Optional.empty() : Optional.of(amount);
+		if (amount == null || amount.isZero()) return Optional.empty();
+		long multiplied = Math.round(amount.value() * multiplier);
+		return multiplied <= 0L ? Optional.empty() : Optional.of(CredAmount.of(multiplied));
 	}
 }

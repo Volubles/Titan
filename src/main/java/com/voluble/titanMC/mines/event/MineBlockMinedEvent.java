@@ -16,13 +16,18 @@ public final class MineBlockMinedEvent extends Event {
 	private final String mineName;
 	private final Material material;
 	private final Location location;
+	private final double credMultiplier;
 
-	public MineBlockMinedEvent(Player player, String mineName, Material material, Location location) {
+	public MineBlockMinedEvent(Player player, String mineName, Material material, Location location, double credMultiplier) {
 		this.player = Objects.requireNonNull(player, "player");
 		this.mineName = Objects.requireNonNull(mineName, "mineName");
 		if (mineName.isBlank()) throw new IllegalArgumentException("mineName must not be blank");
 		this.material = Objects.requireNonNull(material, "material");
 		this.location = Objects.requireNonNull(location, "location").clone();
+		if (!Double.isFinite(credMultiplier) || credMultiplier < 0.0D) {
+			throw new IllegalArgumentException("credMultiplier must be finite and non-negative");
+		}
+		this.credMultiplier = credMultiplier;
 	}
 
 	public Player player() {
@@ -39,6 +44,10 @@ public final class MineBlockMinedEvent extends Event {
 
 	public Location location() {
 		return location.clone();
+	}
+
+	public double credMultiplier() {
+		return credMultiplier;
 	}
 
 	@Override

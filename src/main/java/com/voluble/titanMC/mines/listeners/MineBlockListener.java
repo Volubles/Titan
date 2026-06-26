@@ -38,7 +38,7 @@ public final class MineBlockListener implements Listener {
 		if (mine == null) return;
 		mine.incrementBroken(1);
 		plugin.getServer().getPluginManager().callEvent(
-			new MineBlockMinedEvent(event.getPlayer(), mine.getName(), block.getType(), loc)
+			new MineBlockMinedEvent(event.getPlayer(), mine.getName(), block.getType(), loc, mine.getCredMultiplier())
 		);
 		maybeTriggerDepletionReset(mine);
 	}

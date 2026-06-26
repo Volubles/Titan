@@ -115,6 +115,12 @@ public final class MineManager implements MineLookup {
 		storage.saveMine(mine);
 	}
 
+	public void setCredMultiplier(String name, double multiplier) {
+		Mine mine = requireMine(name);
+		mine.setCredMultiplier(multiplier);
+		storage.saveMine(mine);
+	}
+
 	public void setEnabled(String name, boolean enabled) {
 		Mine mine = requireMine(name);
 		mine.setEnabled(enabled);

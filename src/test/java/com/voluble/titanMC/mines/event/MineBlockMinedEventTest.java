@@ -31,7 +31,7 @@ class MineBlockMinedEventTest {
 		Player player = server.addPlayer();
 		Location original = new Location(world, 1, 2, 3);
 
-		MineBlockMinedEvent event = new MineBlockMinedEvent(player, "mine_a", Material.STONE, original);
+		MineBlockMinedEvent event = new MineBlockMinedEvent(player, "mine_a", Material.STONE, original, 1.25D);
 		original.setX(99);
 		Location returned = event.location();
 		returned.setY(88);
@@ -39,5 +39,6 @@ class MineBlockMinedEventTest {
 		assertEquals(1.0, event.location().getX());
 		assertEquals(2.0, event.location().getY());
 		assertEquals(3.0, event.location().getZ());
+		assertEquals(1.25D, event.credMultiplier());
 	}
 }
