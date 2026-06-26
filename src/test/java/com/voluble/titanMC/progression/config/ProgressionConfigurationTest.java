@@ -156,8 +156,11 @@ class ProgressionConfigurationTest {
 			level-curve: { type: polynomial, base: 100.0, exponent: 1.5 }
 			max-level: 100
 			notifications:
-			  player-message: "<aqua>level {level}</aqua>"
-			  broadcast-message: "<red>{player} hit {level}</red>"
+			  player-message:
+			    - "<aqua>level {level}</aqua>"
+			    - "<gray>keep going"
+			  broadcast-message:
+			    - "<red>{player} hit {level}</red>"
 			  broadcast-every: 0
 			  sound: "entity.experience_orb.pickup"
 			  broadcast-sound: ""
@@ -173,6 +176,8 @@ class ProgressionConfigurationTest {
 		ProgressionConfiguration config = ProgressionConfiguration.load(yaml);
 		NotificationConfig notifications = config.notifications();
 		assertTrue(!notifications.broadcastsEnabled());
+		assertEquals(2, notifications.playerMessages().size());
+		assertEquals("<red>{player} hit {level}</red>", notifications.broadcastMessages().getFirst());
 		assertTrue(notifications.broadcastSound().isEmpty());
 		assertEquals("block.beacon.activate", notifications.soundForLevel(10).orElseThrow());
 		assertEquals("entity.experience_orb.pickup", notifications.soundForLevel(11).orElseThrow());

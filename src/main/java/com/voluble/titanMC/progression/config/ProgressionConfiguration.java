@@ -8,6 +8,7 @@ import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -55,8 +56,8 @@ public record ProgressionConfiguration(
 		NotificationConfig defaults = NotificationConfig.defaults();
 		if (section == null) return defaults;
 
-		String playerMessage = section.getString("player-message", defaults.playerMessage());
-		String broadcastMessage = section.getString("broadcast-message", defaults.broadcastMessage());
+		List<String> playerMessages = readLines(section, "player-message", defaults.playerMessages());
+		List<String> broadcastMessages = readLines(section, "broadcast-message", defaults.broadcastMessages());
 		int broadcastEvery = section.getInt("broadcast-every", defaults.broadcastEvery());
 		if (broadcastEvery < 0) {
 			throw new IllegalArgumentException("notifications.broadcast-every must be >= 0 (was " + broadcastEvery + ")");
@@ -91,8 +92,16 @@ public record ProgressionConfiguration(
 			}
 		}
 
-		return new NotificationConfig(playerMessage, broadcastMessage, broadcastEvery,
+		return new NotificationConfig(playerMessages, broadcastMessages, broadcastEvery,
 			playerSound, broadcastSound, overrides);
+	}
+
+	private static List<String> readLines(ConfigurationSection section, String key, List<String> fallback) {
+		if (!section.isSet(key)) return fallback;
+		if (section.isList(key)) return section.getStringList(key);
+		String value = section.getString(key);
+		if (value == null) throw new IllegalArgumentException("notifications." + key + " must be a string or string list");
+		return List.of(value);
 	}
 
 	private static Optional<String> readOptionalString(ConfigurationSection section, String key, Optional<String> fallback) {

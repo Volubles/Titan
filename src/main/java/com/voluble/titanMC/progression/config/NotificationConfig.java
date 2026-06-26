@@ -1,22 +1,31 @@
 package com.voluble.titanMC.progression.config;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 public record NotificationConfig(
-		String playerMessage,
-		String broadcastMessage,
+		List<String> playerMessages,
+		List<String> broadcastMessages,
 		int broadcastEvery,
 		Optional<String> playerSound,
 		Optional<String> broadcastSound,
 		Map<Integer, String> soundOverrides
 ) {
 	public NotificationConfig {
-		Objects.requireNonNull(playerMessage, "playerMessage");
-		Objects.requireNonNull(broadcastMessage, "broadcastMessage");
+		Objects.requireNonNull(playerMessages, "playerMessages");
+		Objects.requireNonNull(broadcastMessages, "broadcastMessages");
 		Objects.requireNonNull(playerSound, "playerSound");
 		Objects.requireNonNull(broadcastSound, "broadcastSound");
+		playerMessages = List.copyOf(playerMessages);
+		broadcastMessages = List.copyOf(broadcastMessages);
+		if (playerMessages.stream().anyMatch(Objects::isNull)) {
+			throw new IllegalArgumentException("playerMessages must not contain null");
+		}
+		if (broadcastMessages.stream().anyMatch(Objects::isNull)) {
+			throw new IllegalArgumentException("broadcastMessages must not contain null");
+		}
 		soundOverrides = Map.copyOf(Objects.requireNonNull(soundOverrides, "soundOverrides"));
 		if (broadcastEvery < 0) {
 			throw new IllegalArgumentException("broadcastEvery must be >= 0 (was " + broadcastEvery + ")");
@@ -38,8 +47,8 @@ public record NotificationConfig(
 
 	public static NotificationConfig defaults() {
 		return new NotificationConfig(
-			"<green>Level up! You are now level <yellow>{level}</yellow>.",
-			"<gold>{player} reached level <yellow>{level}</yellow>!",
+			List.of("<green>Level up! You are now level <yellow>{level}</yellow>."),
+			List.of("<gold>{player} reached level <yellow>{level}</yellow>!"),
 			5,
 			Optional.of("entity.player.levelup"),
 			Optional.of("entity.experience_orb.pickup"),

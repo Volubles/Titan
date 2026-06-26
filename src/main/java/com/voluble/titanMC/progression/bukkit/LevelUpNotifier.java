@@ -39,11 +39,11 @@ public final class LevelUpNotifier implements Listener {
 		int level = event.currentLevel();
 		String name = player.getName();
 
-		broadcasts.send(player, centered(config.playerMessage(), name, level));
+		broadcasts.send(player, message(config.playerMessages(), name, level));
 		config.soundForLevel(level).ifPresent(sound -> playSound(player, sound));
 
 		if (config.shouldBroadcast(level)) {
-			broadcasts.broadcast(centered(config.broadcastMessage(), name, level));
+			broadcasts.broadcast(message(config.broadcastMessages(), name, level));
 			config.broadcastSound().ifPresent(sound -> {
 				for (Player online : server.getOnlinePlayers()) {
 					playSound(online, sound);
@@ -66,7 +66,9 @@ public final class LevelUpNotifier implements Listener {
 		return serializer.deserialize(substituted);
 	}
 
-	private DisplayMessage centered(String template, String playerName, int level) {
-		return DisplayMessage.of(DisplayLine.centered(render(template, playerName, level)));
+	private DisplayMessage message(java.util.List<String> templates, String playerName, int level) {
+		return new DisplayMessage(templates.stream()
+			.map(template -> DisplayLine.left(render(template, playerName, level)))
+			.toList());
 	}
 }

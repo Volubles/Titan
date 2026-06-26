@@ -14,13 +14,13 @@ import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LevelUpNotifierTest {
 	private ServerMock server;
@@ -32,8 +32,8 @@ class LevelUpNotifierTest {
 		server = MockBukkit.mock();
 		plugin = MockBukkit.createMockPlugin();
 		config = new NotificationConfig(
-			"<green>Level up: {level}",
-			"<gold>{player} hit {level}",
+			List.of("<green>Level up: {level}"),
+			List.of("<gold>{player} hit {level}"),
 			5,
 			Optional.empty(),       // skip sound to keep MockBukkit happy
 			Optional.empty(),
@@ -61,8 +61,7 @@ class LevelUpNotifierTest {
 		Component message = ((org.mockbukkit.mockbukkit.entity.PlayerMock) player).nextComponentMessage();
 		assertNotNull(message);
 		String plain = PlainTextComponentSerializer.plainText().serialize(message);
-		assertTrue(plain.startsWith(" "));
-		assertEquals("Level up: 3", plain.stripLeading());
+		assertEquals("Level up: 3", plain);
 	}
 
 	@Test
@@ -94,7 +93,30 @@ class LevelUpNotifierTest {
 		Component observerMessage = ((org.mockbukkit.mockbukkit.entity.PlayerMock) observer).nextComponentMessage();
 		assertNotNull(observerMessage);
 		String plain = PlainTextComponentSerializer.plainText().serialize(observerMessage);
-		assertTrue(plain.startsWith(" "));
-		assertEquals(player.getName() + " hit 5", plain.stripLeading());
+		assertEquals(player.getName() + " hit 5", plain);
+	}
+
+	@Test
+	void broadcastCanRenderMultipleLines() {
+		Player player = server.addPlayer();
+		Player observer = server.addPlayer("observer");
+		config = new NotificationConfig(
+			List.of("<green>Level up: {level}"),
+			List.of("", "<gold>{player}</gold>", "<yellow>Level {level}</yellow>"),
+			5,
+			Optional.empty(),
+			Optional.empty(),
+			Map.of()
+		);
+		PlayerProgression progression = new PlayerProgression(player.getUniqueId(), 400L, 5, 1L);
+
+		server.getPluginManager().callEvent(
+			new PlayerLeveledUpEvent(player.getUniqueId(), 4, 5, progression)
+		);
+
+		var observerMock = (org.mockbukkit.mockbukkit.entity.PlayerMock) observer;
+		assertEquals("", PlainTextComponentSerializer.plainText().serialize(observerMock.nextComponentMessage()));
+		assertEquals(player.getName(), PlainTextComponentSerializer.plainText().serialize(observerMock.nextComponentMessage()));
+		assertEquals("Level 5", PlainTextComponentSerializer.plainText().serialize(observerMock.nextComponentMessage()));
 	}
 }

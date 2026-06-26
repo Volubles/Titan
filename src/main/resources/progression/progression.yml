@@ -14,12 +14,15 @@ level-curve:
 max-level: 100
 
 # Level-up notifications. Messages use MiniMessage tags and the
-# placeholders {player} and {level}. Setting broadcast-every to 0
-# disables server-wide announcements; sound-overrides lets specific
+# placeholders {player} and {level}. Each message is a list so staff can
+# fully control spacing and multiline layout. Setting broadcast-every to
+# 0 disables server-wide announcements; sound-overrides lets specific
 # levels play a different sound than the default.
 notifications:
-  player-message: "<green>Level up! You are now level <yellow>{level}</yellow>."
-  broadcast-message: "<gold>{player} reached level <yellow>{level}</yellow>!"
+  player-message:
+    - "<green>Level up! You are now level <yellow>{level}</yellow>."
+  broadcast-message:
+    - "<gold>{player} reached level <yellow>{level}</yellow>!"
   broadcast-every: 5
   sound: "entity.player.levelup"
   broadcast-sound: "entity.experience_orb.pickup"
