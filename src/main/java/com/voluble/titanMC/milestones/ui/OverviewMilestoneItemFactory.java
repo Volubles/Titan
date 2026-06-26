@@ -57,8 +57,8 @@ final class OverviewMilestoneItemFactory {
 			if (!category.enabled()) continue;
 			activeCategories++;
 			for (MilestoneTrack track : catalog.tracks(category.id())) {
-				MilestoneProgress progress = milestones.progress(player.getUniqueId(), track.metric(), track.subject());
 				for (MilestoneTier tier : track.tiers()) {
+					MilestoneProgress progress = progress(player, tier);
 					total++;
 					if (milestones.completed(player.getUniqueId(), tier.id()) || progress.amount() >= tier.target()) {
 						completed++;
@@ -70,6 +70,10 @@ final class OverviewMilestoneItemFactory {
 			}
 		}
 		return new Summary(completed, total, activeCategories, next);
+	}
+
+	private MilestoneProgress progress(Player player, MilestoneTier tier) {
+		return milestones.progress(player.getUniqueId(), tier.metric(), tier.subject());
 	}
 
 	private record Summary(int completed, int total, int activeCategories, String next) {

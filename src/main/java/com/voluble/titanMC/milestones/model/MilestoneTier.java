@@ -2,12 +2,24 @@ package com.voluble.titanMC.milestones.model;
 
 import java.util.Objects;
 
-public record MilestoneTier(String id, String name, long target, MilestoneRewards rewards) {
+public record MilestoneTier(String id, String name, MilestoneObjective objective, MilestoneRewards rewards) {
 	public MilestoneTier {
 		id = requireId(id, "tier id");
 		name = requireText(name, "tier name");
-		if (target <= 0) throw new IllegalArgumentException("tier target must be positive");
+		Objects.requireNonNull(objective, "objective");
 		rewards = Objects.requireNonNull(rewards, "rewards");
+	}
+
+	public long target() {
+		return objective.target();
+	}
+
+	public MilestoneMetric metric() {
+		return objective.metric();
+	}
+
+	public String subject() {
+		return objective.subject();
 	}
 
 	private static String requireId(String value, String name) {

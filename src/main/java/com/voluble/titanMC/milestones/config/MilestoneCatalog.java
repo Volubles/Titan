@@ -30,8 +30,11 @@ public final class MilestoneCatalog {
 		Map<String, MilestoneTrack> byTier = new LinkedHashMap<>();
 		for (MilestoneTrack track : tracks.values()) {
 			byCategory.computeIfAbsent(track.categoryId(), ignored -> new ArrayList<>()).add(track);
-			byMetric.computeIfAbsent(MetricKey.of(track.metric(), track.subject()), ignored -> new ArrayList<>()).add(track);
 			for (MilestoneTier tier : track.tiers()) {
+				List<MilestoneTrack> metricTracks = byMetric.computeIfAbsent(
+					MetricKey.of(tier.metric(), tier.subject()), ignored -> new ArrayList<>()
+				);
+				if (!metricTracks.contains(track)) metricTracks.add(track);
 				MilestoneTrack duplicate = byTier.putIfAbsent(tier.id(), track);
 				if (duplicate != null) throw new IllegalArgumentException("duplicate milestone tier id: " + tier.id());
 			}

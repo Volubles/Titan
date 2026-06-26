@@ -2,6 +2,7 @@ package com.voluble.titanMC.milestones.config;
 
 import com.voluble.titanMC.milestones.model.MilestoneCategory;
 import com.voluble.titanMC.milestones.model.MilestoneMetric;
+import com.voluble.titanMC.milestones.model.MilestoneObjective;
 import com.voluble.titanMC.milestones.model.MilestoneRewards;
 import com.voluble.titanMC.milestones.model.MilestoneTier;
 import com.voluble.titanMC.milestones.model.MilestoneTrack;
@@ -75,21 +76,28 @@ public record MilestoneConfiguration(
 			if (!categories.containsKey(categoryId)) {
 				throw new IllegalArgumentException("track " + id + " uses unknown category " + categoryId);
 			}
+			MilestoneMetric metric = metric(entry, "metric");
+			String subject = entry.getString("subject", "");
 			MilestoneTrack track = new MilestoneTrack(
 				id,
 				categoryId,
 				requiredString(entry, "name"),
 				material(entry, "icon"),
-				metric(entry, "metric"),
-				entry.getString("subject", ""),
-				tiers(entry, id)
+				metric,
+				subject,
+				tiers(entry, id, metric, subject)
 			);
 			tracks.put(track.id(), track);
 		}
 		return tracks;
 	}
 
-	private static List<MilestoneTier> tiers(ConfigurationSection track, String trackId) {
+	private static List<MilestoneTier> tiers(
+		ConfigurationSection track,
+		String trackId,
+		MilestoneMetric defaultMetric,
+		String defaultSubject
+	) {
 		List<Map<?, ?>> configured = track.getMapList("tiers");
 		if (configured.isEmpty()) throw new IllegalArgumentException("track " + trackId + " must define tiers");
 		List<MilestoneTier> tiers = new ArrayList<>();
@@ -100,7 +108,16 @@ public record MilestoneConfiguration(
 			if (!(targetValue instanceof Number number)) {
 				throw new IllegalArgumentException("track " + trackId + " tier " + id + " target must be a number");
 			}
-			tiers.add(new MilestoneTier(id, name, number.longValue(), rewards(values)));
+			tiers.add(new MilestoneTier(
+				id,
+				name,
+				new MilestoneObjective(
+					metric(values, "metric", defaultMetric, "track " + trackId + " tier " + id),
+					string(values, "subject", defaultSubject),
+					number.longValue()
+				),
+				rewards(values)
+			));
 		}
 		return tiers;
 	}
@@ -158,6 +175,26 @@ public record MilestoneConfiguration(
 		} catch (IllegalArgumentException exception) {
 			throw new IllegalArgumentException(section.getCurrentPath() + "." + key + " has unknown metric " + value);
 		}
+	}
+
+	private static MilestoneMetric metric(Map<?, ?> values, String key, MilestoneMetric fallback, String path) {
+		Object value = values.get(key);
+		if (value == null) return fallback;
+		if (!(value instanceof String text) || text.isBlank()) {
+			throw new IllegalArgumentException(path + "." + key + " must be a metric name");
+		}
+		try {
+			return MilestoneMetric.valueOf(text.trim().toUpperCase(Locale.ROOT));
+		} catch (IllegalArgumentException exception) {
+			throw new IllegalArgumentException(path + "." + key + " has unknown metric " + text);
+		}
+	}
+
+	private static String string(Map<?, ?> values, String key, String fallback) {
+		Object value = values.get(key);
+		if (value == null) return fallback;
+		if (!(value instanceof String text)) throw new IllegalArgumentException(key + " must be a string");
+		return text.trim();
 	}
 
 	private static Material material(ConfigurationSection section, String key) {

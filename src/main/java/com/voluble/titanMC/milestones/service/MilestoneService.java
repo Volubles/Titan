@@ -106,6 +106,7 @@ public final class MilestoneService implements AutoCloseable {
 		List<MilestoneCompletion> completed = new ArrayList<>();
 		for (var track : configuration.get().catalog().tracks(current.key())) {
 			for (MilestoneTier tier : track.tiers()) {
+				if (!tier.objective().matches(current.key())) continue;
 				if (current.amount() < tier.target()) continue;
 				if (completions.contains(CompletionKey.of(playerId, tier.id()))) continue;
 				completed.add(new MilestoneCompletion(playerId, tier.id(), clock.getAsLong()));

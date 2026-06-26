@@ -79,111 +79,69 @@ tracks:
         target: 100000
         rewards:
           cred: 10000
-  mine_explorer_e:
+  mine_explorer:
     category: mining
-    name: "E Ward Mine"
-    icon: RAW_IRON
+    name: "Mine Explorer"
+    icon: COMPASS
     metric: MINE_BLOCKS_IN_MINE
-    subject: e
     tiers:
       - id: mine_explorer_e_100
         name: "Explore E Ward Mine"
+        subject: e
         target: 100
         rewards:
           cred: 250
-  mine_explorer_d:
-    category: mining
-    name: "D Ward Mine"
-    icon: RAW_GOLD
-    metric: MINE_BLOCKS_IN_MINE
-    subject: d
-    tiers:
       - id: mine_explorer_d_100
         name: "Explore D Ward Mine"
+        subject: d
         target: 100
         rewards:
           cred: 500
-  mine_explorer_c:
-    category: mining
-    name: "C Ward Mine"
-    icon: EMERALD
-    metric: MINE_BLOCKS_IN_MINE
-    subject: c
-    tiers:
       - id: mine_explorer_c_100
         name: "Explore C Ward Mine"
+        subject: c
         target: 100
         rewards:
           cred: 750
-  mine_explorer_b:
-    category: mining
-    name: "B Ward Mine"
-    icon: DIAMOND
-    metric: MINE_BLOCKS_IN_MINE
-    subject: b
-    tiers:
       - id: mine_explorer_b_100
         name: "Explore B Ward Mine"
+        subject: b
         target: 100
         rewards:
           cred: 1000
-  mine_explorer_a:
-    category: mining
-    name: "A Ward Mine"
-    icon: NETHERITE_INGOT
-    metric: MINE_BLOCKS_IN_MINE
-    subject: a
-    tiers:
       - id: mine_explorer_a_100
         name: "Explore A Ward Mine"
+        subject: a
         target: 100
         rewards:
           cred: 1500
-  tool_mastery_smelting:
+  tool_mastery:
     category: mining
-    name: "Smelting Pickaxe"
-    icon: FURNACE
+    name: "Tool Mastery"
+    icon: DIAMOND_PICKAXE
     metric: DONATOR_TOOL_USED
-    subject: smelting
     tiers:
       - id: tool_mastery_smelting_once
         name: "Use Smelting Pickaxe"
+        subject: smelting
         target: 1
         rewards:
           cred: 250
-  tool_mastery_explosive:
-    category: mining
-    name: "Explosive Pickaxe"
-    icon: TNT
-    metric: DONATOR_TOOL_USED
-    subject: explosive
-    tiers:
       - id: tool_mastery_explosive_once
         name: "Use Explosive Pickaxe"
+        subject: explosive
         target: 1
         rewards:
           cred: 250
-  tool_mastery_bountiful:
-    category: mining
-    name: "Bountiful Pickaxe"
-    icon: DIAMOND_ORE
-    metric: DONATOR_TOOL_USED
-    subject: bountiful
-    tiers:
       - id: tool_mastery_bountiful_once
         name: "Use Bountiful Pickaxe"
+        subject: bountiful
         target: 1
         rewards:
           cred: 250
-  tool_mastery_block:
-    category: mining
-    name: "Block Pickaxe"
-    icon: IRON_BLOCK
-    metric: DONATOR_TOOL_USED
-    subject: block
-    tiers:
       - id: tool_mastery_block_once
         name: "Use Block Pickaxe"
+        subject: block
         target: 1
         rewards:
           cred: 250

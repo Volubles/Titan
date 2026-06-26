@@ -54,7 +54,7 @@ final class CategoryMilestoneMenu {
 				context.setItem(MilestoneMenuLayout.SUMMARY, new DisplayItem(items.category(player, category, catalog)));
 				for (int index = 0; index < slots.size(); index++) {
 					int trackIndex = start + index;
-					context.setItem(slots.get(index), item(player, category, tracks.get(trackIndex)));
+					context.setItem(slots.get(index), trackItem(player, category, tracks.get(trackIndex)));
 				}
 				if (page > 0) context.setItem(MilestoneMenuLayout.previousSlot(config.categoryMenu().rows()), MilestoneMenuChrome.previousPageButton(
 					page - 1, pages, () -> navigator.openCategory(player, category.id(), page - 1)
@@ -69,13 +69,6 @@ final class CategoryMilestoneMenu {
 			})
 			.build()
 			.open(menus, player);
-	}
-
-	private MenuItem item(Player player, MilestoneCategory category, MilestoneTrack track) {
-		if (track.tiers().size() == 1) {
-			return new DisplayItem(items.tier(player, track, track.tiers().getFirst()));
-		}
-		return trackItem(player, category, track);
 	}
 
 	private MenuItem trackItem(Player player, MilestoneCategory category, MilestoneTrack track) {
