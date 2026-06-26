@@ -2,13 +2,21 @@ package com.voluble.titanMC.milestones.model;
 
 import java.util.Objects;
 
-public record MilestoneTier(String id, String name, MilestoneObjective objective, MilestoneRewards rewards, int menuSlot) {
+public record MilestoneTier(
+	String id,
+	String name,
+	MilestoneObjective objective,
+	MilestoneRewards rewards,
+	int menuSlot,
+	MilestoneNotificationPolicy notifications
+) {
 	public MilestoneTier {
 		id = requireId(id, "tier id");
 		name = requireText(name, "tier name");
 		Objects.requireNonNull(objective, "objective");
 		rewards = Objects.requireNonNull(rewards, "rewards");
 		if (menuSlot < -1) throw new IllegalArgumentException("tier menu slot must be -1 or greater");
+		notifications = Objects.requireNonNull(notifications, "notifications");
 	}
 
 	public long target() {

@@ -6,6 +6,7 @@ import com.voluble.titanMC.display.message.DisplayMessage;
 import com.voluble.titanMC.milestones.config.MilestoneConfigurationManager;
 import com.voluble.titanMC.milestones.config.MilestoneNotificationConfig;
 import com.voluble.titanMC.milestones.model.MilestoneCompletion;
+import com.voluble.titanMC.milestones.model.MilestoneNotificationPolicy;
 import com.voluble.titanMC.milestones.model.MilestoneRewards;
 import com.voluble.titanMC.milestones.model.MilestoneTier;
 import com.voluble.titanMC.milestones.model.MilestoneTrack;
@@ -73,17 +74,20 @@ public final class MilestoneCompletionHandler {
 	private void complete(Player player, MilestoneTrack track, MilestoneTier tier) {
 		award(player, tier.rewards());
 		MilestoneNotificationConfig.Completion notification = configuration.current().notifications().completion();
-		if (!notification.enabled()) return;
+		MilestoneNotificationPolicy policy = track.notifications().merge(tier.notifications());
+		if (!policy.enabled(notification.enabled())) return;
 
 		Map<String, String> placeholders = placeholders(player, track, tier);
-		if (notification.playerMessageEnabled()) {
+		if (policy.playerMessage(notification.playerMessageEnabled())) {
 			broadcasts.send(player, message(notification.playerLines(), placeholders));
 		}
-		notification.sound().ifPresent(sound -> playSound(player, sound));
+		if (policy.sound(true)) notification.sound().ifPresent(sound -> playSound(player, sound));
 
 		MilestoneNotificationConfig.Broadcast broadcast = notification.broadcast();
+		if (!policy.broadcast(broadcast.shouldBroadcast(tier.target()))) return;
 		if (!broadcast.shouldBroadcast(tier.target())) return;
 		broadcasts.broadcast(message(broadcast.lines(), placeholders));
+		if (!policy.broadcastSound(true)) return;
 		broadcast.sound().ifPresent(sound -> {
 			for (Player online : server.getOnlinePlayers()) playSound(online, sound);
 		});
