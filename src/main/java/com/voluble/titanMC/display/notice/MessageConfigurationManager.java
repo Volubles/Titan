@@ -1,6 +1,7 @@
 package com.voluble.titanMC.display.notice;
 
 import com.voluble.titanMC.managers.ConfigManager;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
@@ -54,7 +55,7 @@ public final class MessageConfigurationManager implements ConfigManager.Componen
 	}
 
 	public PluginMessageService service() {
-		return new PluginMessageService(this, new MessageRenderer());
+		return new PluginMessageService(this, new MessageRenderer(MiniMessage.miniMessage()));
 	}
 
 	private void save(YamlConfiguration yaml) {

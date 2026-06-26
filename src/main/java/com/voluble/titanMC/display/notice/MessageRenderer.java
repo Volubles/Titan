@@ -1,6 +1,8 @@
 package com.voluble.titanMC.display.notice;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 
 import java.util.Arrays;
 import java.util.List;
@@ -10,6 +12,12 @@ import java.util.regex.Pattern;
 
 public final class MessageRenderer {
 	private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{([a-zA-Z0-9_.-]+)}}");
+
+	private final MiniMessage miniMessage;
+
+	public MessageRenderer(MiniMessage miniMessage) {
+		this.miniMessage = Objects.requireNonNull(miniMessage, "miniMessage");
+	}
 
 	public List<Component> render(MessageCatalog catalog, MessageDefinition definition) {
 		return render(catalog, definition, new MessageArguments());
@@ -23,7 +31,7 @@ public final class MessageRenderer {
 			new MessageEntry(definition.type(), definition.key(), definition.defaultText())
 		);
 		return Arrays.stream(splitLines(entry.text()))
-			.map(line -> style(entry.type(), renderLine(line, arguments)))
+			.map(line -> style(catalog, entry.type(), renderLine(line, arguments), arguments))
 			.toList();
 	}
 
@@ -45,14 +53,19 @@ public final class MessageRenderer {
 		return result;
 	}
 
-	private static Component style(MessageType type, Component content) {
-		return Component.empty()
-			.color(type.color())
-			.append(Component.text(type.prefix()))
-			.append(content);
+	private Component style(MessageCatalog catalog, MessageType type, Component content, MessageArguments arguments) {
+		return miniMessage.deserialize(
+			normalizePlaceholders(catalog.template(type)),
+			Placeholder.component("message", content),
+			arguments.resolver(catalog)
+		);
 	}
 
 	private static String[] splitLines(String input) {
 		return input.split("\\R", -1);
+	}
+
+	private static String normalizePlaceholders(String input) {
+		return PLACEHOLDER.matcher(input).replaceAll("<$1>");
 	}
 }

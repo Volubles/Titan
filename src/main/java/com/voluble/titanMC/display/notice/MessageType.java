@@ -1,35 +1,27 @@
 package com.voluble.titanMC.display.notice;
 
-import net.kyori.adventure.text.format.TextColor;
-
 import java.util.Locale;
 import java.util.Objects;
 
 public enum MessageType {
-	INFO("info", "#30bbf1", "[i] "),
-	SUCCESS("success", "#42d829", "[+] "),
-	ERROR("error", "#d43030", "[!] ");
+	INFO("info", "<glyph:prefix_defaultchat> <color:#30bbf1>{{message}}</color>"),
+	SUCCESS("success", "<glyph:prefix_successchat> <color:#42d829>{{message}}</color>"),
+	ERROR("error", "<glyph:prefix_errorchat> <color:#d43030>{{message}}</color>");
 
 	private final String configKey;
-	private final TextColor color;
-	private final String prefix;
+	private final String defaultTemplate;
 
-	MessageType(String configKey, String color, String prefix) {
+	MessageType(String configKey, String defaultTemplate) {
 		this.configKey = configKey;
-		this.color = TextColor.fromHexString(color);
-		this.prefix = prefix;
+		this.defaultTemplate = defaultTemplate;
 	}
 
 	public String configKey() {
 		return configKey;
 	}
 
-	public TextColor color() {
-		return color;
-	}
-
-	public String prefix() {
-		return prefix;
+	public String defaultTemplate() {
+		return defaultTemplate;
 	}
 
 	public static MessageType parse(String value) {
