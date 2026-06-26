@@ -56,7 +56,7 @@ public final class MessageRenderer {
 		return miniMessage.deserialize(
 			normalizePlaceholders(catalog.template(type)),
 			Placeholder.component("message", content),
-			arguments.resolver(catalog)
+			arguments.resolver()
 		);
 	}
 

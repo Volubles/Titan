@@ -4,9 +4,9 @@ import java.util.Locale;
 import java.util.Objects;
 
 public enum MessageType {
-	INFO("info", "<glyph:prefix_defaultchat> <color:#30bbf1>{{message}}</color>"),
-	SUCCESS("success", "<glyph:prefix_successchat> <color:#42d829>{{message}}</color>"),
-	ERROR("error", "<glyph:prefix_errorchat> <color:#d43030>{{message}}</color>");
+	INFO("info", "<color:#30bbf1>{{message}}</color>"),
+	SUCCESS("success", "<color:#42d829>{{message}}</color>"),
+	ERROR("error", "<color:#d43030>{{message}}</color>");
 
 	private final String configKey;
 	private final String defaultTemplate;

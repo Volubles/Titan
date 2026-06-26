@@ -26,16 +26,11 @@ public final class MessageArguments {
 		return Optional.ofNullable(values.get(key));
 	}
 
-	TagResolver resolver(MessageCatalog catalog) {
-		Objects.requireNonNull(catalog, "catalog");
+	TagResolver resolver() {
 		TagResolver.Builder builder = TagResolver.builder();
 		for (var entry : values.entrySet()) {
 			builder.resolver(Placeholder.component(entry.getKey(), entry.getValue()));
 		}
-		builder.tag("glyph", (argumentQueue, context) -> {
-			String name = argumentQueue.popOr("glyph name expected").value();
-			return net.kyori.adventure.text.minimessage.tag.Tag.inserting(Component.text(catalog.glyph(name)));
-		});
 		return builder.build();
 	}
 

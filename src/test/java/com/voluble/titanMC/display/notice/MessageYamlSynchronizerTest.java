@@ -17,8 +17,7 @@ class MessageYamlSynchronizerTest {
 
 		assertTrue(MessageYamlSynchronizer.sync(yaml, List.of(definition)));
 
-		assertEquals("<glyph:prefix_errorchat> <color:#d43030>{{message}}</color>", yaml.getString("templates.error"));
-		assertEquals("", yaml.getString("glyphs.prefix_errorchat"));
+		assertEquals("<color:#d43030>{{message}}</color>", yaml.getString("templates.error"));
 		assertEquals(List.of("Unknown cell."), yaml.getStringList("messages.cells.unknown"));
 	}
 
@@ -26,14 +25,12 @@ class MessageYamlSynchronizerTest {
 	void syncDoesNotOverwriteExistingValues() {
 		YamlConfiguration yaml = new YamlConfiguration();
 		yaml.set("templates.error", "<red>Custom {{message}}</red>");
-		yaml.set("glyphs.prefix_errorchat", "[x]");
 		yaml.set("messages.cells.unknown", List.of("No such cell."));
 
 		MessageDefinition definition = MessageDefinition.of("cells.unknown", MessageType.ERROR, "Unknown cell.");
 		MessageYamlSynchronizer.sync(yaml, List.of(definition));
 
 		assertEquals("<red>Custom {{message}}</red>", yaml.getString("templates.error"));
-		assertEquals("[x]", yaml.getString("glyphs.prefix_errorchat"));
 		assertEquals(List.of("No such cell."), yaml.getStringList("messages.cells.unknown"));
 	}
 

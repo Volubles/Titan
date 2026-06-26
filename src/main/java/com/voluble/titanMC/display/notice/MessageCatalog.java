@@ -13,12 +13,10 @@ import java.util.Optional;
 public final class MessageCatalog {
 	private final Map<MessageType, String> templates;
 	private final Map<MessageKey, List<String>> messages;
-	private final Map<String, String> glyphs;
 
-	private MessageCatalog(Map<MessageType, String> templates, Map<MessageKey, List<String>> messages, Map<String, String> glyphs) {
+	private MessageCatalog(Map<MessageType, String> templates, Map<MessageKey, List<String>> messages) {
 		this.templates = copyTemplates(templates);
 		this.messages = copyMessages(messages);
-		this.glyphs = Map.copyOf(glyphs);
 	}
 
 	public static MessageCatalog load(YamlConfiguration yaml) {
@@ -36,14 +34,7 @@ public final class MessageCatalog {
 				messages.put(MessageKey.of(key), section.getStringList(key));
 			}
 		}
-		Map<String, String> glyphs = new LinkedHashMap<>();
-		ConfigurationSection glyphSection = yaml.getConfigurationSection("glyphs");
-		if (glyphSection != null) {
-			for (String key : glyphSection.getKeys(false)) {
-				glyphs.put(key, Objects.toString(glyphSection.getString(key), ""));
-			}
-		}
-		return new MessageCatalog(templates, messages, glyphs);
+		return new MessageCatalog(templates, messages);
 	}
 
 	public Optional<MessageEntry> find(MessageDefinition definition) {
@@ -55,10 +46,6 @@ public final class MessageCatalog {
 
 	public String template(MessageType type) {
 		return templates.getOrDefault(type, type.defaultTemplate());
-	}
-
-	public String glyph(String key) {
-		return glyphs.getOrDefault(key, "");
 	}
 
 	private static Map<MessageType, String> copyTemplates(Map<MessageType, String> source) {

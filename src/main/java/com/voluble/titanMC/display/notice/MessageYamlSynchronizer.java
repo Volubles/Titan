@@ -3,16 +3,9 @@ package com.voluble.titanMC.display.notice;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 final class MessageYamlSynchronizer {
-	private static final Map<String, String> DEFAULT_GLYPHS = Map.of(
-		"prefix_defaultchat", "",
-		"prefix_successchat", "",
-		"prefix_errorchat", ""
-	);
-
 	private MessageYamlSynchronizer() {
 	}
 
@@ -24,13 +17,6 @@ final class MessageYamlSynchronizer {
 			String path = "templates." + type.configKey();
 			if (!yaml.isSet(path)) {
 				yaml.set(path, type.defaultTemplate());
-				changed = true;
-			}
-		}
-		for (var entry : DEFAULT_GLYPHS.entrySet()) {
-			String path = "glyphs." + entry.getKey();
-			if (!yaml.isSet(path)) {
-				yaml.set(path, entry.getValue());
 				changed = true;
 			}
 		}
