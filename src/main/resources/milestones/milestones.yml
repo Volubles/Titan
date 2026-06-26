@@ -14,12 +14,14 @@ notifications:
     enabled: true
     player-message:
       enabled: true
+      centered: true
       lines:
         - "<green>Milestone completed: <yellow>{milestone}</yellow>"
         - "<gray>{rewards}"
     sound: "entity.player.levelup"
     broadcast:
       enabled: true
+      centered: true
       minimum-target: 100000
       lines:
         - "<gold>{player}</gold> <gray>completed <yellow>{milestone}</yellow><gray>."

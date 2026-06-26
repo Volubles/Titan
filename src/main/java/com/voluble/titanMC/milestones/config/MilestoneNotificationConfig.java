@@ -12,6 +12,7 @@ public record MilestoneNotificationConfig(Completion completion) {
 	public record Completion(
 		boolean enabled,
 		boolean playerMessageEnabled,
+		boolean playerMessageCentered,
 		List<String> playerLines,
 		Optional<String> sound,
 		Broadcast broadcast
@@ -23,7 +24,7 @@ public record MilestoneNotificationConfig(Completion completion) {
 		}
 	}
 
-	public record Broadcast(boolean enabled, long minimumTarget, List<String> lines, Optional<String> sound) {
+	public record Broadcast(boolean enabled, boolean centered, long minimumTarget, List<String> lines, Optional<String> sound) {
 		public Broadcast {
 			if (minimumTarget < 0) throw new IllegalArgumentException("broadcast minimum target must not be negative");
 			lines = List.copyOf(Objects.requireNonNull(lines, "lines"));

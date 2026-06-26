@@ -79,14 +79,14 @@ public final class MilestoneCompletionHandler {
 
 		Map<String, String> placeholders = placeholders(player, track, tier);
 		if (policy.playerMessage(notification.playerMessageEnabled())) {
-			broadcasts.send(player, message(notification.playerLines(), placeholders));
+			broadcasts.send(player, message(notification.playerLines(), placeholders, notification.playerMessageCentered()));
 		}
 		if (policy.sound(true)) notification.sound().ifPresent(sound -> playSound(player, sound));
 
 		MilestoneNotificationConfig.Broadcast broadcast = notification.broadcast();
 		if (!policy.broadcast(broadcast.shouldBroadcast(tier.target()))) return;
 		if (!broadcast.shouldBroadcast(tier.target())) return;
-		broadcasts.broadcast(message(broadcast.lines(), placeholders));
+		broadcasts.broadcast(message(broadcast.lines(), placeholders, broadcast.centered()));
 		if (!policy.broadcastSound(true)) return;
 		broadcast.sound().ifPresent(sound -> {
 			for (Player online : server.getOnlinePlayers()) playSound(online, sound);
@@ -120,9 +120,11 @@ public final class MilestoneCompletionHandler {
 		return String.join(", ", parts);
 	}
 
-	private DisplayMessage message(java.util.List<String> templates, Map<String, String> placeholders) {
+	private DisplayMessage message(java.util.List<String> templates, Map<String, String> placeholders, boolean centered) {
 		return new DisplayMessage(templates.stream()
-			.map(template -> DisplayLine.left(render(template, placeholders)))
+			.map(template -> centered
+				? DisplayLine.centered(render(template, placeholders))
+				: DisplayLine.left(render(template, placeholders)))
 			.toList());
 	}
 

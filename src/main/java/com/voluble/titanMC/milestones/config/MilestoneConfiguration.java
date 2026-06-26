@@ -171,9 +171,10 @@ public record MilestoneConfiguration(
 			return new MilestoneNotificationConfig(new MilestoneNotificationConfig.Completion(
 				true,
 				true,
+				true,
 				List.of("<green>Milestone completed: <yellow>{milestone}</yellow>"),
 				Optional.of("entity.player.levelup"),
-				new MilestoneNotificationConfig.Broadcast(false, 0L, List.of(), Optional.empty())
+				new MilestoneNotificationConfig.Broadcast(false, true, 0L, List.of(), Optional.empty())
 			));
 		}
 		ConfigurationSection playerMessage = completion.getConfigurationSection("player-message");
@@ -181,12 +182,14 @@ public record MilestoneConfiguration(
 		return new MilestoneNotificationConfig(new MilestoneNotificationConfig.Completion(
 			completion.getBoolean("enabled", true),
 			playerMessage == null || playerMessage.getBoolean("enabled", true),
+			playerMessage == null || booleanValue(playerMessage, "centered", true),
 			playerMessage == null
 				? List.of("<green>Milestone completed: <yellow>{milestone}</yellow>")
 				: playerMessage.getStringList("lines"),
 			optionalString(completion, "sound"),
 			new MilestoneNotificationConfig.Broadcast(
 				broadcast != null && broadcast.getBoolean("enabled", false),
+				broadcast == null || booleanValue(broadcast, "centered", true),
 				broadcast == null ? 0L : broadcast.getLong("minimum-target", 0L),
 				broadcast == null ? List.of() : broadcast.getStringList("lines"),
 				broadcast == null ? Optional.empty() : optionalString(broadcast, "sound")
@@ -205,6 +208,14 @@ public record MilestoneConfiguration(
 			throw new IllegalArgumentException(section.getCurrentPath() + "." + key + " must be true or false");
 		}
 		return Optional.of(section.getBoolean(key));
+	}
+
+	private static boolean booleanValue(ConfigurationSection section, String key, boolean fallback) {
+		if (!section.contains(key)) return fallback;
+		if (!section.isBoolean(key)) {
+			throw new IllegalArgumentException(section.getCurrentPath() + "." + key + " must be true or false");
+		}
+		return section.getBoolean(key);
 	}
 
 	private static Optional<Boolean> optionalBoolean(Map<?, ?> values, String key, String path) {
