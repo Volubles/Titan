@@ -2,6 +2,8 @@ package com.voluble.titanMC.mines.reset;
 
 import com.voluble.titanMC.mines.Mine;
 import com.voluble.titanMC.mines.MineManager;
+import com.voluble.titanMC.mines.event.MineResetCompletedEvent;
+import com.voluble.titanMC.mines.event.MineResetStartedEvent;
 import com.voluble.titanMC.util.ChatUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -59,7 +61,7 @@ public final class MineScheduler implements MineResetScheduler {
 		Mine mine = manager.get(name);
 		if (mine == null || manager.templates().isCapturing(name)) return false;
 		cancelReset(name);
-		resetQueue.replace(resetTasks.create(mine));
+		queueReset(mine);
 		return true;
 	}
 
@@ -92,7 +94,7 @@ public final class MineScheduler implements MineResetScheduler {
 
 	private void tickResetWork() {
 		long started = System.nanoTime();
-		MineResetTick tick = resetQueue.processTick(RESET_BUDGET_NANOS, manager::completeReset);
+		MineResetTick tick = resetQueue.processTick(RESET_BUDGET_NANOS, this::completeReset);
 		lastResetTickNanos = System.nanoTime() - started;
 		totalScannedBlocks += tick.scannedBlocks();
 		totalChangedBlocks += tick.changedBlocks();
@@ -108,7 +110,7 @@ public final class MineScheduler implements MineResetScheduler {
 				broadcastCountdown(mine, remainingSeconds);
 			}
 			if (remainingMs <= 0L) {
-				resetQueue.replace(resetTasks.create(mine));
+				queueReset(mine);
 			}
 		}
 		tickDepletionCountdown(now);
@@ -136,7 +138,7 @@ public final class MineScheduler implements MineResetScheduler {
 				it.remove();
 				Mine mine = manager.get(mineName);
 				if (mine != null && !manager.templates().isCapturing(mine.getName())) {
-					resetQueue.replace(resetTasks.create(mine));
+					queueReset(mine);
 				}
 				continue;
 			}
@@ -150,6 +152,20 @@ public final class MineScheduler implements MineResetScheduler {
 		}
 	}
 
+	private void queueReset(Mine mine) {
+		resetQueue.replace(resetTasks.create(mine));
+		plugin.getServer().getPluginManager().callEvent(
+			new MineResetStartedEvent(mine.getName(), System.currentTimeMillis())
+		);
+	}
+
+	private void completeReset(String name) {
+		manager.completeReset(name);
+		plugin.getServer().getPluginManager().callEvent(
+			new MineResetCompletedEvent(name, System.currentTimeMillis())
+		);
+	}
+
 	public MineSchedulerStats stats() {
 		return new MineSchedulerStats(
 			resetQueue.size(),
@@ -160,5 +176,4 @@ public final class MineScheduler implements MineResetScheduler {
 		);
 	}
 }
-
 

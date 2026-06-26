@@ -115,6 +115,63 @@ tracks:
         target: 100
         rewards:
           cred: 1500
+  mine_specialist:
+    category: mining
+    name: "Mine Specialist"
+    icon: NETHERITE_PICKAXE
+    metric: MINE_BLOCKS_IN_MINE
+    tiers:
+      - id: mine_specialist_e_100000
+        name: "Specialize in E Ward Mine"
+        subject: e
+        target: 100000
+        rewards:
+          cred: 5000
+      - id: mine_specialist_d_100000
+        name: "Specialize in D Ward Mine"
+        subject: d
+        target: 100000
+        rewards:
+          cred: 7500
+      - id: mine_specialist_c_100000
+        name: "Specialize in C Ward Mine"
+        subject: c
+        target: 100000
+        rewards:
+          cred: 10000
+      - id: mine_specialist_b_100000
+        name: "Specialize in B Ward Mine"
+        subject: b
+        target: 100000
+        rewards:
+          cred: 15000
+      - id: mine_specialist_a_100000
+        name: "Specialize in A Ward Mine"
+        subject: a
+        target: 100000
+        rewards:
+          cred: 25000
+  reset_chaser:
+    category: mining
+    name: "Reset Chaser"
+    icon: CLOCK
+    metric: MINE_BLOCKS_AFTER_RESET
+    tiers:
+      - id: reset_chaser_100
+        name: "Mine 100 Blocks After Resets"
+        target: 100
+        rewards:
+          cred: 500
+      - id: reset_chaser_1000
+        name: "Mine 1,000 Blocks After Resets"
+        target: 1000
+        rewards:
+          cred: 2500
+      - id: reset_chaser_10000
+        name: "Mine 10,000 Blocks After Resets"
+        target: 10000
+        rewards:
+          cred: 10000
   tool_mastery:
     category: mining
     name: "Tool Mastery"

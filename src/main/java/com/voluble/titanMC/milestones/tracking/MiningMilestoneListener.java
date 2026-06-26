@@ -15,15 +15,18 @@ public final class MiningMilestoneListener implements Listener {
 	private final MilestoneService milestones;
 	private final MilestoneCompletionHandler completions;
 	private final DonatorToolRegistry donatorTools;
+	private final MineResetWindowTracker resetWindows;
 
 	public MiningMilestoneListener(
 		MilestoneService milestones,
 		MilestoneCompletionHandler completions,
-		DonatorToolRegistry donatorTools
+		DonatorToolRegistry donatorTools,
+		MineResetWindowTracker resetWindows
 	) {
 		this.milestones = Objects.requireNonNull(milestones, "milestones");
 		this.completions = Objects.requireNonNull(completions, "completions");
 		this.donatorTools = Objects.requireNonNull(donatorTools, "donatorTools");
+		this.resetWindows = Objects.requireNonNull(resetWindows, "resetWindows");
 	}
 
 	@EventHandler(ignoreCancelled = true)
@@ -34,6 +37,11 @@ public final class MiningMilestoneListener implements Listener {
 		completions.handle(event.player(), milestones.addProgress(
 			event.player().getUniqueId(), MilestoneMetric.MINE_BLOCKS_IN_MINE, event.mineName(), 1L
 		));
+		if (resetWindows.active(event.mineName(), System.currentTimeMillis())) {
+			completions.handle(event.player(), milestones.addProgress(
+				event.player().getUniqueId(), MilestoneMetric.MINE_BLOCKS_AFTER_RESET, "", 1L
+			));
+		}
 		DonatorToolType tool = donatorTools.identify(event.player().getInventory().getItemInMainHand()).orElse(null);
 		if (tool != null) {
 			completions.handle(event.player(), milestones.addProgress(

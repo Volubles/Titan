@@ -37,9 +37,11 @@ import com.voluble.titanMC.milestones.command.MilestoneCommandModule;
 import com.voluble.titanMC.milestones.config.MilestoneConfigurationManager;
 import com.voluble.titanMC.milestones.persistence.MilestoneStorage;
 import com.voluble.titanMC.milestones.service.MilestoneService;
+import com.voluble.titanMC.milestones.tracking.MineResetWindowTracker;
 import com.voluble.titanMC.milestones.tracking.MiningMilestoneListener;
 import com.voluble.titanMC.milestones.ui.MilestoneMenuService;
 import com.voluble.titanMC.mines.MineManager;
+import com.voluble.titanMC.mines.command.MineCommandModule;
 import com.voluble.titanMC.mines.protection.MineProtectionPolicy;
 import com.voluble.titanMC.mines.regions.MineRegionException;
 import com.voluble.titanMC.mines.regions.MineRegionService;
@@ -102,7 +104,8 @@ import io.voluble.michellelib.commands.CommandKit;
 import io.voluble.michellelib.menu.MenuService;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.plugin.java.JavaPlugin;
-import com.voluble.titanMC.mines.command.MineCommandModule;
+
+import java.time.Duration;
 
 public final class TitanMC extends JavaPlugin {
 
@@ -375,8 +378,10 @@ public final class TitanMC extends JavaPlugin {
 		MilestoneCompletionHandler completionHandler = new MilestoneCompletionHandler(
 			getServer(), milestoneConfiguration, progressionEngine, economyManager.getEconomy(), displayBroadcastService
 		);
+		MineResetWindowTracker resetWindows = new MineResetWindowTracker(Duration.ofMinutes(5));
+		getServer().getPluginManager().registerEvents(resetWindows, this);
 		getServer().getPluginManager().registerEvents(
-			new MiningMilestoneListener(milestoneService, completionHandler, donatorToolRegistry), this
+			new MiningMilestoneListener(milestoneService, completionHandler, donatorToolRegistry, resetWindows), this
 		);
 		getLogger().info("Milestones ready");
 		return true;
