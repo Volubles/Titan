@@ -26,6 +26,9 @@ import com.voluble.titanMC.donatortools.DonatorToolsService;
 import com.voluble.titanMC.donatortools.command.DonatorToolsCommandModule;
 import com.voluble.titanMC.donatortools.config.DonatorToolsConfigurationManager;
 import com.voluble.titanMC.display.message.DisplayBroadcastService;
+import com.voluble.titanMC.display.notice.MessageConfigurationManager;
+import com.voluble.titanMC.display.notice.MessageDefaults;
+import com.voluble.titanMC.display.notice.PluginMessageService;
 import com.voluble.titanMC.managers.EconomyManager;
 import com.voluble.titanMC.mines.MineManager;
 import com.voluble.titanMC.mines.protection.MineProtectionPolicy;
@@ -121,6 +124,8 @@ public final class TitanMC extends JavaPlugin {
 	private ProgressionBarService progressionBars;
 	private CredSourceRegistry credSources;
 	private DisplayBroadcastService displayBroadcastService;
+	private MessageConfigurationManager messageConfiguration;
+	private PluginMessageService messages;
 
 	@Override
 	public void onEnable() {
@@ -149,7 +154,9 @@ public final class TitanMC extends JavaPlugin {
 		auctionConfiguration = new AuctionConfigurationManager(this);
 		rankConfiguration = new RankConfigurationManager(this);
 		progressionConfiguration = new ProgressionConfigurationManager(this);
+		messageConfiguration = new MessageConfigurationManager(this, MessageDefaults.all());
 		try {
+			configManager.registerComponent(messageConfiguration);
 			configManager.registerComponent(rankConfiguration);
 			configManager.registerComponent(progressionConfiguration);
 			configManager.registerComponent(donatorToolsConfiguration);
@@ -160,6 +167,7 @@ public final class TitanMC extends JavaPlugin {
 			getServer().getPluginManager().disablePlugin(this);
 			return;
 		}
+		messages = messageConfiguration.service();
 		getLogger().info(
 			"Loaded " + rankConfiguration.catalog().ranks().size()
 				+ " prison ranks across " + rankConfiguration.catalog().wards().size() + " wards"
@@ -268,7 +276,7 @@ public final class TitanMC extends JavaPlugin {
 
 		// MichelleLib commands (dtools, mine)
 		new CommandKit(this)
-			.addModule(new DonatorToolsCommandModule(donatorTools))
+			.addModule(new DonatorToolsCommandModule(donatorTools, messages))
 			.addModule(new MineCommandModule(this))
 			.addModule(new RegionCommandModule(this))
 			.addModule(new CellCommandModule(
@@ -483,4 +491,5 @@ public final class TitanMC extends JavaPlugin {
 	public CellManager getCellManager() { return cellManager; }
 	public RankCatalog getRanks() { return rankConfiguration.catalog(); }
 	public DisplayBroadcastService getDisplayBroadcastService() { return displayBroadcastService; }
+	public PluginMessageService getMessages() { return messages; }
 }

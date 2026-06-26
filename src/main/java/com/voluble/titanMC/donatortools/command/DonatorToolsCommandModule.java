@@ -1,10 +1,11 @@
 package com.voluble.titanMC.donatortools.command;
 
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.voluble.titanMC.display.notice.MessageDefaults;
+import com.voluble.titanMC.display.notice.PluginMessageService;
 import com.voluble.titanMC.donatortools.DonatorToolsService;
 import com.voluble.titanMC.donatortools.item.DonatorToolRegistry;
 import com.voluble.titanMC.donatortools.item.DonatorToolType;
-import com.voluble.titanMC.util.ChatUtils;
 import io.voluble.michellelib.commands.CommandModule;
 import io.voluble.michellelib.commands.CommandRegistration;
 import io.voluble.michellelib.commands.arguments.Args;
@@ -12,9 +13,6 @@ import io.voluble.michellelib.commands.arguments.Resolve;
 import io.voluble.michellelib.commands.context.MichelleCommandContext;
 import io.voluble.michellelib.commands.errors.CommandErrors;
 import io.voluble.michellelib.commands.tree.CommandTree;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -24,15 +22,12 @@ public final class DonatorToolsCommandModule implements CommandModule {
 
 	private final DonatorToolsService service;
 	private final DonatorToolRegistry tools;
+	private final PluginMessageService messages;
 
-	public DonatorToolsCommandModule(DonatorToolsService service) {
+	public DonatorToolsCommandModule(DonatorToolsService service, PluginMessageService messages) {
 		this.service = Objects.requireNonNull(service, "service");
+		this.messages = Objects.requireNonNull(messages, "messages");
 		this.tools = service.registry();
-	}
-
-	private static void send(CommandSender sender, Component message) {
-		if (sender instanceof Player player) player.sendMessage(message);
-		else sender.sendMessage(ChatUtils.serialize(message));
 	}
 
 	@Override
@@ -53,31 +48,28 @@ public final class DonatorToolsCommandModule implements CommandModule {
 	}
 
 	private int sendHelp(MichelleCommandContext context) {
-		send(context.sender(), Component.text("Donator Tools", NamedTextColor.GOLD));
-		send(context.sender(), Component.text("/dtools <tool> [player]", NamedTextColor.AQUA));
-		send(context.sender(), Component.text("/dtools reload", NamedTextColor.AQUA));
+		messages.send(context.sender(), MessageDefaults.DONATOR_TOOLS_HELP_TITLE);
+		messages.send(context.sender(), MessageDefaults.DONATOR_TOOLS_HELP_GIVE);
+		messages.send(context.sender(), MessageDefaults.DONATOR_TOOLS_HELP_RELOAD);
 		for (DonatorToolType type : DonatorToolType.values()) {
-			send(context.sender(), Component.text(
-					type.id() + " - " + type.description(),
-					type.color()
-			));
+			messages.send(context.sender(), MessageDefaults.DONATOR_TOOLS_HELP_TOOL, args -> args
+				.plain("tool", type.id())
+				.plain("description", type.description()));
 		}
 		return CommandTree.ok();
 	}
 
 	private int reload(MichelleCommandContext context) {
 		if (!context.hasPermission("donatortools.reload")) {
-			send(context.sender(), Component.text("You may not reload donator tools.", NamedTextColor.RED));
+			messages.send(context.sender(), MessageDefaults.DONATOR_TOOLS_RELOAD_DENIED);
 			return CommandTree.ok();
 		}
 		try {
 			service.reload();
-			send(context.sender(), Component.text("Donator tools reloaded.", NamedTextColor.GREEN));
+			messages.send(context.sender(), MessageDefaults.DONATOR_TOOLS_RELOADED);
 		} catch (IllegalArgumentException | IllegalStateException exception) {
-			send(context.sender(), Component.text(
-					"Donator tools reload failed: " + exception.getMessage(),
-					NamedTextColor.RED
-			));
+			messages.send(context.sender(), MessageDefaults.DONATOR_TOOLS_RELOAD_FAILED,
+				args -> args.plain("reason", exception.getMessage()));
 		}
 		return CommandTree.ok();
 	}
@@ -93,37 +85,30 @@ public final class DonatorToolsCommandModule implements CommandModule {
 
 	private int give(MichelleCommandContext context, Player target) {
 		if (!context.hasPermission("donatortools.give")) {
-			send(context.sender(), Component.text("You may not give donator tools.", NamedTextColor.RED));
+			messages.send(context.sender(), MessageDefaults.DONATOR_TOOLS_GIVE_DENIED);
 			return CommandTree.ok();
 		}
 		String input = context.arg("tool", String.class);
 		DonatorToolType type = tools.find(input).orElse(null);
 		if (type == null) {
-			send(context.sender(), Component.text(
-					"Unknown tool. Available: " + String.join(", ", tools.ids()),
-					NamedTextColor.RED
-			));
+			messages.send(context.sender(), MessageDefaults.DONATOR_TOOLS_UNKNOWN,
+				args -> args.plain("tools", String.join(", ", tools.ids())));
 			return CommandTree.ok();
 		}
 		ItemStack item = tools.create(type);
 		var remaining = target.getInventory().addItem(item);
 		if (!remaining.isEmpty()) {
 			target.getWorld().dropItemNaturally(target.getLocation(), item);
-			target.sendMessage(Component.text(
-					"Your inventory was full, so the " + type.displayName() + " was dropped.",
-					NamedTextColor.YELLOW
-			));
+			messages.send(target, MessageDefaults.DONATOR_TOOLS_INVENTORY_FULL,
+				args -> args.plain("tool", type.displayName()));
 		} else {
-			target.sendMessage(Component.text(
-					"You received a " + type.displayName() + ".",
-					type.color()
-			));
+			messages.send(target, MessageDefaults.DONATOR_TOOLS_RECEIVED,
+				args -> args.plain("tool", type.displayName()));
 		}
 		if (!target.equals(context.sender())) {
-			send(context.sender(), Component.text(
-					"Gave " + type.displayName() + " to " + target.getName() + ".",
-					NamedTextColor.GREEN
-			));
+			messages.send(context.sender(), MessageDefaults.DONATOR_TOOLS_GAVE, args -> args
+				.plain("tool", type.displayName())
+				.plain("player", target.getName()));
 		}
 		return CommandTree.ok();
 	}
