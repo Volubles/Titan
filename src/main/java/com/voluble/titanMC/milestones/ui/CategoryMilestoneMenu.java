@@ -5,6 +5,7 @@ import com.voluble.titanMC.milestones.config.MilestoneConfigurationManager;
 import com.voluble.titanMC.milestones.model.MilestoneCategory;
 import com.voluble.titanMC.milestones.model.MilestoneTrack;
 import io.voluble.michellelib.menu.MenuService;
+import io.voluble.michellelib.menu.item.Items;
 import io.voluble.michellelib.menu.item.MenuItem;
 import io.voluble.michellelib.menu.template.MenuDefinition;
 import net.kyori.adventure.text.Component;
@@ -48,7 +49,7 @@ final class CategoryMilestoneMenu {
 				for (int index = 0; index < tracks.size() && index < MilestoneMenuLayout.TRACK_SLOTS.size(); index++) {
 					context.setItem(MilestoneMenuLayout.TRACK_SLOTS.get(index), trackItem(player, category, tracks.get(index)));
 				}
-				context.setItem(MilestoneMenuLayout.CLOSE_CATEGORY, backItem());
+				context.setItem(MilestoneMenuLayout.BACK_CATEGORY, new Items.BackItem(() -> navigator.openOverview(player)));
 			})
 			.build()
 			.open(menus, player);
@@ -65,22 +66,6 @@ final class CategoryMilestoneMenu {
 			@Override
 			public boolean onClick(io.voluble.michellelib.menu.item.ClickContext context) {
 				context.actions().transition(() -> navigator.openTrack(context.player(), category, track));
-				return true;
-			}
-		};
-	}
-
-	private MenuItem backItem() {
-		ItemStack stack = items.back();
-		return new MenuItem() {
-			@Override
-			public ItemStack render(Player viewer) {
-				return stack.clone();
-			}
-
-			@Override
-			public boolean onClick(io.voluble.michellelib.menu.item.ClickContext context) {
-				context.actions().transition(() -> navigator.openOverview(context.player()));
 				return true;
 			}
 		};

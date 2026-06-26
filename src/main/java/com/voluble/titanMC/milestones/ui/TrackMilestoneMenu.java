@@ -5,11 +5,9 @@ import com.voluble.titanMC.milestones.model.MilestoneCategory;
 import com.voluble.titanMC.milestones.model.MilestoneTrack;
 import io.voluble.michellelib.menu.MenuService;
 import io.voluble.michellelib.menu.item.Items;
-import io.voluble.michellelib.menu.item.MenuItem;
 import io.voluble.michellelib.menu.template.MenuDefinition;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
 
 import java.util.Objects;
 
@@ -43,25 +41,10 @@ final class TrackMilestoneMenu {
 						new Items.DisplayItem(items.tier(player, track, track.tiers().get(index)))
 					);
 				}
-				context.setItem(MilestoneMenuLayout.BACK_TRACK, backItem(category));
+				context.setItem(MilestoneMenuLayout.BACK_TRACK, new Items.BackItem(() -> navigator.openCategory(player, category.id())));
 			})
 			.build()
 			.open(menus, player);
 	}
 
-	private MenuItem backItem(MilestoneCategory category) {
-		ItemStack stack = items.back();
-		return new MenuItem() {
-			@Override
-			public ItemStack render(Player viewer) {
-				return stack.clone();
-			}
-
-			@Override
-			public boolean onClick(io.voluble.michellelib.menu.item.ClickContext context) {
-				context.actions().transition(() -> navigator.openCategory(context.player(), category.id()));
-				return true;
-			}
-		};
-	}
 }
