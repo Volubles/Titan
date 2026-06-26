@@ -32,10 +32,18 @@ public final class MilestoneMenuService {
 	}
 
 	public void openCategory(Player player, String categoryId) {
-		categoryMenu.open(player, categoryId);
+		openCategory(player, categoryId, 0);
+	}
+
+	void openCategory(Player player, String categoryId, int page) {
+		categoryMenu.open(player, categoryId, page);
 	}
 
 	void openTrack(Player player, MilestoneCategory category, MilestoneTrack track) {
-		trackMenu.open(player, category, track);
+		openTrack(player, category, track, 0);
+	}
+
+	void openTrack(Player player, MilestoneCategory category, MilestoneTrack track, int page) {
+		trackMenu.open(player, category, track, page);
 	}
 }

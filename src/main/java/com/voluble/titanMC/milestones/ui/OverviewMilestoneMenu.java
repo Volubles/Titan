@@ -6,6 +6,7 @@ import com.voluble.titanMC.milestones.model.MilestoneCategory;
 import io.voluble.michellelib.menu.MenuService;
 import io.voluble.michellelib.menu.item.Items;
 import io.voluble.michellelib.menu.item.MenuItem;
+import io.voluble.michellelib.menu.item.Items.DisplayItem;
 import io.voluble.michellelib.menu.template.MenuDefinition;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.entity.Player;
@@ -38,6 +39,9 @@ final class OverviewMilestoneMenu {
 		MenuDefinition.chest(config.overviewMenu().rows())
 			.title(MiniMessage.miniMessage().deserialize(config.overviewMenu().title()))
 			.onOpen(context -> {
+				for (int slot : MilestoneMenuLayout.FRAME_SLOTS) {
+					context.setItem(slot, new DisplayItem(MilestoneMenuChrome.filler()));
+				}
 				List<MilestoneCategory> categories = catalog.categories();
 				for (int index = 0; index < categories.size() && index < MilestoneMenuLayout.CATEGORY_SLOTS.size(); index++) {
 					MilestoneCategory category = categories.get(index);

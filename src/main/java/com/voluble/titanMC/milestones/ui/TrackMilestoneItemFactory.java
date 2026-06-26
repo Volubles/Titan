@@ -62,7 +62,8 @@ final class TrackMilestoneItemFactory {
 		meta.lore(List.of(
 			ChatUtils.formatItem("<gray>Status: " + color + status),
 			ChatUtils.formatItem("<gray>Progress: <white>" + numbers.format(Math.min(progress.amount(), tier.target()))
-				+ " / " + numbers.format(tier.target()))
+				+ " / " + numbers.format(tier.target())),
+			ChatUtils.formatItem("<gray>Reward: <#42d829>" + rewardText(tier))
 		));
 		item.setItemMeta(meta);
 		return item;
@@ -107,5 +108,13 @@ final class TrackMilestoneItemFactory {
 		return track.tiers().stream()
 			.filter(tier -> !milestones.completed(player.getUniqueId(), tier.id()) && progress.amount() < tier.target())
 			.findFirst();
+	}
+
+	private String rewardText(MilestoneTier tier) {
+		if (tier.rewards().empty()) return "None";
+		List<String> rewards = new ArrayList<>();
+		if (tier.rewards().cred() > 0) rewards.add(numbers.format(tier.rewards().cred()) + " cred");
+		if (tier.rewards().money() > 0) rewards.add("$" + numbers.format(tier.rewards().money()));
+		return String.join(", ", rewards);
 	}
 }

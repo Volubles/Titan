@@ -7,6 +7,7 @@ import com.voluble.titanMC.milestones.model.MilestoneTrack;
 import io.voluble.michellelib.menu.MenuService;
 import io.voluble.michellelib.menu.item.Items;
 import io.voluble.michellelib.menu.item.MenuItem;
+import io.voluble.michellelib.menu.item.Items.DisplayItem;
 import io.voluble.michellelib.menu.template.MenuDefinition;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -34,7 +35,7 @@ final class CategoryMilestoneMenu {
 		this.navigator = Objects.requireNonNull(navigator, "navigator");
 	}
 
-	void open(Player player, String categoryId) {
+	void open(Player player, String categoryId, int requestedPage) {
 		var config = configuration.current();
 		MilestoneCatalog catalog = config.catalog();
 		MilestoneCategory category = catalog.category(categoryId).orElse(null);
@@ -42,13 +43,28 @@ final class CategoryMilestoneMenu {
 			navigator.openOverview(player);
 			return;
 		}
+		List<MilestoneTrack> tracks = catalog.tracks(category.id());
+		int pages = MilestoneMenuChrome.pages(tracks.size(), MilestoneMenuLayout.TRACK_SLOTS.size());
+		int page = MilestoneMenuChrome.clampPage(requestedPage, pages);
+		int start = page * MilestoneMenuLayout.TRACK_SLOTS.size();
 		MenuDefinition.chest(config.categoryMenu().rows())
 			.title(title(config.categoryMenu().title(), category))
 			.onOpen(context -> {
-				List<MilestoneTrack> tracks = catalog.tracks(category.id());
-				for (int index = 0; index < tracks.size() && index < MilestoneMenuLayout.TRACK_SLOTS.size(); index++) {
-					context.setItem(MilestoneMenuLayout.TRACK_SLOTS.get(index), trackItem(player, category, tracks.get(index)));
+				for (int slot : MilestoneMenuLayout.FRAME_SLOTS) {
+					context.setItem(slot, new DisplayItem(MilestoneMenuChrome.filler()));
 				}
+				context.setItem(4, new DisplayItem(items.category(player, category, catalog)));
+				for (int index = 0; index < MilestoneMenuLayout.TRACK_SLOTS.size(); index++) {
+					int trackIndex = start + index;
+					if (trackIndex >= tracks.size()) break;
+					context.setItem(MilestoneMenuLayout.TRACK_SLOTS.get(index), trackItem(player, category, tracks.get(trackIndex)));
+				}
+				if (page > 0) context.setItem(MilestoneMenuLayout.PREVIOUS, MilestoneMenuChrome.pageButton(
+					org.bukkit.Material.ARROW, "<yellow>Previous Page", () -> navigator.openCategory(player, category.id(), page - 1)
+				));
+				if (page + 1 < pages) context.setItem(MilestoneMenuLayout.NEXT, MilestoneMenuChrome.pageButton(
+					org.bukkit.Material.ARROW, "<yellow>Next Page", () -> navigator.openCategory(player, category.id(), page + 1)
+				));
 				context.setItem(MilestoneMenuLayout.BACK_CATEGORY, new Items.BackItem(() -> navigator.openOverview(player)));
 			})
 			.build()
@@ -65,7 +81,7 @@ final class CategoryMilestoneMenu {
 
 			@Override
 			public boolean onClick(io.voluble.michellelib.menu.item.ClickContext context) {
-				context.actions().transition(() -> navigator.openTrack(context.player(), category, track));
+				context.actions().transition(() -> navigator.openTrack(context.player(), category, track, 0));
 				return true;
 			}
 		};

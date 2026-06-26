@@ -29,18 +29,32 @@ final class TrackMilestoneMenu {
 		this.navigator = Objects.requireNonNull(navigator, "navigator");
 	}
 
-	void open(Player player, MilestoneCategory category, MilestoneTrack track) {
+	void open(Player player, MilestoneCategory category, MilestoneTrack track, int requestedPage) {
 		var config = configuration.current();
+		int pages = MilestoneMenuChrome.pages(track.tiers().size(), MilestoneMenuLayout.TIER_SLOTS.size());
+		int page = MilestoneMenuChrome.clampPage(requestedPage, pages);
+		int start = page * MilestoneMenuLayout.TIER_SLOTS.size();
 		MenuDefinition.chest(config.categoryMenu().rows())
 			.title(MiniMessage.miniMessage().deserialize(config.categoryMenu().title().replace("{category}", track.name())))
 			.onOpen(context -> {
+				for (int slot : MilestoneMenuLayout.FRAME_SLOTS) {
+					context.setItem(slot, new Items.DisplayItem(MilestoneMenuChrome.filler()));
+				}
 				context.setItem(4, new Items.DisplayItem(items.trackDetails(player, track)));
-				for (int index = 0; index < track.tiers().size() && index < MilestoneMenuLayout.TIER_SLOTS.size(); index++) {
+				for (int index = 0; index < MilestoneMenuLayout.TIER_SLOTS.size(); index++) {
+					int tierIndex = start + index;
+					if (tierIndex >= track.tiers().size()) break;
 					context.setItem(
 						MilestoneMenuLayout.TIER_SLOTS.get(index),
-						new Items.DisplayItem(items.tier(player, track, track.tiers().get(index)))
+						new Items.DisplayItem(items.tier(player, track, track.tiers().get(tierIndex)))
 					);
 				}
+				if (page > 0) context.setItem(MilestoneMenuLayout.PREVIOUS, MilestoneMenuChrome.pageButton(
+					org.bukkit.Material.ARROW, "<yellow>Previous Page", () -> navigator.openTrack(player, category, track, page - 1)
+				));
+				if (page + 1 < pages) context.setItem(MilestoneMenuLayout.NEXT, MilestoneMenuChrome.pageButton(
+					org.bukkit.Material.ARROW, "<yellow>Next Page", () -> navigator.openTrack(player, category, track, page + 1)
+				));
 				context.setItem(MilestoneMenuLayout.BACK_TRACK, new Items.BackItem(() -> navigator.openCategory(player, category.id())));
 			})
 			.build()
