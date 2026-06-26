@@ -297,7 +297,9 @@ public final class TitanMC extends JavaPlugin {
 			return false;
 		}
 		getServer().getPluginManager().registerEvents(
-			new LevelUpNotifier(getServer(), () -> progressionConfiguration.current().notifications()), this
+			new LevelUpNotifier(
+				getServer(), displayBroadcastService, () -> progressionConfiguration.current().notifications()
+			), this
 		);
 		progressionBars = new ProgressionBarService(this, progressionEngine);
 		progressionBars.start();

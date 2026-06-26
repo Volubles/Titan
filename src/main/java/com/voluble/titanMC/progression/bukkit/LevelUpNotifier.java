@@ -1,5 +1,8 @@
 package com.voluble.titanMC.progression.bukkit;
 
+import com.voluble.titanMC.display.message.DisplayBroadcastService;
+import com.voluble.titanMC.display.message.DisplayLine;
+import com.voluble.titanMC.display.message.DisplayMessage;
 import com.voluble.titanMC.progression.config.NotificationConfig;
 import com.voluble.titanMC.progression.event.PlayerLeveledUpEvent;
 import net.kyori.adventure.text.Component;
@@ -17,11 +20,13 @@ import java.util.function.Supplier;
 public final class LevelUpNotifier implements Listener {
 
 	private final Server server;
+	private final DisplayBroadcastService broadcasts;
 	private final Supplier<NotificationConfig> notifications;
 	private final MiniMessage serializer = MiniMessage.miniMessage();
 
-	public LevelUpNotifier(Server server, Supplier<NotificationConfig> notifications) {
+	public LevelUpNotifier(Server server, DisplayBroadcastService broadcasts, Supplier<NotificationConfig> notifications) {
 		this.server = Objects.requireNonNull(server, "server");
+		this.broadcasts = Objects.requireNonNull(broadcasts, "broadcasts");
 		this.notifications = Objects.requireNonNull(notifications, "notifications");
 	}
 
@@ -34,11 +39,11 @@ public final class LevelUpNotifier implements Listener {
 		int level = event.currentLevel();
 		String name = player.getName();
 
-		player.sendMessage(render(config.playerMessage(), name, level));
+		broadcasts.send(player, centered(config.playerMessage(), name, level));
 		config.soundForLevel(level).ifPresent(sound -> playSound(player, sound));
 
 		if (config.shouldBroadcast(level)) {
-			server.broadcast(render(config.broadcastMessage(), name, level));
+			broadcasts.broadcast(centered(config.broadcastMessage(), name, level));
 			config.broadcastSound().ifPresent(sound -> {
 				for (Player online : server.getOnlinePlayers()) {
 					playSound(online, sound);
@@ -59,5 +64,9 @@ public final class LevelUpNotifier implements Listener {
 			.replace("{player}", playerName)
 			.replace("{level}", Integer.toString(level));
 		return serializer.deserialize(substituted);
+	}
+
+	private DisplayMessage centered(String template, String playerName, int level) {
+		return DisplayMessage.of(DisplayLine.centered(render(template, playerName, level)));
 	}
 }

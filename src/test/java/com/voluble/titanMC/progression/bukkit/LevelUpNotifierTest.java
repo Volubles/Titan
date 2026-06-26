@@ -1,5 +1,6 @@
 package com.voluble.titanMC.progression.bukkit;
 
+import com.voluble.titanMC.display.message.DisplayBroadcastService;
 import com.voluble.titanMC.progression.config.NotificationConfig;
 import com.voluble.titanMC.progression.event.PlayerLeveledUpEvent;
 import com.voluble.titanMC.progression.model.PlayerProgression;
@@ -19,6 +20,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LevelUpNotifierTest {
 	private ServerMock server;
@@ -37,7 +39,9 @@ class LevelUpNotifierTest {
 			Optional.empty(),
 			Map.of()
 		);
-		server.getPluginManager().registerEvents(new LevelUpNotifier(server, () -> config), plugin);
+		server.getPluginManager().registerEvents(
+			new LevelUpNotifier(server, DisplayBroadcastService.create(server), () -> config), plugin
+		);
 	}
 
 	@AfterEach
@@ -56,7 +60,9 @@ class LevelUpNotifierTest {
 
 		Component message = ((org.mockbukkit.mockbukkit.entity.PlayerMock) player).nextComponentMessage();
 		assertNotNull(message);
-		assertEquals("Level up: 3", PlainTextComponentSerializer.plainText().serialize(message));
+		String plain = PlainTextComponentSerializer.plainText().serialize(message);
+		assertTrue(plain.startsWith(" "));
+		assertEquals("Level up: 3", plain.stripLeading());
 	}
 
 	@Test
@@ -87,7 +93,8 @@ class LevelUpNotifierTest {
 		// Observer receives the broadcast.
 		Component observerMessage = ((org.mockbukkit.mockbukkit.entity.PlayerMock) observer).nextComponentMessage();
 		assertNotNull(observerMessage);
-		assertEquals(player.getName() + " hit 5",
-			PlainTextComponentSerializer.plainText().serialize(observerMessage));
+		String plain = PlainTextComponentSerializer.plainText().serialize(observerMessage);
+		assertTrue(plain.startsWith(" "));
+		assertEquals(player.getName() + " hit 5", plain.stripLeading());
 	}
 }
