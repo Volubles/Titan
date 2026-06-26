@@ -39,6 +39,7 @@ import com.voluble.titanMC.milestones.persistence.MilestoneStorage;
 import com.voluble.titanMC.milestones.service.MilestoneService;
 import com.voluble.titanMC.milestones.tracking.MineResetWindowTracker;
 import com.voluble.titanMC.milestones.tracking.MiningMilestoneListener;
+import com.voluble.titanMC.milestones.tracking.RankMilestoneListener;
 import com.voluble.titanMC.milestones.ui.MilestoneMenuService;
 import com.voluble.titanMC.mines.MineManager;
 import com.voluble.titanMC.mines.command.MineCommandModule;
@@ -382,6 +383,9 @@ public final class TitanMC extends JavaPlugin {
 		getServer().getPluginManager().registerEvents(resetWindows, this);
 		getServer().getPluginManager().registerEvents(
 			new MiningMilestoneListener(milestoneService, completionHandler, donatorToolRegistry, resetWindows), this
+		);
+		getServer().getPluginManager().registerEvents(
+			new RankMilestoneListener(rankConfiguration.catalog(), rankService, milestoneService, completionHandler), this
 		);
 		getLogger().info("Milestones ready");
 		return true;

@@ -33,7 +33,7 @@ categories:
   ranks:
     name: "Ranks"
     icon: NETHER_STAR
-    enabled: false
+    enabled: true
   progression:
     name: "Progression"
     icon: EXPERIENCE_BOTTLE
@@ -208,3 +208,189 @@ tracks:
         slot: 13
         rewards:
           cred: 250
+  rank_progress:
+    category: ranks
+    name: "Rank Progress"
+    icon: NETHER_STAR
+    metric: RANK_REACHED
+    slot: 10
+    tiers:
+      - id: rank_reached_e4
+        name: "Reach E4"
+        subject: e4
+        target: 1
+        rewards:
+          cred: 50
+      - id: rank_reached_e3
+        name: "Reach E3"
+        subject: e3
+        target: 1
+        rewards:
+          cred: 100
+      - id: rank_reached_e2
+        name: "Reach E2"
+        subject: e2
+        target: 1
+        rewards:
+          cred: 150
+      - id: rank_reached_e1
+        name: "Reach E1"
+        subject: e1
+        target: 1
+        rewards:
+          cred: 250
+      - id: rank_reached_d4
+        name: "Reach D4"
+        subject: d4
+        target: 1
+        rewards:
+          cred: 500
+      - id: rank_reached_d3
+        name: "Reach D3"
+        subject: d3
+        target: 1
+        rewards:
+          cred: 650
+      - id: rank_reached_d2
+        name: "Reach D2"
+        subject: d2
+        target: 1
+        rewards:
+          cred: 800
+      - id: rank_reached_d1
+        name: "Reach D1"
+        subject: d1
+        target: 1
+        rewards:
+          cred: 1000
+      - id: rank_reached_c4
+        name: "Reach C4"
+        subject: c4
+        target: 1
+        rewards:
+          cred: 1500
+      - id: rank_reached_c3
+        name: "Reach C3"
+        subject: c3
+        target: 1
+        rewards:
+          cred: 1750
+      - id: rank_reached_c2
+        name: "Reach C2"
+        subject: c2
+        target: 1
+        rewards:
+          cred: 2000
+      - id: rank_reached_c1
+        name: "Reach C1"
+        subject: c1
+        target: 1
+        rewards:
+          cred: 2500
+      - id: rank_reached_b4
+        name: "Reach B4"
+        subject: b4
+        target: 1
+        rewards:
+          cred: 3500
+      - id: rank_reached_b3
+        name: "Reach B3"
+        subject: b3
+        target: 1
+        rewards:
+          cred: 4000
+      - id: rank_reached_b2
+        name: "Reach B2"
+        subject: b2
+        target: 1
+        rewards:
+          cred: 4500
+      - id: rank_reached_b1
+        name: "Reach B1"
+        subject: b1
+        target: 1
+        rewards:
+          cred: 5000
+      - id: rank_reached_a4
+        name: "Reach A4"
+        subject: a4
+        target: 1
+        rewards:
+          cred: 7500
+      - id: rank_reached_a3
+        name: "Reach A3"
+        subject: a3
+        target: 1
+        rewards:
+          cred: 8500
+      - id: rank_reached_a2
+        name: "Reach A2"
+        subject: a2
+        target: 1
+        rewards:
+          cred: 9500
+      - id: rank_reached_a1
+        name: "Reach A1"
+        subject: a1
+        target: 1
+        rewards:
+          cred: 10000
+  ward_progress:
+    category: ranks
+    name: "Ward Progress"
+    icon: BEACON
+    metric: WARD_REACHED
+    slot: 11
+    tiers:
+      - id: ward_reached_e
+        name: "Enter E Ward"
+        subject: e
+        target: 1
+        rewards:
+          cred: 250
+      - id: ward_reached_d
+        name: "Enter D Ward"
+        subject: d
+        target: 1
+        rewards:
+          cred: 1000
+      - id: ward_reached_c
+        name: "Enter C Ward"
+        subject: c
+        target: 1
+        rewards:
+          cred: 2500
+      - id: ward_reached_b
+        name: "Enter B Ward"
+        subject: b
+        target: 1
+        rewards:
+          cred: 5000
+      - id: ward_reached_a
+        name: "Enter A Ward"
+        subject: a
+        target: 1
+        rewards:
+          cred: 10000
+  prestige_progress:
+    category: ranks
+    name: "Prestige"
+    icon: AMETHYST_SHARD
+    metric: PRESTIGE_REACHED
+    slot: 12
+    tiers:
+      - id: prestige_reached_1
+        name: "Reach Prestige 1"
+        target: 1
+        rewards:
+          cred: 25000
+      - id: prestige_reached_5
+        name: "Reach Prestige 5"
+        target: 5
+        rewards:
+          cred: 100000
+      - id: prestige_reached_10
+        name: "Reach Prestige 10"
+        target: 10
+        rewards:
+          cred: 250000

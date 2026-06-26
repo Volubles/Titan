@@ -91,14 +91,30 @@ public final class MilestoneService implements AutoCloseable {
 
 		MilestoneProgress previous = progress(playerId, metric, subject);
 		long updatedAmount = addSafely(previous.amount(), amount);
+		return updateProgress(playerId, previous, updatedAmount);
+	}
+
+	public synchronized MilestoneUpdate setProgressAtLeast(UUID playerId, MilestoneMetric metric, String subject, long amount) {
+		Objects.requireNonNull(playerId, "playerId");
+		Objects.requireNonNull(metric, "metric");
+		if (amount < 0) throw new IllegalArgumentException("amount must not be negative");
+
+		MilestoneProgress previous = progress(playerId, metric, subject);
+		long updatedAmount = Math.max(previous.amount(), amount);
+		return updateProgress(playerId, previous, updatedAmount);
+	}
+
+	private MilestoneUpdate updateProgress(UUID playerId, MilestoneProgress previous, long updatedAmount) {
 		MilestoneProgress current = previous.withAmount(updatedAmount, clock.getAsLong());
 		List<MilestoneCompletion> newCompletions = completions(playerId, previous, current);
-		progress.put(current.key(), current);
+		if (current.amount() != previous.amount()) progress.put(current.key(), current);
 		for (MilestoneCompletion completion : newCompletions) {
 			completions.add(CompletionKey.of(completion.playerId(), completion.tierId()));
 		}
-		storage.saveLatest(current, newCompletions, failure ->
-			logger.log(Level.SEVERE, "Failed to persist milestone progress for " + playerId, failure));
+		if (current.amount() != previous.amount() || !newCompletions.isEmpty()) {
+			storage.saveLatest(current, newCompletions, failure ->
+				logger.log(Level.SEVERE, "Failed to persist milestone progress for " + playerId, failure));
+		}
 		return new MilestoneUpdate(previous, current, newCompletions);
 	}
 
