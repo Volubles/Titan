@@ -4,14 +4,18 @@
 # boss bars, menus, signs, and custom flows can keep their own layouts.
 
 templates:
-  info: "<glyph:prefix_defaultchat><color:#30bbf1>{{message}}</color>"
-  success: "<glyph:prefix_successchat><color:#42d829>{{message}}</color>"
-  error: "<glyph:prefix_errorchat><color:#d43030>{{message}}</color>"
+  info: "<dark_gray>[<color:#30bbf1>i</color><dark_gray>] <color:#30bbf1>{{message}}</color>"
+  success: "<dark_gray>[<color:#42d829>OK</color><dark_gray>] <color:#42d829>{{message}}</color>"
+  error: "<dark_gray>[<color:#d43030>!</color><dark_gray>] <color:#d43030>{{message}}</color>"
 
 messages:
   command:
     player-only:
       - "Only players can use this command."
+    unknown-player:
+      - "Unknown player. Use a cached name or UUID."
+    runtime-error:
+      - "{{reason}}"
   donator-tools:
     help:
       title:
@@ -39,3 +43,274 @@ messages:
       - "You received a {{tool}}."
     gave:
       - "Gave {{tool}} to {{player}}."
+  cells:
+    usage:
+      - "Usage: /cell <create|delete|list|info|displayname|ward|reset|baseline|sign|member>"
+    unknown:
+      - "Unknown cell."
+    list:
+      - "Cells: {{cells}}"
+    info:
+      - "{{display_name}} ({{cell}}) | ${{price}} | ward {{ward}} | duration {{duration}}s | maximum {{maximum}}s | {{state}}"
+    create:
+      cuboid-required:
+        - "Cells must use a cuboid selection."
+      failed:
+        - "Cell creation failed: {{reason}}"
+      success:
+        - "Created cell '{{cell}}' in {{ward}} ward."
+    delete:
+      success:
+        - "Deleted cell."
+    ward:
+      moved:
+        - "Moved cell '{{cell}}' to {{ward}} ward."
+    display-name:
+      updated:
+        - "Updated cell display name."
+    reset:
+      started:
+        - "Cell reset started."
+    baseline:
+      capturing:
+        - "Capturing the cell baseline..."
+      not-available:
+        - "The cell must be available before its baseline can be updated."
+      capture-failed:
+        - "Baseline capture failed: {{reason}}"
+      updated:
+        - "Updated the baseline for cell '{{cell}}'."
+      update-failed:
+        - "Baseline update failed: {{reason}}"
+    members:
+      changed:
+        - "{{action}} {{player}} {{direction}} the cell."
+      list:
+        - "Members: {{members}}"
+    sign:
+      look:
+        - "Look at a sign within 6 blocks."
+      linked:
+        - "Rental sign linked."
+      invalid:
+        - "This cell sign is no longer valid."
+    economy-unavailable:
+      - "Economy is unavailable."
+    renting-unavailable:
+      - "Renting is unavailable because no economy provider is active."
+    operation-busy:
+      - "A cell operation is already running."
+    max-duration:
+      - "This cell cannot be rented beyond its maximum duration."
+    not-enough-money:
+      - "You do not have enough money."
+    payment-failed:
+      - "The payment failed."
+    rent-extended:
+      - "Rent extended."
+    extension-refunded:
+      - "Extension failed; your payment was refunded."
+    return-started:
+      - "Cell return started."
+    owner-only:
+      - "Only the cell owner can do that."
+    rank-unavailable:
+      - "Your prison rank is not available yet."
+    rank-required:
+      - "You need rank {{rank}} to rent a cell in ward {{ward}}."
+    rent:
+      already-processing-player:
+        - "Another cell rental is already being processed for you."
+      already-processing-cell:
+        - "This cell is currently being processed."
+    rented:
+      - "You rented {{cell}}."
+    rent-refunded:
+      - "The rental could not be completed; your payment was refunded."
+    menu:
+      member-prompt:
+        - "Type the player's username in chat."
+      member-not-found:
+        - "No player named '{{player}}' was found. Open the members menu and try again."
+      member-added:
+        - "Added {{player}} to the cell."
+  auctions:
+    usage:
+      - "Usage: /auction position <add|remove|list|teleport>"
+    buy-using-sign:
+      - "Buy this mystery chest using its sign."
+    reserved:
+      - "This chest is temporarily reserved for its buyer."
+    admin-creative-only:
+      - "Auction blocks can only be removed by an auction administrator in creative mode."
+    discarded:
+      - "Auction permanently discarded."
+    discard-failed:
+      - "The auction could not be removed. Check the server log."
+    delivery-full:
+      - "Your inventory is full. Reopen the auction after making space to receive your item."
+    not-available:
+      - "This auction is not available to you."
+    item-unavailable:
+      - "That auction item is no longer available."
+    no-longer-for-sale:
+      - "This auction is no longer for sale."
+    expired:
+      - "This auction has expired."
+    rank-unavailable:
+      - "Your prison rank is not available yet."
+    rank-required:
+      - "You need rank {{rank}} to buy an auction in ward {{ward}}."
+    economy-unavailable:
+      - "The economy is unavailable."
+    not-enough-money:
+      - "You do not have enough money."
+    payment-failed:
+      - "The payment failed."
+    purchase-refunded:
+      - "The purchase failed; your payment was refunded."
+    purchase-refund-failed:
+      - "The purchase and automatic refund failed. Contact an administrator."
+    purchased:
+      - "You bought the mystery chest. You have {{duration}} of exclusive access."
+    position:
+      look-at-block:
+        - "Look at the block where the auction chest should spawn."
+      added:
+        - "Added auction position {{position}} in {{ward}} ward. The chest and sign will face you."
+      removed:
+        - "Auction position removed."
+      empty:
+        - "No auction positions configured."
+      header:
+        - "Auction positions:"
+      teleported:
+        - "Teleported to auction position {{position}}."
+  ranks:
+    no-rank:
+      - "You do not have a rank yet."
+    own:
+      - "Your rank: {{rank}}"
+    next:
+      - "Next rank: {{rank}} (${{cost}})"
+    player-no-rank:
+      - "{{player}} has no rank."
+    player-info:
+      - "{{player}} is rank {{rank}}"
+    invalid-id:
+      - "Invalid rank id: {{reason}}"
+    unknown:
+      - "Unknown rank: {{rank}}"
+    set:
+      - "Set {{player}} to {{rank}}."
+    rankup:
+      success:
+        - "Ranked up to {{rank}} for ${{cost}}."
+      max:
+        - "You are already at the highest rank."
+      missing-requirement:
+        - "You must hold {{required}} before reaching {{next}}."
+      insufficient-funds:
+        - "You need ${{needed}} to reach {{rank}} (you have ${{balance}})."
+      economy-unavailable:
+        - "Rankups are unavailable because no economy provider is active."
+      save-refunded:
+        - "The rankup could not be saved. Your payment was refunded."
+      save-refund-failed:
+        - "The rankup could not be saved and the automatic refund failed. Contact staff."
+      no-current-rank:
+        - "You do not have a rank yet; rejoin to receive the starter rank."
+  cred:
+    player-info:
+      - "{{player}}: {{summary}}"
+    amount-positive:
+      - "Amount must be positive."
+    invalid-source:
+      - "Invalid source id: {{reason}}"
+    unchanged:
+      - "{{player}} was unchanged (already at the boundary)."
+    changed:
+      - "{{verb}} {{player}} {{amount}} cred{{level_change}} [{{source}}]"
+  mines:
+    list:
+      - "Mines: {{mines}}"
+    name-invalid:
+      - "{{reason}}"
+    already-exists:
+      - "Mine already exists."
+    created:
+      - "Created mine '{{mine}}' from your WorldEdit selection."
+    unknown:
+      - "Unknown mine."
+    redefined:
+      - "Redefined '{{mine}}' from your WorldEdit selection."
+    selection-overlap:
+      - "That selection overlaps mine '{{mine}}'."
+    interval-set:
+      - "Set interval for '{{mine}}' to {{seconds}}s."
+    depletion-set:
+      - "Depletion auto-reset for '{{mine}}' set to {{percent}}%. (-1 disables)"
+    depletion-unavailable:
+      - "Depletion reset is unavailable for this mine's reset and diggable-block configuration."
+    safe-spawn-set:
+      - "Set safe spawn for '{{mine}}'."
+    invalid-material:
+      - "Invalid material."
+    palette-updated:
+      - "Palette updated: {{material}}={{weight}}"
+    palette-removed:
+      - "Removed from palette: {{material}}"
+    force-reset:
+      - "Force reset triggered for '{{mine}}'."
+    deleted:
+      - "Deleted mine '{{mine}}'. The blocks were left untouched."
+    template:
+      capture-active:
+        - "{{result}} Template reset is now active."
+      activate-failed:
+        - "The template was captured but could not be activated: {{reason}}"
+      already-capturing:
+        - "That mine is already being captured."
+      capturing:
+        - "Capturing template {{template}} from {{mine}}..."
+      enabled:
+        - "Template reset enabled."
+    palette-enabled:
+      - "Palette reset enabled."
+  regions:
+    usage:
+      - "Usage: /region <create|redefine|delete|list|info|priority|test|flag|message|owner|member>"
+    success:
+      - "{{message}}"
+    operation-failed:
+      - "Region operation failed: {{reason}}"
+    empty:
+      - "No custom regions exist in this world."
+    list:
+      - "Regions: {{regions}}"
+    unknown:
+      - "Unknown region in this world."
+    unknown-player:
+      - "Unknown player. Use an online/cached player name or UUID."
+    access-list:
+      - "{{label}}: {{players}}"
+    entry-test-unavailable:
+      - "Entry is transition-based and cannot be tested at a single position."
+    unknown-flag:
+      - "Unknown region flag."
+    protection-disabled:
+      - "Titan region protection is disabled."
+    test-result:
+      - "Test {{flag}} at {{x}}, {{y}}, {{z}}: {{decision}} ({{reason}})"
+    matching-none:
+      - "Matching regions: none"
+    matching:
+      - "Matching regions: {{regions}}"
+    trace-bypass:
+      - "Trace: protection bypassed by your permission."
+    trace-default:
+      - "Trace: no region rule decided; world default applied."
+    trace-line:
+      - "Trace: {{region}}@{{priority}} -> {{decision}} via {{policy}}{{error}}"
+    winning-priority:
+      - "Winning priority: {{priority}}"

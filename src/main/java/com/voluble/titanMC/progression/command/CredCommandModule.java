@@ -1,6 +1,8 @@
 package com.voluble.titanMC.progression.command;
 
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.voluble.titanMC.display.notice.MessageDefaults;
+import com.voluble.titanMC.display.notice.PluginMessageService;
 import com.voluble.titanMC.progression.model.CredAmount;
 import com.voluble.titanMC.progression.model.CredSource;
 import com.voluble.titanMC.progression.model.PlayerProgression;
@@ -32,10 +34,12 @@ public final class CredCommandModule implements CommandModule {
 
 	private final ProgressionEngine engine;
 	private final ProgressionBarService bars;
+	private final PluginMessageService messages;
 
-	public CredCommandModule(ProgressionEngine engine, ProgressionBarService bars) {
+	public CredCommandModule(ProgressionEngine engine, ProgressionBarService bars, PluginMessageService messages) {
 		this.engine = Objects.requireNonNull(engine, "engine");
 		this.bars = Objects.requireNonNull(bars, "bars");
+		this.messages = Objects.requireNonNull(messages, "messages");
 	}
 
 	@Override
@@ -74,11 +78,13 @@ public final class CredCommandModule implements CommandModule {
 		CommandSender sender = context.sender();
 		OfflinePlayer target = resolvePlayer(context.arg("player", String.class));
 		if (target == null) {
-			sender.sendMessage("Unknown player. Use a cached name or UUID.");
+			messages.send(sender, MessageDefaults.COMMAND_UNKNOWN_PLAYER);
 			return CommandTree.ok();
 		}
 		PlayerProgression progression = engine.current(target.getUniqueId());
-		sender.sendMessage(displayName(target) + ": " + formatLine(progression));
+		messages.send(sender, MessageDefaults.CRED_PLAYER_INFO, args -> args
+			.plain("player", displayName(target))
+			.plain("summary", formatLine(progression)));
 		return CommandTree.ok();
 	}
 
@@ -86,19 +92,19 @@ public final class CredCommandModule implements CommandModule {
 		CommandSender sender = context.sender();
 		OfflinePlayer target = resolvePlayer(context.arg("player", String.class));
 		if (target == null) {
-			sender.sendMessage("Unknown player. Use a cached name or UUID.");
+			messages.send(sender, MessageDefaults.COMMAND_UNKNOWN_PLAYER);
 			return CommandTree.ok();
 		}
 		long amount = context.arg("amount", Long.class);
 		if (amount <= 0) {
-			sender.sendMessage("Amount must be positive.");
+			messages.send(sender, MessageDefaults.CRED_AMOUNT_POSITIVE);
 			return CommandTree.ok();
 		}
 		CredSource source;
 		try {
 			source = sourceArg == null ? ADMIN_SOURCE : CredSource.of(sourceArg);
 		} catch (IllegalArgumentException exception) {
-			sender.sendMessage("Invalid source id: " + exception.getMessage());
+			messages.send(sender, MessageDefaults.CRED_INVALID_SOURCE, args -> args.plain("reason", exception.getMessage()));
 			return CommandTree.ok();
 		}
 		CredAmount credAmount = CredAmount.of(amount);
@@ -109,14 +115,19 @@ public final class CredCommandModule implements CommandModule {
 		String verb = give ? "Gave" : "Took";
 		String name = displayName(target);
 		if (update.applied() == 0L) {
-			sender.sendMessage(name + " was unchanged (already at the boundary).");
+			messages.send(sender, MessageDefaults.CRED_UNCHANGED, args -> args.plain("player", name));
 			return CommandTree.ok();
 		}
-		String credChange = (give ? "+" : "") + update.applied() + " cred";
+		String credChange = (give ? "+" : "") + update.applied();
 		String levelChange = update.changedLevel()
 			? " (level " + update.previous().level() + " -> " + update.current().level() + ")"
 			: "";
-		sender.sendMessage(verb + " " + name + " " + credChange + levelChange + " [" + source.value() + "]");
+		messages.send(sender, MessageDefaults.CRED_CHANGED, args -> args
+			.plain("verb", verb)
+			.plain("player", name)
+			.plain("amount", credChange)
+			.plain("level_change", levelChange)
+			.plain("source", source.value()));
 		return CommandTree.ok();
 	}
 

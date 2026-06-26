@@ -3,6 +3,8 @@ package com.voluble.titanMC.cells;
 import com.voluble.titanMC.cells.config.CellsConfigurationManager;
 import com.voluble.titanMC.cells.model.CellDefinition;
 import com.voluble.titanMC.cells.model.CellLease;
+import com.voluble.titanMC.display.notice.MessageDefaults;
+import com.voluble.titanMC.display.notice.PluginMessageService;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -20,15 +22,17 @@ public final class CellManagementService {
 	private final CellSignRenderer signs;
 	private final CellsConfigurationManager configuration;
 	private final Economy economy;
+	private final PluginMessageService messages;
 	private final Set<String> busy = new HashSet<>();
 
-	public CellManagementService(Plugin plugin, CellManager cells, CellResetService resets, CellSignRenderer signs, CellsConfigurationManager configuration, Economy economy) {
+	public CellManagementService(Plugin plugin, CellManager cells, CellResetService resets, CellSignRenderer signs, CellsConfigurationManager configuration, Economy economy, PluginMessageService messages) {
 		this.plugin = plugin;
 		this.cells = cells;
 		this.resets = resets;
 		this.signs = signs;
 		this.configuration = configuration;
 		this.economy = economy;
+		this.messages = messages;
 	}
 
 	public boolean isOwner(Player player, String cellId) {
@@ -44,12 +48,12 @@ public final class CellManagementService {
 			return;
 		}
 		if (economy == null) {
-			player.sendMessage("Economy is unavailable.");
+			messages.send(player, MessageDefaults.CELLS_ECONOMY_UNAVAILABLE);
 			callback.accept(false);
 			return;
 		}
 		if (!busy.add(cellId)) {
-			player.sendMessage("A cell operation is already running.");
+			messages.send(player, MessageDefaults.CELLS_OPERATION_BUSY);
 			callback.accept(false);
 			return;
 		}
@@ -58,20 +62,20 @@ public final class CellManagementService {
 		long requestedExpiry = base + cell.rentDurationSeconds() * 1000L;
 		if (requestedExpiry > maximumExpiry) {
 			busy.remove(cellId);
-			player.sendMessage("This cell cannot be rented beyond its maximum duration.");
+			messages.send(player, MessageDefaults.CELLS_MAX_DURATION);
 			callback.accept(false);
 			return;
 		}
 		if (!economy.has(player, cell.rentPrice())) {
 			busy.remove(cellId);
-			player.sendMessage("You do not have enough money.");
+			messages.send(player, MessageDefaults.CELLS_NOT_ENOUGH_MONEY);
 			callback.accept(false);
 			return;
 		}
 		var response = economy.withdrawPlayer(player, cell.rentPrice());
 		if (!response.transactionSuccess()) {
 			busy.remove(cellId);
-			player.sendMessage("The payment failed.");
+			messages.send(player, MessageDefaults.CELLS_PAYMENT_FAILED);
 			callback.accept(false);
 			return;
 		}
@@ -81,11 +85,11 @@ public final class CellManagementService {
 				if (error != null) throw new IllegalStateException(error);
 				cells.replaceLease(updated);
 				signs.refresh(cell);
-				player.sendMessage("Rent extended.");
+				messages.send(player, MessageDefaults.CELLS_RENT_EXTENDED);
 				callback.accept(true);
 			} catch (RuntimeException failure) {
 				economy.depositPlayer(player, cell.rentPrice());
-				player.sendMessage("Extension failed; your payment was refunded.");
+				messages.send(player, MessageDefaults.CELLS_EXTENSION_REFUNDED);
 				callback.accept(false);
 			} finally {
 				busy.remove(cellId);
@@ -102,9 +106,9 @@ public final class CellManagementService {
 			int percent = configuration.current().sellbackRefundPercent();
 			if (economy != null && percent > 0) economy.depositPlayer(player, cell.rentPrice() * percent / 100.0);
 			signs.refresh(cell);
-			player.sendMessage("Cell return started.");
+			messages.send(player, MessageDefaults.CELLS_RETURN_STARTED);
 		} catch (RuntimeException e) {
-			player.sendMessage(e.getMessage());
+			messages.send(player, MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", e.getMessage()));
 		}
 	}
 
@@ -125,7 +129,7 @@ public final class CellManagementService {
 	private CellLease requiredOwner(Player player, String cellId) {
 		CellLease lease = cells.lease(cellId);
 		if (lease == null || !lease.ownerId().equals(player.getUniqueId())) {
-			player.sendMessage("Only the cell owner can do that.");
+			messages.send(player, MessageDefaults.CELLS_OWNER_ONLY);
 			return null;
 		}
 		return lease;

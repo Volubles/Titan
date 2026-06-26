@@ -1,5 +1,7 @@
 package com.voluble.titanMC.cells;
 
+import com.voluble.titanMC.display.notice.MessageDefaults;
+import com.voluble.titanMC.display.notice.PluginMessageService;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
@@ -14,12 +16,14 @@ import com.voluble.titanMC.cells.ui.CellMenuService;
 public final class CellSignService implements Listener {
 	private final CellManager cells;
 	private final CellSignRenderer renderer;
+	private final PluginMessageService messages;
 	private final NamespacedKey cellKey;
 	private CellMenuService menus;
 
-	public CellSignService(Plugin plugin, CellManager cells, CellSignRenderer renderer) {
+	public CellSignService(Plugin plugin, CellManager cells, CellSignRenderer renderer, PluginMessageService messages) {
 		this.cells = cells;
 		this.renderer = renderer;
+		this.messages = messages;
 		cellKey = new NamespacedKey(plugin, "cell_rental");
 	}
 
@@ -45,7 +49,7 @@ public final class CellSignService implements Listener {
 		event.setCancelled(true);
 		var cell = cells.get(cellId);
 		if (cell == null) {
-			event.getPlayer().sendMessage("This cell sign is no longer valid.");
+			messages.send(event.getPlayer(), MessageDefaults.CELLS_SIGN_INVALID);
 			return;
 		}
 		renderer.render(sign, cell);

@@ -1,5 +1,7 @@
 package com.voluble.titanMC.auctions;
 
+import com.voluble.titanMC.display.notice.MessageDefaults;
+import com.voluble.titanMC.display.notice.PluginMessageService;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
@@ -16,12 +18,14 @@ import java.util.logging.Level;
 final class AuctionDeliveryService {
 	private final Plugin plugin;
 	private final AuctionStorage storage;
+	private final PluginMessageService messages;
 	private final NamespacedKey receiptKey;
 	private final Set<Long> inFlight = new HashSet<>();
 
-	AuctionDeliveryService(Plugin plugin, AuctionStorage storage) {
+	AuctionDeliveryService(Plugin plugin, AuctionStorage storage, PluginMessageService messages) {
 		this.plugin = plugin;
 		this.storage = storage;
+		this.messages = messages;
 		this.receiptKey = new NamespacedKey(plugin, "auction_delivery");
 	}
 
@@ -56,7 +60,7 @@ final class AuctionDeliveryService {
 		ItemStack item = ItemStack.deserializeBytes(delivery.itemData());
 		if (!fits(player)) {
 			inFlight.remove(delivery.id());
-			player.sendMessage("Your inventory is full. Reopen the auction after making space to receive your item.");
+			messages.send(player, MessageDefaults.AUCTIONS_DELIVERY_FULL);
 			return;
 		}
 		addReceipt(item, delivery.id());

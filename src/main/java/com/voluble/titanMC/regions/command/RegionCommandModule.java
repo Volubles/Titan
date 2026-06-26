@@ -2,6 +2,7 @@ package com.voluble.titanMC.regions.command;
 
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.voluble.titanMC.TitanMC;
+import com.voluble.titanMC.display.notice.MessageDefaults;
 import com.voluble.titanMC.regions.admin.RegionAdminService;
 import com.voluble.titanMC.regions.admin.RegionProtectionTestService;
 import com.voluble.titanMC.regions.model.BlockPosition;
@@ -178,9 +179,7 @@ public final class RegionCommandModule implements CommandModule {
 	}
 
 	private int handleRoot(MichelleCommandContext context) throws CommandSyntaxException {
-		context.playerExecutor().sendMessage(
-			"Usage: /region <create|redefine|delete|list|info|priority|test|flag|message|owner|member>"
-		);
+		plugin.getMessages().send(context.playerExecutor(), MessageDefaults.REGIONS_USAGE);
 		return CommandTree.ok();
 	}
 
@@ -196,7 +195,7 @@ public final class RegionCommandModule implements CommandModule {
 				name, new WorldId(selection.worldId()), priority, selection.geometry()
 			);
 		} catch (IllegalArgumentException exception) {
-			player.sendMessage(exception.getMessage());
+			error(player, exception.getMessage());
 			return CommandTree.ok();
 		}
 		sendResult(player, result, "Created region '" + name + "' as " + geometryName(selection.geometry()) + ".");
@@ -212,7 +211,7 @@ public final class RegionCommandModule implements CommandModule {
 		try {
 			result = regions.redefine(name, new WorldId(selection.worldId()), selection.geometry());
 		} catch (IllegalArgumentException exception) {
-			player.sendMessage(exception.getMessage());
+			error(player, exception.getMessage());
 			return CommandTree.ok();
 		}
 		sendResult(player, result, "Redefined region '" + name + "' as " + geometryName(selection.geometry()) + ".");
@@ -229,7 +228,7 @@ public final class RegionCommandModule implements CommandModule {
 				"Deleted region '" + name + "'."
 			);
 		} catch (IllegalArgumentException exception) {
-			player.sendMessage(exception.getMessage());
+			error(player, exception.getMessage());
 		}
 		return CommandTree.ok();
 	}
@@ -238,11 +237,12 @@ public final class RegionCommandModule implements CommandModule {
 		Player player = context.playerExecutor();
 		var definitions = regions.list(world(player));
 		if (definitions.isEmpty()) {
-			player.sendMessage("No custom regions exist in this world.");
+			plugin.getMessages().send(player, MessageDefaults.REGIONS_EMPTY);
 		} else {
-			player.sendMessage("Regions: " + definitions.stream()
-				.map(region -> region.key().name())
-				.collect(Collectors.joining(", ")));
+			plugin.getMessages().send(player, MessageDefaults.REGIONS_LIST, args -> args.plain(
+				"regions",
+				definitions.stream().map(region -> region.key().name()).collect(Collectors.joining(", "))
+			));
 		}
 		return CommandTree.ok();
 	}
@@ -253,11 +253,11 @@ public final class RegionCommandModule implements CommandModule {
 		try {
 			region = regions.find(world(player), context.arg("name", String.class));
 		} catch (IllegalArgumentException exception) {
-			player.sendMessage(exception.getMessage());
+			error(player, exception.getMessage());
 			return CommandTree.ok();
 		}
 		if (region == null) {
-			player.sendMessage("Unknown region in this world.");
+			plugin.getMessages().send(player, MessageDefaults.REGIONS_UNKNOWN);
 			return CommandTree.ok();
 		}
 		player.sendMessage(region.key() + " | " + geometryName(region.geometry())
@@ -312,7 +312,7 @@ public final class RegionCommandModule implements CommandModule {
 					+ " for " + subject.externalName() + " in '" + name + "'."
 			);
 		} catch (IllegalArgumentException exception) {
-			player.sendMessage(exception.getMessage());
+			error(player, exception.getMessage());
 		}
 		return CommandTree.ok();
 	}
@@ -326,7 +326,7 @@ public final class RegionCommandModule implements CommandModule {
 		String name = context.arg("name", String.class);
 		OfflinePlayer target = resolvePlayer(context.arg("player", String.class));
 		if (target == null) {
-			player.sendMessage("Unknown player. Use an online/cached player name or UUID.");
+			plugin.getMessages().send(player, MessageDefaults.REGIONS_UNKNOWN_PLAYER);
 			return CommandTree.ok();
 		}
 		RegionMutationResult result;
@@ -339,7 +339,7 @@ public final class RegionCommandModule implements CommandModule {
 					? regions.addMember(name, world(player), target.getUniqueId())
 					: regions.removeMember(name, world(player), target.getUniqueId());
 		} catch (IllegalArgumentException exception) {
-			player.sendMessage(exception.getMessage());
+			error(player, exception.getMessage());
 			return CommandTree.ok();
 		}
 		sendResult(
@@ -361,15 +361,16 @@ public final class RegionCommandModule implements CommandModule {
 		try {
 			region = regions.find(world(player), context.arg("name", String.class));
 		} catch (IllegalArgumentException exception) {
-			player.sendMessage(exception.getMessage());
+			error(player, exception.getMessage());
 			return CommandTree.ok();
 		}
 		if (region == null) {
-			player.sendMessage("Unknown region in this world.");
+			plugin.getMessages().send(player, MessageDefaults.REGIONS_UNKNOWN);
 			return CommandTree.ok();
 		}
-		player.sendMessage((owners ? "Owners: " : "Members: ")
-			+ identities(owners ? region.access().owners() : region.access().members()));
+		plugin.getMessages().send(player, MessageDefaults.REGIONS_ACCESS_LIST, args -> args
+			.plain("label", owners ? "Owners" : "Members")
+			.plain("players", identities(owners ? region.access().owners() : region.access().members())));
 		return CommandTree.ok();
 	}
 
@@ -384,7 +385,7 @@ public final class RegionCommandModule implements CommandModule {
 				"Set priority to " + priority + " for '" + name + "'."
 			);
 		} catch (IllegalArgumentException exception) {
-			player.sendMessage(exception.getMessage());
+			error(player, exception.getMessage());
 		}
 		return CommandTree.ok();
 	}
@@ -397,16 +398,16 @@ public final class RegionCommandModule implements CommandModule {
 				context.arg("flag", String.class).toUpperCase(Locale.ROOT)
 			);
 			if (action == ProtectionAction.ENTRY) {
-				player.sendMessage("Entry is transition-based and cannot be tested at a single position.");
+				plugin.getMessages().send(player, MessageDefaults.REGIONS_ENTRY_TEST_UNAVAILABLE);
 				return CommandTree.ok();
 			}
 		} catch (IllegalArgumentException exception) {
-			player.sendMessage("Unknown region flag.");
+			plugin.getMessages().send(player, MessageDefaults.REGIONS_UNKNOWN_FLAG);
 			return CommandTree.ok();
 		}
 		BlockPosition position = BukkitProtectionMapper.position(player.getLocation());
 		if (plugin.getProtectionService() == null) {
-			player.sendMessage("Titan region protection is disabled.");
+			plugin.getMessages().send(player, MessageDefaults.REGIONS_PROTECTION_DISABLED);
 			return CommandTree.ok();
 		}
 		RegionProtectionTestService protectionTests = new RegionProtectionTestService(
@@ -419,37 +420,41 @@ public final class RegionCommandModule implements CommandModule {
 			position
 		);
 		ProtectionResolution resolution = test.resolution();
-		player.sendMessage(
-			"Test " + action.name().toLowerCase(Locale.ROOT)
-				+ " at " + position.x() + ", " + position.y() + ", " + position.z()
-				+ ": " + resolution.decision().name()
-				+ " (" + reasonName(resolution.reason()) + ")"
-		);
+		plugin.getMessages().send(player, MessageDefaults.REGIONS_TEST_RESULT, args -> args
+			.plain("flag", action.name().toLowerCase(Locale.ROOT))
+			.plain("x", position.x())
+			.plain("y", position.y())
+			.plain("z", position.z())
+			.plain("decision", resolution.decision().name())
+			.plain("reason", reasonName(resolution.reason())));
 		if (test.matchingRegions().isEmpty()) {
-			player.sendMessage("Matching regions: none");
+			plugin.getMessages().send(player, MessageDefaults.REGIONS_MATCHING_NONE);
 		} else {
-			player.sendMessage("Matching regions: " + test.matchingRegions().stream()
-				.map(region -> region.key() + "@" + region.priority())
-				.collect(Collectors.joining(", ")));
+			plugin.getMessages().send(player, MessageDefaults.REGIONS_MATCHING, args -> args.plain(
+				"regions",
+				test.matchingRegions().stream()
+					.map(region -> region.key() + "@" + region.priority())
+					.collect(Collectors.joining(", "))
+			));
 		}
 		if (resolution.evaluations().isEmpty()) {
 			if (resolution.reason() == ProtectionResolution.Reason.BYPASS) {
-				player.sendMessage("Trace: protection bypassed by your permission.");
+				plugin.getMessages().send(player, MessageDefaults.REGIONS_TRACE_BYPASS);
 			} else {
-				player.sendMessage("Trace: no region rule decided; world default applied.");
+				plugin.getMessages().send(player, MessageDefaults.REGIONS_TRACE_DEFAULT);
 			}
 		} else {
 			for (var evaluation : resolution.evaluations()) {
-				player.sendMessage(
-					"Trace: " + evaluation.regionKey() + "@" + evaluation.priority()
-						+ " -> " + evaluation.decision().name()
-						+ " via " + evaluation.policyId()
-						+ evaluation.error().map(error -> " (" + error + ")").orElse("")
-				);
+				plugin.getMessages().send(player, MessageDefaults.REGIONS_TRACE_LINE, args -> args
+					.plain("region", evaluation.regionKey())
+					.plain("priority", evaluation.priority())
+					.plain("decision", evaluation.decision().name())
+					.plain("policy", evaluation.policyId())
+					.plain("error", evaluation.error().map(error -> " (" + error + ")").orElse("")));
 			}
 		}
 		resolution.decidingPriority().ifPresent(priority ->
-			player.sendMessage("Winning priority: " + priority)
+			plugin.getMessages().send(player, MessageDefaults.REGIONS_WINNING_PRIORITY, args -> args.plain("priority", priority))
 		);
 		return CommandTree.ok();
 	}
@@ -471,7 +476,7 @@ public final class RegionCommandModule implements CommandModule {
 					: "Set " + flag.name().toLowerCase(Locale.ROOT) + " for '" + name + "'."
 			);
 		} catch (IllegalArgumentException exception) {
-			player.sendMessage(exception.getMessage());
+			error(player, exception.getMessage());
 		}
 		return CommandTree.ok();
 	}
@@ -480,11 +485,11 @@ public final class RegionCommandModule implements CommandModule {
 		return reason.name().toLowerCase(Locale.ROOT).replace('_', ' ');
 	}
 
-	private static SelectedRegion selection(Player player) {
+	private SelectedRegion selection(Player player) {
 		try {
 			return WorldEditRegionSelection.read(player);
 		} catch (SelectionException exception) {
-			player.sendMessage(exception.getMessage());
+			error(player, exception.getMessage());
 			return null;
 		}
 	}
@@ -543,10 +548,16 @@ public final class RegionCommandModule implements CommandModule {
 		return geometry.getClass().getSimpleName();
 	}
 
-	private static void sendResult(Player player, RegionMutationResult result, String success) {
-		if (result instanceof RegionMutationResult.Success) player.sendMessage(success);
-		else if (result instanceof RegionMutationResult.Failure failure) {
-			player.sendMessage("Region operation failed: " + failure.message());
+	private void sendResult(Player player, RegionMutationResult result, String success) {
+		if (result instanceof RegionMutationResult.Success) {
+			plugin.getMessages().send(player, MessageDefaults.REGIONS_SUCCESS, args -> args.plain("message", success));
 		}
+		else if (result instanceof RegionMutationResult.Failure failure) {
+			plugin.getMessages().send(player, MessageDefaults.REGIONS_OPERATION_FAILED, args -> args.plain("reason", failure.message()));
+		}
+	}
+
+	private void error(Player player, String reason) {
+		plugin.getMessages().send(player, MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", reason));
 	}
 }

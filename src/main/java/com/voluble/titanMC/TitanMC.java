@@ -242,11 +242,15 @@ public final class TitanMC extends JavaPlugin {
 		cellSignRenderer = new CellSignRenderer(this, cellManager, cellsConfiguration);
 		cellResets.stateListener(cellSignRenderer::refresh);
 		CellRentalService cellRentals = new CellRentalService(
-			this, cellManager, economyManager.getEconomy(), cellSignRenderer, rankService, cellEligibility
+			this, cellManager, economyManager.getEconomy(), cellSignRenderer, rankService, cellEligibility, messages
 		);
-		CellManagementService cellManagement = new CellManagementService(this, cellManager, cellResets, cellSignRenderer, cellsConfiguration, economyManager.getEconomy());
-		CellSignService cellSigns = new CellSignService(this, cellManager, cellSignRenderer);
-		CellMenuService cellMenus = new CellMenuService(this, menuService, cellManager, cellRentals, cellManagement, cellsConfiguration);
+		CellManagementService cellManagement = new CellManagementService(
+			this, cellManager, cellResets, cellSignRenderer, cellsConfiguration, economyManager.getEconomy(), messages
+		);
+		CellSignService cellSigns = new CellSignService(this, cellManager, cellSignRenderer, messages);
+		CellMenuService cellMenus = new CellMenuService(
+			this, menuService, cellManager, cellRentals, cellManagement, cellsConfiguration, messages
+		);
 		cellSigns.menus(cellMenus);
 		getServer().getPluginManager().registerEvents(new CellTrackingListener(cellManager), this);
 		getServer().getPluginManager().registerEvents(cellSigns, this);
@@ -263,11 +267,12 @@ public final class TitanMC extends JavaPlugin {
 				auctionConfiguration,
 				economyManager.getEconomy(),
 				rankConfiguration.catalog(),
-				rankService
+				rankService,
+				messages
 			);
 			auctionService.start();
 			managedBlockAccess.register(new AuctionManagedBlockAccess(auctionService));
-			getServer().getPluginManager().registerEvents(new AuctionListener(this, auctionService), this);
+			getServer().getPluginManager().registerEvents(new AuctionListener(this, auctionService, messages), this);
 		} catch (Exception exception) {
 			getLogger().severe("Failed to initialize Auctions: " + exception.getMessage());
 			getServer().getPluginManager().disablePlugin(this);
@@ -280,11 +285,11 @@ public final class TitanMC extends JavaPlugin {
 			.addModule(new MineCommandModule(this))
 			.addModule(new RegionCommandModule(this))
 			.addModule(new CellCommandModule(
-				cellManager, cellResets, cellSigns, cellSignRenderer, rankConfiguration.catalog(), cellBaselineCapture
+				cellManager, cellResets, cellSigns, cellSignRenderer, rankConfiguration.catalog(), cellBaselineCapture, messages
 			))
-			.addModule(new AuctionCommandModule(auctionService, rankConfiguration.catalog()))
-			.addModule(new RankCommandModule(rankConfiguration.catalog(), rankService, rankupService))
-			.addModule(new CredCommandModule(progressionEngine, progressionBars))
+			.addModule(new AuctionCommandModule(auctionService, rankConfiguration.catalog(), messages))
+			.addModule(new RankCommandModule(rankConfiguration.catalog(), rankService, rankupService, messages))
+			.addModule(new CredCommandModule(progressionEngine, progressionBars, messages))
 			.install();
 
 		getLogger().info("TitanMC has been enabled!");

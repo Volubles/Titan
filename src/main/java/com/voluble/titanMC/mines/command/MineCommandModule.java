@@ -1,6 +1,7 @@
 package com.voluble.titanMC.mines.command;
 
 import com.voluble.titanMC.TitanMC;
+import com.voluble.titanMC.display.notice.MessageDefaults;
 import com.voluble.titanMC.mines.Mine;
 import com.voluble.titanMC.mines.MineManager;
 import com.voluble.titanMC.mines.MineMessages;
@@ -132,7 +133,7 @@ public final class MineCommandModule implements CommandModule {
 			return CommandTree.ok();
 		}
 		String list = manager().getAll().stream().map(Mine::getName).collect(Collectors.joining(", "));
-		player.sendMessage("Mines: " + list);
+		plugin.getMessages().send(player, MessageDefaults.MINES_LIST, args -> args.plain("mines", list));
 		return CommandTree.ok();
 	}
 
@@ -141,11 +142,11 @@ public final class MineCommandModule implements CommandModule {
 		String name = ctx.arg("name", String.class);
 		String nameError = MineValidation.validateName(name);
 		if (nameError != null) {
-			player.sendMessage(nameError);
+			plugin.getMessages().send(player, MessageDefaults.MINES_NAME_INVALID, args -> args.plain("reason", nameError));
 			return CommandTree.ok();
 		}
 		if (manager().exists(name)) {
-			player.sendMessage("Mine already exists.");
+			plugin.getMessages().send(player, MessageDefaults.MINES_ALREADY_EXISTS);
 			return CommandTree.ok();
 		}
 		RegionUtils.Cuboid c = getSelection(player);
@@ -154,7 +155,7 @@ public final class MineCommandModule implements CommandModule {
 		palette.addOrUpdate(Material.STONE, 1);
 		Mine mine = new Mine(name, c, 900, true, 1500, palette);
 		manager().add(mine);
-		player.sendMessage("Created mine '" + name + "' from your WorldEdit selection.");
+		plugin.getMessages().send(player, MessageDefaults.MINES_CREATED, args -> args.plain("mine", name));
 		MineListMenu.open(player, manager());
 		return CommandTree.ok();
 	}
@@ -164,13 +165,13 @@ public final class MineCommandModule implements CommandModule {
 		String name = ctx.arg("name", String.class);
 		Mine mine = manager().get(name);
 		if (mine == null) {
-			player.sendMessage("Unknown mine.");
+			plugin.getMessages().send(player, MessageDefaults.MINES_UNKNOWN);
 			return CommandTree.ok();
 		}
 		RegionUtils.Cuboid updated = getSelection(player);
 		if (updated == null || !validateSelection(player, updated, name)) return CommandTree.ok();
 		manager().setCuboid(name, updated);
-		player.sendMessage("Redefined '" + name + "' from your WorldEdit selection.");
+		plugin.getMessages().send(player, MessageDefaults.MINES_REDEFINED, args -> args.plain("mine", name));
 		return CommandTree.ok();
 	}
 
@@ -178,7 +179,7 @@ public final class MineCommandModule implements CommandModule {
 		try {
 			return WorldEditSelection.getCuboid(player);
 		} catch (SelectionException exception) {
-			player.sendMessage(exception.getMessage());
+			plugin.getMessages().send(player, MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", exception.getMessage()));
 			return null;
 		}
 	}
@@ -186,12 +187,12 @@ public final class MineCommandModule implements CommandModule {
 	private boolean validateSelection(Player player, RegionUtils.Cuboid cuboid, String excludedName) {
 		String cuboidError = MineValidation.validateCuboid(cuboid);
 		if (cuboidError != null) {
-			player.sendMessage(cuboidError);
+			plugin.getMessages().send(player, MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", cuboidError));
 			return false;
 		}
 		Mine overlap = manager().findOverlap(cuboid, excludedName);
 		if (overlap != null) {
-			player.sendMessage("That selection overlaps mine '" + overlap.getName() + "'.");
+			plugin.getMessages().send(player, MessageDefaults.MINES_SELECTION_OVERLAP, args -> args.plain("mine", overlap.getName()));
 			return false;
 		}
 		return true;
@@ -203,7 +204,9 @@ public final class MineCommandModule implements CommandModule {
 		int seconds = ctx.arg("seconds", Integer.class);
 		if (!requireMine(player, name)) return CommandTree.ok();
 		manager().setInterval(name, seconds);
-		player.sendMessage("Set interval for '" + name + "' to " + seconds + "s.");
+		plugin.getMessages().send(player, MessageDefaults.MINES_INTERVAL_SET, args -> args
+			.plain("mine", name)
+			.plain("seconds", seconds));
 		return CommandTree.ok();
 	}
 
@@ -213,14 +216,16 @@ public final class MineCommandModule implements CommandModule {
 		int percent = ctx.arg("percent", Integer.class);
 		Mine mine = manager().get(name);
 		if (mine == null) {
-			player.sendMessage("Unknown mine.");
+			plugin.getMessages().send(player, MessageDefaults.MINES_UNKNOWN);
 			return CommandTree.ok();
 		}
 		try {
 			manager().setDepletionThreshold(name, percent);
-			player.sendMessage("Depletion auto-reset for '" + name + "' set to " + percent + "%. (-1 disables)");
+			plugin.getMessages().send(player, MessageDefaults.MINES_DEPLETION_SET, args -> args
+				.plain("mine", name)
+				.plain("percent", percent));
 		} catch (IllegalStateException failure) {
-			player.sendMessage(failure.getMessage());
+			plugin.getMessages().send(player, MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", failure.getMessage()));
 		}
 		return CommandTree.ok();
 	}
@@ -230,11 +235,11 @@ public final class MineCommandModule implements CommandModule {
 		String name = ctx.arg("name", String.class);
 		Mine mine = manager().get(name);
 		if (mine == null) {
-			player.sendMessage("Unknown mine.");
+			plugin.getMessages().send(player, MessageDefaults.MINES_UNKNOWN);
 			return CommandTree.ok();
 		}
 		manager().setSafeSpawn(name, player.getLocation().clone());
-		player.sendMessage("Set safe spawn for '" + name + "'.");
+		plugin.getMessages().send(player, MessageDefaults.MINES_SAFE_SPAWN_SET, args -> args.plain("mine", name));
 		return CommandTree.ok();
 	}
 
@@ -245,13 +250,15 @@ public final class MineCommandModule implements CommandModule {
 		try {
 			mat = Material.valueOf(ctx.arg("material", String.class).toUpperCase(Locale.ROOT));
 		} catch (IllegalArgumentException e) {
-			player.sendMessage("Invalid material.");
+			plugin.getMessages().send(player, MessageDefaults.MINES_INVALID_MATERIAL);
 			return CommandTree.ok();
 		}
 		int weight = ctx.arg("weight", Integer.class);
 		if (!requireMine(player, name)) return CommandTree.ok();
 		manager().paletteAddOrUpdate(name, mat, weight);
-		player.sendMessage("Palette updated: " + mat + "=" + weight);
+		plugin.getMessages().send(player, MessageDefaults.MINES_PALETTE_UPDATED, args -> args
+			.plain("material", mat)
+			.plain("weight", weight));
 		return CommandTree.ok();
 	}
 
@@ -262,12 +269,12 @@ public final class MineCommandModule implements CommandModule {
 		try {
 			mat = Material.valueOf(ctx.arg("material", String.class).toUpperCase(Locale.ROOT));
 		} catch (IllegalArgumentException e) {
-			player.sendMessage("Invalid material.");
+			plugin.getMessages().send(player, MessageDefaults.MINES_INVALID_MATERIAL);
 			return CommandTree.ok();
 		}
 		if (!requireMine(player, name)) return CommandTree.ok();
 		manager().paletteRemove(name, mat);
-		player.sendMessage("Removed from palette: " + mat);
+		plugin.getMessages().send(player, MessageDefaults.MINES_PALETTE_REMOVED, args -> args.plain("material", mat));
 		return CommandTree.ok();
 	}
 
@@ -275,9 +282,9 @@ public final class MineCommandModule implements CommandModule {
 		Player player = ctx.playerExecutor();
 		String name = ctx.arg("name", String.class);
 		if (plugin.getMineScheduler().forceReset(name)) {
-			player.sendMessage("Force reset triggered for '" + name + "'.");
+			plugin.getMessages().send(player, MessageDefaults.MINES_FORCE_RESET, args -> args.plain("mine", name));
 		} else {
-			player.sendMessage("Unknown mine.");
+			plugin.getMessages().send(player, MessageDefaults.MINES_UNKNOWN);
 		}
 		return CommandTree.ok();
 	}
@@ -286,9 +293,9 @@ public final class MineCommandModule implements CommandModule {
 		Player player = ctx.playerExecutor();
 		String name = ctx.arg("name", String.class);
 		if (manager().delete(name)) {
-			player.sendMessage("Deleted mine '" + name + "'. The blocks were left untouched.");
+			plugin.getMessages().send(player, MessageDefaults.MINES_DELETED, args -> args.plain("mine", name));
 		} else {
-			player.sendMessage("Unknown mine.");
+			plugin.getMessages().send(player, MessageDefaults.MINES_UNKNOWN);
 		}
 		return CommandTree.ok();
 	}
@@ -299,7 +306,7 @@ public final class MineCommandModule implements CommandModule {
 		String templateId = ctx.arg("template", String.class);
 		Mine mine = manager().get(name);
 		if (mine == null) {
-			player.sendMessage("Unknown mine.");
+			plugin.getMessages().send(player, MessageDefaults.MINES_UNKNOWN);
 			return CommandTree.ok();
 		}
 		plugin.getMineScheduler().cancelReset(name);
@@ -308,18 +315,22 @@ public final class MineCommandModule implements CommandModule {
 				if (result.successful()) {
 					try {
 						manager().setTemplateReset(name, templateId);
-						player.sendMessage(result.message() + " Template reset is now active.");
+						plugin.getMessages().send(player, MessageDefaults.MINES_TEMPLATE_CAPTURE_ACTIVE, args -> args
+							.plain("result", result.message()));
 					} catch (RuntimeException failure) {
-						player.sendMessage("The template was captured but could not be activated: " + failure.getMessage());
+						plugin.getMessages().send(player, MessageDefaults.MINES_TEMPLATE_ACTIVATE_FAILED, args -> args
+							.plain("reason", failure.getMessage()));
 					}
-				} else player.sendMessage(result.message());
+				} else plugin.getMessages().send(player, MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", result.message()));
 			})) {
-				player.sendMessage("That mine is already being captured.");
+				plugin.getMessages().send(player, MessageDefaults.MINES_TEMPLATE_ALREADY_CAPTURING);
 				return CommandTree.ok();
 			}
-			player.sendMessage("Capturing template " + templateId + " from " + name + "...");
+			plugin.getMessages().send(player, MessageDefaults.MINES_TEMPLATE_CAPTURING, args -> args
+				.plain("template", templateId)
+				.plain("mine", name));
 		} catch (IllegalArgumentException failure) {
-			player.sendMessage(failure.getMessage());
+			plugin.getMessages().send(player, MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", failure.getMessage()));
 		}
 		return CommandTree.ok();
 	}
@@ -328,9 +339,9 @@ public final class MineCommandModule implements CommandModule {
 		Player player = ctx.playerExecutor();
 		try {
 			manager().setTemplateReset(ctx.arg("name", String.class), ctx.arg("template", String.class));
-			player.sendMessage("Template reset enabled.");
+			plugin.getMessages().send(player, MessageDefaults.MINES_TEMPLATE_ENABLED);
 		} catch (RuntimeException failure) {
-			player.sendMessage(failure.getMessage());
+			plugin.getMessages().send(player, MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", failure.getMessage()));
 		}
 		return CommandTree.ok();
 	}
@@ -339,16 +350,16 @@ public final class MineCommandModule implements CommandModule {
 		Player player = ctx.playerExecutor();
 		try {
 			manager().setPaletteReset(ctx.arg("name", String.class));
-			player.sendMessage("Palette reset enabled.");
+			plugin.getMessages().send(player, MessageDefaults.MINES_PALETTE_ENABLED);
 		} catch (RuntimeException failure) {
-			player.sendMessage(failure.getMessage());
+			plugin.getMessages().send(player, MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", failure.getMessage()));
 		}
 		return CommandTree.ok();
 	}
 
 	private boolean requireMine(Player player, String name) {
 		if (manager().exists(name)) return true;
-		player.sendMessage("Unknown mine.");
+		plugin.getMessages().send(player, MessageDefaults.MINES_UNKNOWN);
 		return false;
 	}
 }

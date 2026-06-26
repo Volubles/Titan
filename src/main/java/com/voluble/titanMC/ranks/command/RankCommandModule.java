@@ -1,6 +1,8 @@
 package com.voluble.titanMC.ranks.command;
 
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.voluble.titanMC.display.notice.MessageDefaults;
+import com.voluble.titanMC.display.notice.PluginMessageService;
 import com.voluble.titanMC.ranks.model.PlayerRank;
 import com.voluble.titanMC.ranks.model.PrisonRank;
 import com.voluble.titanMC.ranks.model.RankId;
@@ -32,11 +34,13 @@ public final class RankCommandModule implements CommandModule {
 	private final RankCatalog catalog;
 	private final PlayerRankService players;
 	private final RankupService rankups;
+	private final PluginMessageService messages;
 
-	public RankCommandModule(RankCatalog catalog, PlayerRankService players, RankupService rankups) {
+	public RankCommandModule(RankCatalog catalog, PlayerRankService players, RankupService rankups, PluginMessageService messages) {
 		this.catalog = Objects.requireNonNull(catalog, "catalog");
 		this.players = Objects.requireNonNull(players, "players");
 		this.rankups = Objects.requireNonNull(rankups, "rankups");
+		this.messages = Objects.requireNonNull(messages, "messages");
 	}
 
 	@Override
@@ -66,14 +70,16 @@ public final class RankCommandModule implements CommandModule {
 	private int showOwnRank(Player player) {
 		Optional<PlayerRank> rank = players.current(player.getUniqueId());
 		if (rank.isEmpty()) {
-			player.sendMessage("You do not have a rank yet.");
+			messages.send(player, MessageDefaults.RANK_NO_RANK);
 			return CommandTree.ok();
 		}
 		PrisonRank prisonRank = catalog.requireRank(rank.get().rankId());
-		player.sendMessage("Your rank: " + prisonRank.displayName());
+		messages.send(player, MessageDefaults.RANK_OWN, args -> args.plain("rank", prisonRank.displayName()));
 		catalog.nextRank(prisonRank.id()).ifPresent(next -> {
 			RankupRequirement requirement = next.rankup().orElseThrow();
-			player.sendMessage("Next rank: " + next.displayName() + " ($" + requirement.cost() + ")");
+			messages.send(player, MessageDefaults.RANK_NEXT, args -> args
+				.plain("rank", next.displayName())
+				.plain("cost", requirement.cost()));
 		});
 		return CommandTree.ok();
 	}
@@ -97,16 +103,18 @@ public final class RankCommandModule implements CommandModule {
 		CommandSender sender = context.sender();
 		OfflinePlayer target = resolvePlayer(context.arg("player", String.class));
 		if (target == null) {
-			sender.sendMessage("Unknown player. Use a cached name or UUID.");
+			messages.send(sender, MessageDefaults.COMMAND_UNKNOWN_PLAYER);
 			return CommandTree.ok();
 		}
 		Optional<PlayerRank> rank = players.current(target.getUniqueId());
 		if (rank.isEmpty()) {
-			sender.sendMessage(displayName(target) + " has no rank.");
+			messages.send(sender, MessageDefaults.RANK_PLAYER_NO_RANK, args -> args.plain("player", displayName(target)));
 			return CommandTree.ok();
 		}
 		PrisonRank prisonRank = catalog.requireRank(rank.get().rankId());
-		sender.sendMessage(displayName(target) + " is rank " + prisonRank.displayName());
+		messages.send(sender, MessageDefaults.RANK_PLAYER_INFO, args -> args
+			.plain("player", displayName(target))
+			.plain("rank", prisonRank.displayName()));
 		return CommandTree.ok();
 	}
 
@@ -114,55 +122,51 @@ public final class RankCommandModule implements CommandModule {
 		CommandSender sender = context.sender();
 		OfflinePlayer target = resolvePlayer(context.arg("player", String.class));
 		if (target == null) {
-			sender.sendMessage("Unknown player. Use a cached name or UUID.");
+			messages.send(sender, MessageDefaults.COMMAND_UNKNOWN_PLAYER);
 			return CommandTree.ok();
 		}
 		RankId rankId;
 		try {
 			rankId = RankId.of(context.arg("rank", String.class));
 		} catch (IllegalArgumentException exception) {
-			sender.sendMessage("Invalid rank id: " + exception.getMessage());
+			messages.send(sender, MessageDefaults.RANK_INVALID_ID, args -> args.plain("reason", exception.getMessage()));
 			return CommandTree.ok();
 		}
 		PrisonRank prisonRank = catalog.findRank(rankId).orElse(null);
 		if (prisonRank == null) {
-			sender.sendMessage("Unknown rank: " + rankId.value());
+			messages.send(sender, MessageDefaults.RANK_UNKNOWN, args -> args.plain("rank", rankId.value()));
 			return CommandTree.ok();
 		}
 		PlayerRank updated = players.current(target.getUniqueId())
 			.map(existing -> existing.withRank(prisonRank.id(), System.currentTimeMillis()))
 			.orElseGet(() -> new PlayerRank(target.getUniqueId(), prisonRank.id(), System.currentTimeMillis()));
 		players.apply(updated);
-		sender.sendMessage("Set " + displayName(target) + " to " + prisonRank.displayName() + ".");
+		messages.send(sender, MessageDefaults.RANK_SET, args -> args
+			.plain("player", displayName(target))
+			.plain("rank", prisonRank.displayName()));
 		return CommandTree.ok();
 	}
 
 	private int rankup(Player player) {
 		RankupResult result = rankups.rankup(player.getUniqueId());
 		switch (result) {
-			case RankupResult.Success success -> player.sendMessage(
-				"Ranked up to " + catalog.requireRank(success.current().rankId()).displayName()
-					+ " for $" + success.charged() + "."
+			case RankupResult.Success success -> messages.send(player, MessageDefaults.RANKUP_SUCCESS, args -> args
+				.plain("rank", catalog.requireRank(success.current().rankId()).displayName())
+				.plain("cost", success.charged()));
+			case RankupResult.AtMaxRank ignored -> messages.send(player, MessageDefaults.RANKUP_MAX);
+			case RankupResult.MissingRequirement missing -> messages.send(player, MessageDefaults.RANKUP_MISSING_REQUIREMENT, args -> args
+				.plain("required", catalog.requireRank(missing.required()).displayName())
+				.plain("next", missing.next().displayName()));
+			case RankupResult.InsufficientFunds funds -> messages.send(player, MessageDefaults.RANKUP_INSUFFICIENT_FUNDS, args -> args
+				.plain("needed", funds.needed())
+				.plain("rank", funds.next().displayName())
+				.plain("balance", (long) funds.balance()));
+			case RankupResult.EconomyUnavailable ignored -> messages.send(player, MessageDefaults.RANKUP_ECONOMY_UNAVAILABLE);
+			case RankupResult.PersistenceFailure failure -> messages.send(
+				player,
+				failure.refunded() ? MessageDefaults.RANKUP_SAVE_REFUNDED : MessageDefaults.RANKUP_SAVE_REFUND_FAILED
 			);
-			case RankupResult.AtMaxRank ignored -> player.sendMessage("You are already at the highest rank.");
-			case RankupResult.MissingRequirement missing -> player.sendMessage(
-				"You must hold " + catalog.requireRank(missing.required()).displayName()
-					+ " before reaching " + missing.next().displayName() + "."
-			);
-			case RankupResult.InsufficientFunds funds -> player.sendMessage(
-				"You need $" + funds.needed() + " to reach " + funds.next().displayName()
-					+ " (you have $" + (long) funds.balance() + ")."
-			);
-			case RankupResult.EconomyUnavailable ignored -> player.sendMessage(
-				"Rankups are unavailable because no economy provider is active."
-			);
-			case RankupResult.PersistenceFailure failure -> player.sendMessage(failure.refunded()
-				? "The rankup could not be saved. Your payment was refunded."
-				: "The rankup could not be saved and the automatic refund failed. Contact staff."
-			);
-			case RankupResult.NoCurrentRank ignored -> player.sendMessage(
-				"You do not have a rank yet; rejoin to receive the starter rank."
-			);
+			case RankupResult.NoCurrentRank ignored -> messages.send(player, MessageDefaults.RANKUP_NO_CURRENT_RANK);
 		}
 		return CommandTree.ok();
 	}

@@ -17,7 +17,7 @@ class MessageYamlSynchronizerTest {
 
 		assertTrue(MessageYamlSynchronizer.sync(yaml, List.of(definition)));
 
-		assertEquals("<color:#d43030>{{message}}</color>", yaml.getString("templates.error"));
+		assertEquals("<dark_gray>[<color:#d43030>!</color><dark_gray>] <color:#d43030>{{message}}</color>", yaml.getString("templates.error"));
 		assertEquals(List.of("Unknown cell."), yaml.getStringList("messages.cells.unknown"));
 	}
 

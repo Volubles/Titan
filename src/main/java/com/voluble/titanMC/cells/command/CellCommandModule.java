@@ -7,6 +7,8 @@ import com.voluble.titanMC.cells.CellSignRenderer;
 import com.voluble.titanMC.cells.CellSignService;
 import com.voluble.titanMC.cells.baseline.CellBaselineCaptureService;
 import com.voluble.titanMC.cells.model.CellDefinition;
+import com.voluble.titanMC.display.notice.MessageDefaults;
+import com.voluble.titanMC.display.notice.PluginMessageService;
 import com.voluble.titanMC.regions.model.CuboidGeometry;
 import com.voluble.titanMC.regions.selection.SelectionException;
 import com.voluble.titanMC.regions.selection.WorldEditRegionSelection;
@@ -36,6 +38,7 @@ public final class CellCommandModule implements CommandModule {
 	private final CellSignRenderer renderer;
 	private final RankCatalog ranks;
 	private final CellBaselineCaptureService baselineCapture;
+	private final PluginMessageService messages;
 
 	public CellCommandModule(
 		CellManager cells,
@@ -43,7 +46,8 @@ public final class CellCommandModule implements CommandModule {
 		CellSignService signs,
 		CellSignRenderer renderer,
 		RankCatalog ranks,
-		CellBaselineCaptureService baselineCapture
+		CellBaselineCaptureService baselineCapture,
+		PluginMessageService messages
 	) {
 		this.cells = cells;
 		this.resets = resets;
@@ -51,6 +55,7 @@ public final class CellCommandModule implements CommandModule {
 		this.renderer = renderer;
 		this.ranks = ranks;
 		this.baselineCapture = baselineCapture;
+		this.messages = messages;
 	}
 
 	@Override
@@ -92,9 +97,7 @@ public final class CellCommandModule implements CommandModule {
 	}
 
 	private int root(MichelleCommandContext context) throws CommandSyntaxException {
-		context.playerExecutor().sendMessage(
-			"Usage: /cell <create|delete|list|info|displayname|ward|reset|baseline|sign|member>"
-		);
+		messages.send(context.playerExecutor(), MessageDefaults.CELLS_USAGE);
 		return CommandTree.ok();
 	}
 
@@ -103,7 +106,7 @@ public final class CellCommandModule implements CommandModule {
 		try {
 			var selected = WorldEditRegionSelection.read(player);
 			if (!(selected.geometry() instanceof CuboidGeometry cuboid)) {
-				player.sendMessage("Cells must use a cuboid selection.");
+				messages.send(player, MessageDefaults.CELLS_CUBOID_REQUIRED);
 				return CommandTree.ok();
 			}
 
@@ -123,21 +126,23 @@ public final class CellCommandModule implements CommandModule {
 				maximum.toSeconds(),
 				true
 			);
-			player.sendMessage("Capturing the cell baseline...");
+			messages.send(player, MessageDefaults.CELLS_BASELINE_CAPTURING);
 			baselineCapture.capture(cell).whenComplete((baseline, failure) -> {
 				if (failure != null) {
-					player.sendMessage("Cell creation failed: " + rootMessage(failure));
+					messages.send(player, MessageDefaults.CELLS_CREATE_FAILED, args -> args.plain("reason", rootMessage(failure)));
 					return;
 				}
 				try {
 					cells.create(cell, baseline);
-					player.sendMessage("Created cell '" + cell.id() + "' in " + cell.wardId().value() + " ward.");
+					messages.send(player, MessageDefaults.CELLS_CREATED, args -> args
+						.plain("cell", cell.id())
+						.plain("ward", cell.wardId().value()));
 				} catch (RuntimeException exception) {
-					player.sendMessage("Cell creation failed: " + rootMessage(exception));
+					messages.send(player, MessageDefaults.CELLS_CREATE_FAILED, args -> args.plain("reason", rootMessage(exception)));
 				}
 			});
 		} catch (SelectionException | RuntimeException exception) {
-			player.sendMessage(exception.getMessage());
+			messages.send(player, MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", exception.getMessage()));
 		}
 		return CommandTree.ok();
 	}
@@ -161,9 +166,9 @@ public final class CellCommandModule implements CommandModule {
 	private int delete(MichelleCommandContext context) throws CommandSyntaxException {
 		try {
 			cells.delete(context.arg("name", String.class));
-			context.playerExecutor().sendMessage("Deleted cell.");
+			messages.send(context.playerExecutor(), MessageDefaults.CELLS_DELETED);
 		} catch (RuntimeException exception) {
-			context.playerExecutor().sendMessage(exception.getMessage());
+			messages.send(context.playerExecutor(), MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", exception.getMessage()));
 		}
 		return CommandTree.ok();
 	}
@@ -172,24 +177,25 @@ public final class CellCommandModule implements CommandModule {
 		String value = cells.cells().isEmpty()
 			? "none"
 			: cells.cells().stream().map(CellDefinition::id).collect(Collectors.joining(", "));
-		context.playerExecutor().sendMessage("Cells: " + value);
+		messages.send(context.playerExecutor(), MessageDefaults.CELLS_LIST, args -> args.plain("cells", value));
 		return CommandTree.ok();
 	}
 
 	private int info(MichelleCommandContext context) throws CommandSyntaxException {
 		CellDefinition cell = cells.get(context.arg("name", String.class));
 		if (cell == null) {
-			context.playerExecutor().sendMessage("Unknown cell.");
+			messages.send(context.playerExecutor(), MessageDefaults.CELLS_UNKNOWN);
 			return CommandTree.ok();
 		}
 		var lease = cells.lease(cell.id());
-		context.playerExecutor().sendMessage(
-			cell.displayName() + " (" + cell.id() + ") | $" + cell.rentPrice()
-				+ " | ward " + cell.wardId().value()
-				+ " | duration " + cell.rentDurationSeconds() + "s"
-				+ " | maximum " + cell.maxRentDurationSeconds() + "s"
-				+ " | " + (lease == null ? "available" : "rented by " + lease.ownerId())
-		);
+		messages.send(context.playerExecutor(), MessageDefaults.CELLS_INFO, args -> args
+			.plain("display_name", cell.displayName())
+			.plain("cell", cell.id())
+			.plain("price", cell.rentPrice())
+			.plain("ward", cell.wardId().value())
+			.plain("duration", cell.rentDurationSeconds())
+			.plain("maximum", cell.maxRentDurationSeconds())
+			.plain("state", lease == null ? "available" : "rented by " + lease.ownerId()));
 		return CommandTree.ok();
 	}
 
@@ -199,9 +205,11 @@ public final class CellCommandModule implements CommandModule {
 			WardId wardId = parseWard(context);
 			cells.setWard(id, wardId);
 			renderer.refresh(cells.get(id));
-			context.playerExecutor().sendMessage("Moved cell '" + id + "' to " + wardId.value() + " ward.");
+			messages.send(context.playerExecutor(), MessageDefaults.CELLS_WARD_MOVED, args -> args
+				.plain("cell", id)
+				.plain("ward", wardId.value()));
 		} catch (RuntimeException exception) {
-			context.playerExecutor().sendMessage(exception.getMessage());
+			messages.send(context.playerExecutor(), MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", exception.getMessage()));
 		}
 		return CommandTree.ok();
 	}
@@ -211,9 +219,9 @@ public final class CellCommandModule implements CommandModule {
 			String id = context.arg("name", String.class);
 			cells.setDisplayName(id, context.arg("display_name", String.class));
 			renderer.refresh(cells.get(id));
-			context.playerExecutor().sendMessage("Updated cell display name.");
+			messages.send(context.playerExecutor(), MessageDefaults.CELLS_DISPLAY_NAME_UPDATED);
 		} catch (RuntimeException exception) {
-			context.playerExecutor().sendMessage(exception.getMessage());
+			messages.send(context.playerExecutor(), MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", exception.getMessage()));
 		}
 		return CommandTree.ok();
 	}
@@ -221,9 +229,9 @@ public final class CellCommandModule implements CommandModule {
 	private int reset(MichelleCommandContext context) throws CommandSyntaxException {
 		try {
 			resets.reset(context.arg("name", String.class));
-			context.playerExecutor().sendMessage("Cell reset started.");
+			messages.send(context.playerExecutor(), MessageDefaults.CELLS_RESET_STARTED);
 		} catch (RuntimeException exception) {
-			context.playerExecutor().sendMessage(exception.getMessage());
+			messages.send(context.playerExecutor(), MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", exception.getMessage()));
 		}
 		return CommandTree.ok();
 	}
@@ -232,24 +240,24 @@ public final class CellCommandModule implements CommandModule {
 		Player player = context.playerExecutor();
 		CellDefinition cell = cells.get(context.arg("name", String.class));
 		if (cell == null) {
-			player.sendMessage("Unknown cell.");
+			messages.send(player, MessageDefaults.CELLS_UNKNOWN);
 			return CommandTree.ok();
 		}
 		if (cells.lease(cell.id()) != null || cells.resetJob(cell.id()) != null) {
-			player.sendMessage("The cell must be available before its baseline can be updated.");
+			messages.send(player, MessageDefaults.CELLS_BASELINE_NOT_AVAILABLE);
 			return CommandTree.ok();
 		}
-		player.sendMessage("Capturing the cell baseline...");
+		messages.send(player, MessageDefaults.CELLS_BASELINE_CAPTURING);
 		baselineCapture.capture(cell).whenComplete((baseline, failure) -> {
 			if (failure != null) {
-				player.sendMessage("Baseline capture failed: " + rootMessage(failure));
+				messages.send(player, MessageDefaults.CELLS_BASELINE_CAPTURE_FAILED, args -> args.plain("reason", rootMessage(failure)));
 				return;
 			}
 			try {
 				cells.replaceBaseline(cell.id(), baseline);
-				player.sendMessage("Updated the baseline for cell '" + cell.id() + "'.");
+				messages.send(player, MessageDefaults.CELLS_BASELINE_UPDATED, args -> args.plain("cell", cell.id()));
 			} catch (RuntimeException exception) {
-				player.sendMessage("Baseline update failed: " + rootMessage(exception));
+				messages.send(player, MessageDefaults.CELLS_BASELINE_UPDATE_FAILED, args -> args.plain("reason", rootMessage(exception)));
 			}
 		});
 		return CommandTree.ok();
@@ -264,40 +272,41 @@ public final class CellCommandModule implements CommandModule {
 			target = Bukkit.getOfflinePlayerIfCached(input);
 		}
 		if (target == null) {
-			context.playerExecutor().sendMessage("Unknown player. Use a cached name or UUID.");
+			messages.send(context.playerExecutor(), MessageDefaults.COMMAND_UNKNOWN_PLAYER);
 			return CommandTree.ok();
 		}
 		try {
 			if (add) cells.addMember(context.arg("name", String.class), target.getUniqueId());
 			else cells.removeMember(context.arg("name", String.class), target.getUniqueId());
-			context.playerExecutor().sendMessage(
-				(add ? "Added " : "Removed ")
-					+ (target.getName() == null ? target.getUniqueId() : target.getName())
-					+ (add ? " to " : " from ") + "the cell."
-			);
+			String targetName = target.getName() == null ? target.getUniqueId().toString() : target.getName();
+			messages.send(context.playerExecutor(), MessageDefaults.CELLS_MEMBER_CHANGED, args -> args
+				.plain("action", add ? "Added" : "Removed")
+				.plain("player", targetName)
+				.plain("direction", add ? "to" : "from"));
 		} catch (RuntimeException exception) {
-			context.playerExecutor().sendMessage(exception.getMessage());
+			messages.send(context.playerExecutor(), MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", exception.getMessage()));
 		}
 		return CommandTree.ok();
 	}
 
 	private int members(MichelleCommandContext context) throws CommandSyntaxException {
 		var values = cells.members(context.arg("name", String.class));
-		context.playerExecutor().sendMessage("Members: " + (values.isEmpty() ? "none" : values));
+		messages.send(context.playerExecutor(), MessageDefaults.CELLS_MEMBERS_LIST, args -> args
+			.plain("members", values.isEmpty() ? "none" : values));
 		return CommandTree.ok();
 	}
 
 	private int sign(MichelleCommandContext context) throws CommandSyntaxException {
 		var block = context.playerExecutor().getTargetBlockExact(6);
 		if (block == null || !(block.getState() instanceof Sign sign)) {
-			context.playerExecutor().sendMessage("Look at a sign within 6 blocks.");
+			messages.send(context.playerExecutor(), MessageDefaults.CELLS_SIGN_LOOK);
 			return CommandTree.ok();
 		}
 		try {
 			signs.bind(sign, context.arg("name", String.class));
-			context.playerExecutor().sendMessage("Rental sign linked.");
+			messages.send(context.playerExecutor(), MessageDefaults.CELLS_SIGN_LINKED);
 		} catch (RuntimeException exception) {
-			context.playerExecutor().sendMessage(exception.getMessage());
+			messages.send(context.playerExecutor(), MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", exception.getMessage()));
 		}
 		return CommandTree.ok();
 	}

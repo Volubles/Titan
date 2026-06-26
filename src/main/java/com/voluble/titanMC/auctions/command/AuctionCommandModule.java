@@ -3,6 +3,8 @@ package com.voluble.titanMC.auctions.command;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.voluble.titanMC.auctions.AuctionPosition;
 import com.voluble.titanMC.auctions.AuctionService;
+import com.voluble.titanMC.display.notice.MessageDefaults;
+import com.voluble.titanMC.display.notice.PluginMessageService;
 import com.voluble.titanMC.ranks.model.WardId;
 import com.voluble.titanMC.ranks.service.RankCatalog;
 import io.voluble.michellelib.commands.CommandModule;
@@ -23,10 +25,12 @@ import org.bukkit.util.Vector;
 public final class AuctionCommandModule implements CommandModule {
 	private final AuctionService auctions;
 	private final RankCatalog ranks;
+	private final PluginMessageService messages;
 
-	public AuctionCommandModule(AuctionService auctions, RankCatalog ranks) {
+	public AuctionCommandModule(AuctionService auctions, RankCatalog ranks, PluginMessageService messages) {
 		this.auctions = auctions;
 		this.ranks = ranks;
+		this.messages = messages;
 	}
 
 	@Override
@@ -48,7 +52,7 @@ public final class AuctionCommandModule implements CommandModule {
 	}
 
 	private int root(MichelleCommandContext context) throws CommandSyntaxException {
-		context.playerExecutor().sendMessage("Usage: /auction position <add|remove|list|teleport>");
+		messages.send(context.playerExecutor(), MessageDefaults.AUCTIONS_USAGE);
 		return CommandTree.ok();
 	}
 
@@ -56,7 +60,7 @@ public final class AuctionCommandModule implements CommandModule {
 		Player player = context.playerExecutor();
 		var block = player.getTargetBlockExact(8);
 		if (block == null) {
-			player.sendMessage("Look at the block where the auction chest should spawn.");
+			messages.send(player, MessageDefaults.AUCTIONS_LOOK_AT_BLOCK);
 			return CommandTree.ok();
 		}
 		try {
@@ -64,12 +68,11 @@ public final class AuctionCommandModule implements CommandModule {
 			WardId wardId = WardId.of(context.arg("ward", String.class));
 			ranks.requireWard(wardId);
 			AuctionPosition position = auctions.addPosition(wardId, block.getLocation(), facing);
-			player.sendMessage(
-				"Added auction position " + position.id() + " in " + wardId.value()
-					+ " ward. The chest and sign will face you."
-			);
+			messages.send(player, MessageDefaults.AUCTIONS_POSITION_ADDED, args -> args
+				.plain("position", position.id())
+				.plain("ward", wardId.value()));
 		} catch (RuntimeException exception) {
-			player.sendMessage(exception.getMessage());
+			messages.send(player, MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", exception.getMessage()));
 		}
 		return CommandTree.ok();
 	}
@@ -77,9 +80,9 @@ public final class AuctionCommandModule implements CommandModule {
 	private int remove(MichelleCommandContext context) throws CommandSyntaxException {
 		try {
 			auctions.removePosition(context.arg("name", String.class));
-			context.playerExecutor().sendMessage("Auction position removed.");
+			messages.send(context.playerExecutor(), MessageDefaults.AUCTIONS_POSITION_REMOVED);
 		} catch (RuntimeException exception) {
-			context.playerExecutor().sendMessage(exception.getMessage());
+			messages.send(context.playerExecutor(), MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", exception.getMessage()));
 		}
 		return CommandTree.ok();
 	}
@@ -87,10 +90,10 @@ public final class AuctionCommandModule implements CommandModule {
 	private int list(MichelleCommandContext context) throws CommandSyntaxException {
 		Player player = context.playerExecutor();
 		if (auctions.positions().isEmpty()) {
-			player.sendMessage("No auction positions configured.");
+			messages.send(player, MessageDefaults.AUCTIONS_POSITIONS_EMPTY);
 			return CommandTree.ok();
 		}
-		player.sendMessage("Auction positions:");
+		messages.send(player, MessageDefaults.AUCTIONS_POSITIONS_HEADER);
 		for (AuctionPosition position : auctions.positions()) {
 			String coordinates = position.x() + ", " + position.y() + ", " + position.z();
 			var lot = auctions.atPosition(position.id());
@@ -117,9 +120,9 @@ public final class AuctionCommandModule implements CommandModule {
 			Vector direction = chest.toVector().subtract(destination.toVector());
 			destination.setDirection(direction);
 			player.teleportAsync(destination);
-			player.sendMessage("Teleported to auction position " + position.id() + ".");
+			messages.send(player, MessageDefaults.AUCTIONS_POSITION_TELEPORTED, args -> args.plain("position", position.id()));
 		} catch (RuntimeException exception) {
-			player.sendMessage(exception.getMessage());
+			messages.send(player, MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", exception.getMessage()));
 		}
 		return CommandTree.ok();
 	}

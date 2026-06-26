@@ -1,6 +1,7 @@
 package com.voluble.titanMC.mines.gui;
 
 import com.voluble.titanMC.TitanMC;
+import com.voluble.titanMC.display.notice.MessageDefaults;
 import com.voluble.titanMC.mines.Mine;
 import com.voluble.titanMC.mines.MineManager;
 import com.voluble.titanMC.mines.MineValidation;
@@ -144,22 +145,30 @@ public class MineEditMenu {
 				try {
 					updated = WorldEditSelection.getCuboid(ctx.player());
 				} catch (SelectionException exception) {
-					ctx.player().sendMessage(exception.getMessage());
+					TitanMC.getInstance().getMessages().send(
+						ctx.player(), MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", exception.getMessage())
+					);
 					return true;
 				}
 				String validationError = MineValidation.validateCuboid(updated);
 				if (validationError != null) {
-					ctx.player().sendMessage(validationError);
+					TitanMC.getInstance().getMessages().send(
+						ctx.player(), MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", validationError)
+					);
 					return true;
 				}
 				Mine overlap = manager.findOverlap(updated, mineName);
 				if (overlap != null) {
-					ctx.player().sendMessage("That selection overlaps mine '" + overlap.getName() + "'.");
+					TitanMC.getInstance().getMessages().send(
+						ctx.player(), MessageDefaults.MINES_SELECTION_OVERLAP, args -> args.plain("mine", overlap.getName())
+					);
 					return true;
 				}
 				manager.setCuboid(mineName, updated);
 				ctx.actions().transition(() -> MineEditMenu.open(ctx.player(), manager.get(mineName), manager));
-				ctx.player().sendMessage(ChatUtils.formatItem("<green>Redefined bounds for " + mineName));
+				TitanMC.getInstance().getMessages().send(
+					ctx.player(), MessageDefaults.MINES_REDEFINED, args -> args.plain("mine", mineName)
+				);
 				return true;
 			}
 		};
@@ -183,7 +192,9 @@ public class MineEditMenu {
 			public boolean onClick(ClickContext ctx) {
 				manager.setSafeSpawn(mineName, ctx.player().getLocation().clone());
 				ctx.actions().transition(() -> MineEditMenu.open(ctx.player(), manager.get(mineName), manager));
-				ctx.player().sendMessage(ChatUtils.formatItem("<green>Set safe spawn for " + mineName));
+				TitanMC.getInstance().getMessages().send(
+					ctx.player(), MessageDefaults.MINES_SAFE_SPAWN_SET, args -> args.plain("mine", mineName)
+				);
 				return true;
 			}
 		};
@@ -296,7 +307,7 @@ public class MineEditMenu {
 				Mine mine = manager.get(mineName);
 				if (mine == null) return true;
 				if (!ctx.shiftClick() && !manager.supportsDepletion(mine)) {
-					ctx.player().sendMessage("Depletion reset is unavailable for this mine's reset and diggable-block configuration.");
+					TitanMC.getInstance().getMessages().send(ctx.player(), MessageDefaults.MINES_DEPLETION_UNAVAILABLE);
 					return true;
 				}
 				if (ctx.shiftClick()) {
@@ -426,7 +437,9 @@ public class MineEditMenu {
 			public boolean onClick(ClickContext ctx) {
 				TitanMC.getInstance().getMineScheduler().forceReset(mineName);
 				ctx.actions().transition(() -> MineEditMenu.open(ctx.player(), manager.get(mineName), manager));
-				ctx.player().sendMessage(ChatUtils.formatItem("<green>Force reset triggered for " + mineName));
+				TitanMC.getInstance().getMessages().send(
+					ctx.player(), MessageDefaults.MINES_FORCE_RESET, args -> args.plain("mine", mineName)
+				);
 				return true;
 			}
 		};
@@ -463,7 +476,9 @@ public class MineEditMenu {
 					// Confirmed, actually delete
 					menus.cache().putSession(ctx.player().getUniqueId(), "deletePending_" + mineName, Boolean.FALSE);
 					manager.delete(mineName);
-					ctx.player().sendMessage(Component.text("Deleted mine configuration: " + mineName).color(NamedTextColor.RED));
+					TitanMC.getInstance().getMessages().send(
+						ctx.player(), MessageDefaults.MINES_DELETED, args -> args.plain("mine", mineName)
+					);
 					ctx.actions().transition(() -> MineListMenu.open(ctx.player(), manager));
 					return true;
 				} else {

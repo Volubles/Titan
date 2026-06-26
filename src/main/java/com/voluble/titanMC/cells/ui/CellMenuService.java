@@ -8,6 +8,8 @@ import com.voluble.titanMC.cells.config.CellMenuTemplate;
 import com.voluble.titanMC.cells.config.CellsConfigurationManager;
 import com.voluble.titanMC.cells.model.CellDefinition;
 import com.voluble.titanMC.cells.model.CellLease;
+import com.voluble.titanMC.display.notice.MessageDefaults;
+import com.voluble.titanMC.display.notice.PluginMessageService;
 import com.voluble.titanMC.util.ChatUtils;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import io.voluble.michellelib.menu.MenuService;
@@ -47,6 +49,7 @@ public final class CellMenuService implements Listener {
 	private final CellRentalService rentals;
 	private final CellManagementService management;
 	private final CellsConfigurationManager configuration;
+	private final PluginMessageService messages;
 	private final Map<UUID, String> pendingMemberAdds = new ConcurrentHashMap<>();
 
 	public CellMenuService(
@@ -55,7 +58,8 @@ public final class CellMenuService implements Listener {
 		CellManager cells,
 		CellRentalService rentals,
 		CellManagementService management,
-		CellsConfigurationManager configuration
+		CellsConfigurationManager configuration,
+		PluginMessageService messages
 	) {
 		this.plugin = plugin;
 		this.menus = menus;
@@ -63,12 +67,13 @@ public final class CellMenuService implements Listener {
 		this.rentals = rentals;
 		this.management = management;
 		this.configuration = configuration;
+		this.messages = messages;
 	}
 
 	public void openFor(Player player, String cellId) {
 		CellDefinition cell = cells.get(cellId);
 		if (cell == null) {
-			player.sendMessage("Unknown cell.");
+			messages.send(player, MessageDefaults.CELLS_UNKNOWN);
 			return;
 		}
 		CellLease lease = cells.lease(cellId);
@@ -96,11 +101,11 @@ public final class CellMenuService implements Listener {
 		if (cell == null || !management.isOwner(owner, cellId)) return;
 		OfflinePlayer target = Bukkit.getOfflinePlayerIfCached(username);
 		if (target == null || target.getName() == null || !target.getName().equalsIgnoreCase(username)) {
-			owner.sendMessage("No player named '" + username + "' was found. Open the members menu and try again.");
+			messages.send(owner, MessageDefaults.CELLS_MENU_MEMBER_NOT_FOUND, args -> args.plain("player", username));
 			return;
 		}
 		if (management.addMember(owner, cellId, target.getUniqueId())) {
-			owner.sendMessage("Added " + target.getName() + " to the cell.");
+			messages.send(owner, MessageDefaults.CELLS_MENU_MEMBER_ADDED, args -> args.plain("player", target.getName()));
 			openMembers(owner, cell);
 		}
 	}
@@ -192,7 +197,7 @@ public final class CellMenuService implements Listener {
 			setButton(context::setItem, menu.item("add"), values, click -> {
 				pendingMemberAdds.put(click.player().getUniqueId(), cell.id());
 				click.actions().close();
-				click.player().sendMessage("Type the player's username in chat.");
+				messages.send(click.player(), MessageDefaults.CELLS_MENU_MEMBER_PROMPT);
 			});
 			setButton(context::setItem, menu.item("back"), values, click ->
 				click.actions().transition(() -> openManagement(click.player(), cell)));

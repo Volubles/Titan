@@ -3,6 +3,8 @@ package com.voluble.titanMC.auctions;
 import com.voluble.titanMC.auctions.config.AuctionConfiguration;
 import com.voluble.titanMC.auctions.config.AuctionConfigurationManager;
 import com.voluble.titanMC.cells.persistence.CellStorage;
+import com.voluble.titanMC.display.notice.MessageDefaults;
+import com.voluble.titanMC.display.notice.PluginMessageService;
 import com.voluble.titanMC.ranks.model.WardId;
 import com.voluble.titanMC.ranks.service.RankCatalog;
 import com.voluble.titanMC.ranks.service.PlayerRankService;
@@ -48,6 +50,7 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 	private final PlayerRankService playerRanks;
 	private final WardRankRequirements purchaseRequirements;
 	private final AuctionDeliveryService deliveries;
+	private final PluginMessageService messages;
 	private final Map<String, AuctionPosition> positions = new LinkedHashMap<>();
 	private final Map<Long, AuctionLot> auctions = new LinkedHashMap<>();
 	private final Set<Long> purchasesInFlight = new HashSet<>();
@@ -63,7 +66,8 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 		AuctionConfigurationManager configuration,
 		Economy economy,
 		RankCatalog ranks,
-		PlayerRankService playerRanks
+		PlayerRankService playerRanks,
+		PluginMessageService messages
 	) {
 		this.plugin = plugin;
 		this.storage = storage;
@@ -73,7 +77,8 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 		this.ranks = ranks;
 		this.playerRanks = playerRanks;
 		this.purchaseRequirements = new WardRankRequirements(ranks, configuration.current().minimumRanksByWard());
-		this.deliveries = new AuctionDeliveryService(plugin, storage);
+		this.messages = messages;
+		this.deliveries = new AuctionDeliveryService(plugin, storage, messages);
 	}
 
 	public void start() throws SQLException {
@@ -178,7 +183,7 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 		deliveries.recover(player);
 		AuctionLot lot = auctions.get(original.id());
 		if (lot == null || !canOpen(player, lot)) {
-			player.sendMessage("This auction is not available to you.");
+			messages.send(player, MessageDefaults.AUCTIONS_NOT_AVAILABLE);
 			return;
 		}
 		AuctionInventoryHolder holder = new AuctionInventoryHolder(lot.id());
@@ -222,7 +227,7 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 				holder.bind(slot, item.id());
 				holder.getInventory().setItem(slot, ItemStack.deserializeBytes(item.data()));
 			}
-			player.sendMessage("That auction item is no longer available.");
+			messages.send(player, MessageDefaults.AUCTIONS_ITEM_UNAVAILABLE);
 			return;
 		}
 		if (lot == null) {
@@ -273,7 +278,7 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 	public void purchase(Player player, AuctionLot original) {
 		AuctionLot lot = auctions.get(original.id());
 		if (lot == null || lot.state() != AuctionState.FOR_SALE || !purchasesInFlight.add(lot.id())) {
-			player.sendMessage("This auction is no longer for sale.");
+			messages.send(player, MessageDefaults.AUCTIONS_NO_LONGER_FOR_SALE);
 			return;
 		}
 		if (lot.saleExpiresAt() <= System.currentTimeMillis()) {
@@ -283,37 +288,36 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 			} catch (SQLException exception) {
 				plugin.getLogger().severe("Could not expire auction: " + exception.getMessage());
 			}
-			player.sendMessage("This auction has expired.");
+			messages.send(player, MessageDefaults.AUCTIONS_EXPIRED);
 			return;
 		}
 		var currentRank = playerRanks.current(player.getUniqueId());
 		if (currentRank.isEmpty()) {
 			purchasesInFlight.remove(lot.id());
-			player.sendMessage("Your prison rank is not available yet.");
+			messages.send(player, MessageDefaults.AUCTIONS_RANK_UNAVAILABLE);
 			return;
 		}
 		if (!purchaseRequirements.allows(currentRank.get().rankId(), lot.wardId())) {
 			purchasesInFlight.remove(lot.id());
-			player.sendMessage(
-				"You need rank " + purchaseRequirements.requiredRank(lot.wardId()).value().toUpperCase(java.util.Locale.ROOT)
-					+ " to buy an auction in ward " + lot.wardId().value().toUpperCase(java.util.Locale.ROOT) + "."
-			);
+			messages.send(player, MessageDefaults.AUCTIONS_RANK_REQUIRED, args -> args
+				.plain("rank", purchaseRequirements.requiredRank(lot.wardId()).value().toUpperCase(java.util.Locale.ROOT))
+				.plain("ward", lot.wardId().value().toUpperCase(java.util.Locale.ROOT)));
 			return;
 		}
 		if (economy == null) {
 			purchasesInFlight.remove(lot.id());
-			player.sendMessage("The economy is unavailable.");
+			messages.send(player, MessageDefaults.AUCTIONS_ECONOMY_UNAVAILABLE);
 			return;
 		}
 		if (!economy.has(player, lot.price())) {
 			purchasesInFlight.remove(lot.id());
-			player.sendMessage("You do not have enough money.");
+			messages.send(player, MessageDefaults.AUCTIONS_NOT_ENOUGH_MONEY);
 			return;
 		}
 		var withdrawal = economy.withdrawPlayer(player, lot.price());
 		if (!withdrawal.transactionSuccess()) {
 			purchasesInFlight.remove(lot.id());
-			player.sendMessage("The payment failed.");
+			messages.send(player, MessageDefaults.AUCTIONS_PAYMENT_FAILED);
 			return;
 		}
 		long claimExpiry = System.currentTimeMillis() + configuration.current().claimDurationMillis();
@@ -322,16 +326,17 @@ public final class AuctionService implements AuctionBlockAccess, AutoCloseable {
 			purchasesInFlight.remove(lot.id());
 			if (failure != null) {
 				var refund = economy.depositPlayer(player, lot.price());
-				if (refund.transactionSuccess()) player.sendMessage("The purchase failed; your payment was refunded.");
+				if (refund.transactionSuccess()) messages.send(player, MessageDefaults.AUCTIONS_PURCHASE_REFUNDED);
 				else {
 					plugin.getLogger().log(java.util.logging.Level.SEVERE, "Auction purchase refund failed for " + player.getUniqueId(), failure);
-					player.sendMessage("The purchase and automatic refund failed. Contact an administrator.");
+					messages.send(player, MessageDefaults.AUCTIONS_PURCHASE_REFUND_FAILED);
 				}
 				return;
 			}
 			auctions.put(claimed.id(), claimed);
 			updateSign(claimed);
-			player.sendMessage("You bought the mystery chest. You have " + shortTime(configuration.current().claimDurationMillis()) + " of exclusive access.");
+			messages.send(player, MessageDefaults.AUCTIONS_PURCHASED, args -> args
+				.plain("duration", shortTime(configuration.current().claimDurationMillis())));
 		}));
 	}
 

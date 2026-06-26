@@ -4,9 +4,9 @@ import java.util.Locale;
 import java.util.Objects;
 
 public enum MessageType {
-	INFO("info", "<color:#30bbf1>{{message}}</color>"),
-	SUCCESS("success", "<color:#42d829>{{message}}</color>"),
-	ERROR("error", "<color:#d43030>{{message}}</color>");
+	INFO("info", "<dark_gray>[<color:#30bbf1>i</color><dark_gray>] <color:#30bbf1>{{message}}</color>"),
+	SUCCESS("success", "<dark_gray>[<color:#42d829>OK</color><dark_gray>] <color:#42d829>{{message}}</color>"),
+	ERROR("error", "<dark_gray>[<color:#d43030>!</color><dark_gray>] <color:#d43030>{{message}}</color>");
 
 	private final String configKey;
 	private final String defaultTemplate;

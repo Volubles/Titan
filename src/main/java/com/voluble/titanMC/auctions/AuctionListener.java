@@ -1,5 +1,7 @@
 package com.voluble.titanMC.auctions;
 
+import com.voluble.titanMC.display.notice.MessageDefaults;
+import com.voluble.titanMC.display.notice.PluginMessageService;
 import org.bukkit.GameMode;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
@@ -29,10 +31,12 @@ import java.util.logging.Level;
 public final class AuctionListener implements Listener {
 	private final Plugin plugin;
 	private final AuctionService auctions;
+	private final PluginMessageService messages;
 
-	public AuctionListener(Plugin plugin, AuctionService auctions) {
+	public AuctionListener(Plugin plugin, AuctionService auctions, PluginMessageService messages) {
 		this.plugin = plugin;
 		this.auctions = auctions;
+		this.messages = messages;
 	}
 
 	@EventHandler
@@ -50,9 +54,9 @@ public final class AuctionListener implements Listener {
 		if (chestLot == null) return;
 		event.setCancelled(true);
 		if (!auctions.canOpen(event.getPlayer(), chestLot)) {
-			event.getPlayer().sendMessage(chestLot.state() == AuctionState.FOR_SALE
-				? "Buy this mystery chest using its sign."
-				: "This chest is temporarily reserved for its buyer.");
+			messages.send(event.getPlayer(), chestLot.state() == AuctionState.FOR_SALE
+				? MessageDefaults.AUCTIONS_BUY_USING_SIGN
+				: MessageDefaults.AUCTIONS_RESERVED);
 			return;
 		}
 		auctions.open(event.getPlayer(), chestLot);
@@ -63,16 +67,16 @@ public final class AuctionListener implements Listener {
 		if (!protectedBlock(event.getBlock())) return;
 		event.setCancelled(true);
 		if (!mayDiscard(event.getPlayer())) {
-			event.getPlayer().sendMessage("Auction blocks can only be removed by an auction administrator in creative mode.");
+			messages.send(event.getPlayer(), MessageDefaults.AUCTIONS_ADMIN_CREATIVE_ONLY);
 			return;
 		}
 		try {
 			if (auctions.discardAt(event.getBlock())) {
-				event.getPlayer().sendMessage("Auction permanently discarded.");
+				messages.send(event.getPlayer(), MessageDefaults.AUCTIONS_DISCARDED);
 			}
 		} catch (IllegalStateException exception) {
 			plugin.getLogger().log(Level.SEVERE, "Could not discard auction", exception);
-			event.getPlayer().sendMessage("The auction could not be removed. Check the server log.");
+			messages.send(event.getPlayer(), MessageDefaults.AUCTIONS_DISCARD_FAILED);
 		}
 	}
 

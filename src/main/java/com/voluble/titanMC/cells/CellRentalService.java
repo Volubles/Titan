@@ -2,6 +2,8 @@ package com.voluble.titanMC.cells;
 
 import com.voluble.titanMC.cells.model.CellDefinition;
 import com.voluble.titanMC.cells.model.CellLease;
+import com.voluble.titanMC.display.notice.MessageDefaults;
+import com.voluble.titanMC.display.notice.PluginMessageService;
 import com.voluble.titanMC.ranks.service.PlayerRankService;
 import com.voluble.titanMC.ranks.service.WardRankRequirements;
 import net.milkbowl.vault.economy.Economy;
@@ -20,6 +22,7 @@ public final class CellRentalService {
 	private final CellSignRenderer signs;
 	private final PlayerRankService playerRanks;
 	private final WardRankRequirements eligibility;
+	private final PluginMessageService messages;
 	private final Set<String> reservations = new HashSet<>();
 	private final Set<UUID> playerReservations = new HashSet<>();
 
@@ -29,7 +32,8 @@ public final class CellRentalService {
 		Economy economy,
 		CellSignRenderer signs,
 		PlayerRankService playerRanks,
-		WardRankRequirements eligibility
+		WardRankRequirements eligibility,
+		PluginMessageService messages
 	) {
 		this.plugin = plugin;
 		this.cells = cells;
@@ -37,37 +41,37 @@ public final class CellRentalService {
 		this.signs = signs;
 		this.playerRanks = playerRanks;
 		this.eligibility = eligibility;
+		this.messages = messages;
 	}
 
 	public void rent(Player player, String cellId) {
 		CellDefinition cell = cells.get(cellId);
 		if (cell == null) {
-			player.sendMessage("Unknown cell.");
+			messages.send(player, MessageDefaults.CELLS_UNKNOWN);
 			return;
 		}
 		if (economy == null) {
-			player.sendMessage("Renting is unavailable because no economy provider is active.");
+			messages.send(player, MessageDefaults.CELLS_RENTING_UNAVAILABLE);
 			return;
 		}
 		var currentRank = playerRanks.current(player.getUniqueId());
 		if (currentRank.isEmpty()) {
-			player.sendMessage("Your prison rank is not available yet.");
+			messages.send(player, MessageDefaults.CELLS_RANK_UNAVAILABLE);
 			return;
 		}
 		if (!eligibility.allows(currentRank.get().rankId(), cell.wardId())) {
-			player.sendMessage(
-				"You need rank " + eligibility.requiredRank(cell.wardId()).value().toUpperCase(java.util.Locale.ROOT)
-					+ " to rent a cell in ward " + cell.wardId().value().toUpperCase(java.util.Locale.ROOT) + "."
-			);
+			messages.send(player, MessageDefaults.CELLS_RANK_REQUIRED, args -> args
+				.plain("rank", eligibility.requiredRank(cell.wardId()).value().toUpperCase(java.util.Locale.ROOT))
+				.plain("ward", cell.wardId().value().toUpperCase(java.util.Locale.ROOT)));
 			return;
 		}
 		if (!playerReservations.add(player.getUniqueId())) {
-			player.sendMessage("Another cell rental is already being processed for you.");
+			messages.send(player, MessageDefaults.CELLS_RENT_ALREADY_PROCESSING_PLAYER);
 			return;
 		}
 		if (!reservations.add(cell.id())) {
 			playerReservations.remove(player.getUniqueId());
-			player.sendMessage("This cell is currently being processed.");
+			messages.send(player, MessageDefaults.CELLS_RENT_ALREADY_PROCESSING_CELL);
 			return;
 		}
 		CellLease lease;
@@ -76,20 +80,20 @@ public final class CellRentalService {
 		} catch (RuntimeException e) {
 			reservations.remove(cell.id());
 			playerReservations.remove(player.getUniqueId());
-			player.sendMessage(e.getMessage());
+			messages.send(player, MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", e.getMessage()));
 			return;
 		}
 		if (!economy.has(player, cell.rentPrice())) {
 			reservations.remove(cell.id());
 			playerReservations.remove(player.getUniqueId());
-			player.sendMessage("You do not have enough money.");
+			messages.send(player, MessageDefaults.CELLS_NOT_ENOUGH_MONEY);
 			return;
 		}
 		var withdrawal = economy.withdrawPlayer(player, cell.rentPrice());
 		if (!withdrawal.transactionSuccess()) {
 			reservations.remove(cell.id());
 			playerReservations.remove(player.getUniqueId());
-			player.sendMessage("The payment failed.");
+			messages.send(player, MessageDefaults.CELLS_PAYMENT_FAILED);
 			return;
 		}
 		cells.persistLease(lease).whenComplete((ignored, error) -> Bukkit.getScheduler().runTask(plugin, () -> {
@@ -97,11 +101,11 @@ public final class CellRentalService {
 				if (error != null) throw new IllegalStateException(error);
 				cells.activateLease(lease);
 				signs.refresh(cell);
-				player.sendMessage("You rented " + cell.displayName() + ".");
+				messages.send(player, MessageDefaults.CELLS_RENTED, args -> args.plain("cell", cell.displayName()));
 			} catch (RuntimeException failure) {
 				cells.discardLease(lease);
 				economy.depositPlayer(player, cell.rentPrice());
-				player.sendMessage("The rental could not be completed; your payment was refunded.");
+				messages.send(player, MessageDefaults.CELLS_RENT_REFUNDED);
 				plugin.getLogger().warning("Failed to activate cell lease: " + failure.getMessage());
 			} finally {
 				reservations.remove(cell.id());
