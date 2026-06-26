@@ -130,7 +130,8 @@ public final class ProgressionEngine implements AutoCloseable {
 		int newLevel = Math.min(maxLevel, curve.levelAt(newTotal));
 		PlayerProgression updated = previous.with(newTotal, newLevel, clock.getAsLong());
 		try {
-			storage.save(updated).join();
+			storage.saveLatest(updated, failure -> logger.log(java.util.logging.Level.SEVERE,
+				"Failed to persist progression for " + playerId + " (" + source.value() + ")", failure));
 		} catch (RuntimeException failure) {
 			logger.log(java.util.logging.Level.SEVERE,
 				"Failed to persist progression for " + playerId + " (" + source.value() + ")", failure);

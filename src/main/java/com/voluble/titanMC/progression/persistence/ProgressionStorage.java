@@ -11,12 +11,14 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 public final class ProgressionStorage implements AutoCloseable {
 
@@ -25,6 +27,10 @@ public final class ProgressionStorage implements AutoCloseable {
 	private final ExecutorService writer = Executors.newSingleThreadExecutor(
 		Thread.ofPlatform().name("titan-progression-writer").factory()
 	);
+	private final Object latestLock = new Object();
+	private final Map<UUID, PlayerProgression> latestSaves = new LinkedHashMap<>();
+	private boolean latestDrainScheduled;
+	private RuntimeException latestWriteFailure;
 
 	public ProgressionStorage(Path databasePath) throws SQLException {
 		Objects.requireNonNull(databasePath, "databasePath");
@@ -95,15 +101,29 @@ public final class ProgressionStorage implements AutoCloseable {
 		return write(() -> upsert(progression));
 	}
 
+	public void saveLatest(PlayerProgression progression, Consumer<RuntimeException> failureHandler) {
+		Objects.requireNonNull(progression, "progression");
+		Objects.requireNonNull(failureHandler, "failureHandler");
+		synchronized (latestLock) {
+			if (latestWriteFailure != null) throw latestWriteFailure;
+			latestSaves.put(progression.playerId(), progression);
+			if (!latestDrainScheduled) {
+				latestDrainScheduled = true;
+				writer.execute(() -> drainLatest(failureHandler));
+			}
+		}
+	}
+
 	public CompletableFuture<Void> delete(UUID playerId) {
 		Objects.requireNonNull(playerId, "playerId");
+		flush();
 		return write(() -> execute(
 			"DELETE FROM player_progression WHERE player_uuid = ?",
 			playerId.toString()
 		));
 	}
 
-	private void upsert(PlayerProgression progression) throws SQLException {
+	private synchronized void upsert(PlayerProgression progression) throws SQLException {
 		try (PreparedStatement statement = connection.prepareStatement("""
 				INSERT INTO player_progression(player_uuid, total_cred, level, updated_at)
 				VALUES(?,?,?,?) ON CONFLICT(player_uuid) DO UPDATE SET
@@ -119,7 +139,34 @@ public final class ProgressionStorage implements AutoCloseable {
 		}
 	}
 
-	private void execute(String sql, Object... values) throws SQLException {
+	private synchronized void upsertBatch(List<PlayerProgression> progressions) throws SQLException {
+		boolean autoCommit = connection.getAutoCommit();
+		connection.setAutoCommit(false);
+		try (PreparedStatement statement = connection.prepareStatement("""
+				INSERT INTO player_progression(player_uuid, total_cred, level, updated_at)
+				VALUES(?,?,?,?) ON CONFLICT(player_uuid) DO UPDATE SET
+				total_cred = excluded.total_cred,
+				level = excluded.level,
+				updated_at = excluded.updated_at
+				""")) {
+			for (PlayerProgression progression : progressions) {
+				statement.setString(1, progression.playerId().toString());
+				statement.setLong(2, progression.totalCred());
+				statement.setInt(3, progression.level());
+				statement.setLong(4, progression.updatedAtEpochMillis());
+				statement.addBatch();
+			}
+			statement.executeBatch();
+			connection.commit();
+		} catch (SQLException exception) {
+			connection.rollback();
+			throw exception;
+		} finally {
+			connection.setAutoCommit(autoCommit);
+		}
+	}
+
+	private synchronized void execute(String sql, Object... values) throws SQLException {
 		try (PreparedStatement statement = connection.prepareStatement(sql)) {
 			for (int i = 0; i < values.length; i++) statement.setObject(i + 1, values[i]);
 			statement.executeUpdate();
@@ -136,10 +183,52 @@ public final class ProgressionStorage implements AutoCloseable {
 		}, writer);
 	}
 
+	private void drainLatest(Consumer<RuntimeException> failureHandler) {
+		while (true) {
+			List<PlayerProgression> batch;
+			synchronized (latestLock) {
+				if (latestSaves.isEmpty()) {
+					latestDrainScheduled = false;
+					latestLock.notifyAll();
+					return;
+				}
+				batch = List.copyOf(latestSaves.values());
+				latestSaves.clear();
+			}
+			try {
+				upsertBatch(batch);
+			} catch (SQLException exception) {
+				IllegalStateException failure = new IllegalStateException("Progression database write failed", exception);
+				synchronized (latestLock) {
+					for (PlayerProgression progression : batch) {
+						latestSaves.putIfAbsent(progression.playerId(), progression);
+					}
+					latestWriteFailure = failure;
+					latestDrainScheduled = false;
+					latestLock.notifyAll();
+				}
+				failureHandler.accept(failure);
+				return;
+			}
+		}
+	}
+
 	public void flush() {
 		try {
 			writer.submit(() -> {
 			}).get();
+			synchronized (latestLock) {
+				if (latestWriteFailure != null) throw latestWriteFailure;
+				if (latestDrainScheduled || !latestSaves.isEmpty()) {
+					while (latestDrainScheduled || !latestSaves.isEmpty()) {
+						latestLock.wait();
+					}
+					if (latestWriteFailure != null) throw latestWriteFailure;
+				}
+			}
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			throw new IllegalStateException("Failed to flush Progression database", exception);
 		} catch (Exception exception) {
 			throw new IllegalStateException("Failed to flush Progression database", exception);
 		}
@@ -147,9 +236,21 @@ public final class ProgressionStorage implements AutoCloseable {
 
 	@Override
 	public void close() throws SQLException {
-		flush();
-		writer.shutdown();
-		connection.close();
+		RuntimeException flushFailure = null;
+		try {
+			flush();
+		} catch (RuntimeException exception) {
+			flushFailure = exception;
+		} finally {
+			writer.shutdown();
+		}
+		try {
+			connection.close();
+		} catch (SQLException exception) {
+			if (flushFailure != null) exception.addSuppressed(flushFailure);
+			throw exception;
+		}
+		if (flushFailure != null) throw flushFailure;
 	}
 
 	@FunctionalInterface

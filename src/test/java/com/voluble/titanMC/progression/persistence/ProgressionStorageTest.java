@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -50,6 +52,46 @@ class ProgressionStorageTest {
 			assertEquals(5_000L, loaded.totalCred());
 			assertEquals(7, loaded.level());
 			assertEquals(2L, loaded.updatedAtEpochMillis());
+		}
+	}
+
+	@Test
+	void saveLatestCoalescesPendingProgressionByPlayer() throws Exception {
+		Path database = directory.resolve("latest.db");
+		UUID player = UUID.randomUUID();
+		List<RuntimeException> failures = new ArrayList<>();
+
+		try (ProgressionStorage storage = new ProgressionStorage(database)) {
+			storage.saveLatest(new PlayerProgression(player, 100L, 1, 1L), failures::add);
+			storage.saveLatest(new PlayerProgression(player, 200L, 2, 2L), failures::add);
+			storage.saveLatest(new PlayerProgression(player, 300L, 3, 3L), failures::add);
+			storage.flush();
+		}
+
+		try (ProgressionStorage storage = new ProgressionStorage(database)) {
+			PlayerProgression loaded = storage.loadAll().get(player);
+			assertEquals(300L, loaded.totalCred());
+			assertEquals(3, loaded.level());
+			assertEquals(3L, loaded.updatedAtEpochMillis());
+			assertTrue(failures.isEmpty());
+		}
+	}
+
+	@Test
+	void closeFlushesLatestProgression() throws Exception {
+		Path database = directory.resolve("close-latest.db");
+		UUID player = UUID.randomUUID();
+
+		try (ProgressionStorage storage = new ProgressionStorage(database)) {
+			storage.saveLatest(new PlayerProgression(player, 450L, 4, 10L), failure -> {
+				throw failure;
+			});
+		}
+
+		try (ProgressionStorage storage = new ProgressionStorage(database)) {
+			PlayerProgression loaded = storage.loadAll().get(player);
+			assertEquals(450L, loaded.totalCred());
+			assertEquals(4, loaded.level());
 		}
 	}
 
