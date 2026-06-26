@@ -57,6 +57,48 @@ final class MilestoneItemFactory {
 		meta.displayName(ChatUtils.formatItem("<#30bbf1><bold>" + track.name()));
 		List<Component> lore = new ArrayList<>();
 		lore.add(ChatUtils.formatItem("<gray>Progress: <white>" + numbers.format(progress.amount())));
+		lore.add(ChatUtils.formatItem("<gray>Completed: <white>" + completedTiers(player, track, progress) + " / " + track.tiers().size()));
+		lore.add(Component.empty());
+		nextTier(player, track, progress).ifPresentOrElse(
+			tier -> lore.add(ChatUtils.formatItem("<gray>Next: <#f7d774>" + tier.name() + " <gray>("
+				+ numbers.format(Math.min(progress.amount(), tier.target())) + " / " + numbers.format(tier.target()) + ")")),
+			() -> lore.add(ChatUtils.formatItem("<green>All tiers completed"))
+		);
+		lore.add(Component.empty());
+		lore.add(ChatUtils.formatItem("<green>Click to view tiers"));
+		item.setItemMeta(meta);
+		return item;
+	}
+
+	ItemStack tier(Player player, MilestoneTrack track, MilestoneTier tier) {
+		MilestoneProgress progress = milestones.progress(player.getUniqueId(), track.metric(), track.subject());
+		boolean completed = milestones.completed(player.getUniqueId(), tier.id()) || progress.amount() >= tier.target();
+		boolean current = !completed && nextTier(player, track, progress).map(MilestoneTier::id).orElse("").equals(tier.id());
+		Material material = completed ? Material.LIME_DYE : current ? Material.YELLOW_DYE : Material.GRAY_DYE;
+		ItemStack item = new ItemStack(material);
+		ItemMeta meta = item.getItemMeta();
+		if (meta == null) return item;
+		String color = completed ? "<green>" : current ? "<#f7d774>" : "<gray>";
+		String status = completed ? "DONE" : current ? "NEXT" : "LOCKED";
+		meta.displayName(ChatUtils.formatItem(color + "<bold>" + tier.name()));
+		meta.lore(List.of(
+			ChatUtils.formatItem("<gray>Status: " + color + status),
+			ChatUtils.formatItem("<gray>Progress: <white>" + numbers.format(Math.min(progress.amount(), tier.target()))
+				+ " / " + numbers.format(tier.target()))
+		));
+		item.setItemMeta(meta);
+		return item;
+	}
+
+	ItemStack trackDetails(Player player, MilestoneTrack track) {
+		ItemStack item = new ItemStack(track.icon());
+		ItemMeta meta = item.getItemMeta();
+		if (meta == null) return item;
+		MilestoneProgress progress = milestones.progress(player.getUniqueId(), track.metric(), track.subject());
+		meta.displayName(ChatUtils.formatItem("<#30bbf1><bold>" + track.name()));
+		List<Component> lore = new ArrayList<>();
+		lore.add(ChatUtils.formatItem("<gray>Total: <white>" + numbers.format(progress.amount())));
+		lore.add(ChatUtils.formatItem("<gray>Completed: <white>" + completedTiers(player, track, progress) + " / " + track.tiers().size()));
 		lore.add(Component.empty());
 		boolean foundCurrent = false;
 		for (MilestoneTier tier : track.tiers()) {
@@ -72,6 +114,20 @@ final class MilestoneItemFactory {
 		}
 		item.setItemMeta(meta);
 		return item;
+	}
+
+	private int completedTiers(Player player, MilestoneTrack track, MilestoneProgress progress) {
+		int completed = 0;
+		for (MilestoneTier tier : track.tiers()) {
+			if (milestones.completed(player.getUniqueId(), tier.id()) || progress.amount() >= tier.target()) completed++;
+		}
+		return completed;
+	}
+
+	private java.util.Optional<MilestoneTier> nextTier(Player player, MilestoneTrack track, MilestoneProgress progress) {
+		return track.tiers().stream()
+			.filter(tier -> !milestones.completed(player.getUniqueId(), tier.id()) && progress.amount() < tier.target())
+			.findFirst();
 	}
 
 	ItemStack back() {

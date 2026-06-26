@@ -9,11 +9,13 @@ public final class MilestoneMenuLayout {
 		19, 20, 21, 22, 23, 24, 25,
 		28, 29, 30, 31, 32, 33, 34
 	);
+	public static final List<Integer> TIER_SLOTS = List.of(11, 12, 13, 14, 15, 20, 21, 22, 23, 24);
 	public static final int PREVIOUS = 45;
 	public static final int BACK = 49;
 	public static final int NEXT = 53;
 	public static final int CLOSE_OVERVIEW = 40;
 	public static final int CLOSE_CATEGORY = 49;
+	public static final int BACK_TRACK = 49;
 
 	private MilestoneMenuLayout() {
 	}
