@@ -6,16 +6,18 @@ import java.util.Locale;
 import java.util.Objects;
 
 public enum MessageType {
-	INFO("info", "#30bbf1"),
-	SUCCESS("success", "#42d829"),
-	ERROR("error", "#d43030");
+	INFO("info", "#30bbf1", "[i] "),
+	SUCCESS("success", "#42d829", "[+] "),
+	ERROR("error", "#d43030", "[!] ");
 
 	private final String configKey;
 	private final TextColor color;
+	private final String prefix;
 
-	MessageType(String configKey, String color) {
+	MessageType(String configKey, String color, String prefix) {
 		this.configKey = configKey;
 		this.color = TextColor.fromHexString(color);
+		this.prefix = prefix;
 	}
 
 	public String configKey() {
@@ -24,6 +26,10 @@ public enum MessageType {
 
 	public TextColor color() {
 		return color;
+	}
+
+	public String prefix() {
+		return prefix;
 	}
 
 	public static MessageType parse(String value) {

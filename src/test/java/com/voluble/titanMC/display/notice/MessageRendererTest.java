@@ -25,7 +25,7 @@ class MessageRendererTest {
 			new MessageArguments().plain("cell", "A1")
 		).getFirst());
 
-		assertEquals("Created A1.", plain);
+		assertEquals("[+] Created A1.", plain);
 	}
 
 	@Test
@@ -40,7 +40,7 @@ class MessageRendererTest {
 			new MessageArguments()
 		).getFirst());
 
-		assertEquals("Unknown cell.", plain);
+		assertEquals("[!] Unknown cell.", plain);
 	}
 
 	@Test
@@ -63,7 +63,7 @@ class MessageRendererTest {
 
 		String plain = PLAIN.serialize(renderer.render(catalog, MessageDefaults.DONATOR_TOOLS_HELP_USAGE).getFirst());
 
-		assertEquals("/dtools <tool> [player]", plain);
+		assertEquals("[i] /dtools <tool> [player]", plain);
 	}
 
 	@Test
@@ -80,8 +80,8 @@ class MessageRendererTest {
 		);
 
 		assertEquals(3, lines.size());
-		assertEquals("Line one", PLAIN.serialize(lines.get(0)));
-		assertEquals("", PLAIN.serialize(lines.get(1)));
-		assertEquals("Line three", PLAIN.serialize(lines.get(2)));
+		assertEquals("[i] Line one", PLAIN.serialize(lines.get(0)));
+		assertEquals("[i] ", PLAIN.serialize(lines.get(1)));
+		assertEquals("[i] Line three", PLAIN.serialize(lines.get(2)));
 	}
 }

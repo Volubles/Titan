@@ -46,7 +46,10 @@ public final class MessageRenderer {
 	}
 
 	private static Component style(MessageType type, Component content) {
-		return Component.empty().color(type.color()).append(content);
+		return Component.empty()
+			.color(type.color())
+			.append(Component.text(type.prefix()))
+			.append(content);
 	}
 
 	private static String[] splitLines(String input) {
