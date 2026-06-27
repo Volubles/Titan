@@ -6,6 +6,8 @@ first-join:
 
 cinematic: "onboarding_intro"
 
+preview-mode: runway
+
 input:
   repeat-cooldown-ms: 300
 

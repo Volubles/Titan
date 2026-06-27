@@ -69,6 +69,7 @@ public final class OnboardingService implements AutoCloseable {
 		}
 		OnboardingConfiguration snapshot = configuration.current();
 		OnboardingSession session = new OnboardingSession(
+			plugin,
 			player,
 			snapshot,
 			cinematics,

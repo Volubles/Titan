@@ -35,13 +35,26 @@ public final class EntityLibOutfitPreview implements OutfitPreview {
 
 	@Override
 	public CompletionStage<Void> show(Player player, PreviewModel model) {
+		return show(player, new PreviewScene(
+			com.voluble.titanMC.onboarding.config.OnboardingPreviewMode.RUNWAY,
+			model.stage(),
+			model,
+			model,
+			model,
+			0,
+			1
+		));
+	}
+
+	@Override
+	public CompletionStage<Void> show(Player player, PreviewScene scene) {
 		if (!available()) return CompletableFuture.failedFuture(new PreviewException("EntityLib outfit previews are unavailable"));
 		CompletableFuture<Void> result = new CompletableFuture<>();
 		Runnable task = () -> {
 			try {
 				EntityLibRuntime.initialize(plugin);
 				controllers.computeIfAbsent(player.getUniqueId(), id -> new PreviewActorController(plugin, player, motion))
-					.show(model)
+					.show(scene)
 					.whenComplete((ignored, failure) -> {
 						if (failure == null) {
 							result.complete(null);

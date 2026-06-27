@@ -1,45 +1,54 @@
 package com.voluble.titanMC.onboarding.preview.actor;
 
+import com.voluble.titanMC.onboarding.config.OnboardingPreviewMode;
 import com.voluble.titanMC.onboarding.preview.OutfitPreview;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
-import java.util.LinkedHashSet;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public final class PreviewActorController {
-	private final Plugin plugin;
-	private final Player player;
-	private final PreviewMotion motion;
-	private final Set<PreviewActor> actors = new LinkedHashSet<>();
-	private PreviewActor active;
+	private final Map<OnboardingPreviewMode, PreviewStrategy> strategies = new EnumMap<>(OnboardingPreviewMode.class);
 
 	public PreviewActorController(Plugin plugin, Player player, PreviewMotion motion) {
-		this.plugin = Objects.requireNonNull(plugin, "plugin");
-		this.player = Objects.requireNonNull(player, "player");
-		this.motion = Objects.requireNonNull(motion, "motion");
+		PreviewActorFactory actors = new PreviewActorFactory(
+			Objects.requireNonNull(plugin, "plugin"),
+			Objects.requireNonNull(player, "player"),
+			Objects.requireNonNull(motion, "motion")
+		);
+		strategies.put(OnboardingPreviewMode.RUNWAY, new RunwayPreviewStrategy(actors));
+		strategies.put(OnboardingPreviewMode.CAROUSEL, new CarouselPreviewStrategy(actors));
 	}
 
 	public CompletableFuture<Void> show(OutfitPreview.PreviewModel model) {
 		Objects.requireNonNull(model, "model");
-		PreviewPath path = PreviewPath.from(model.stage());
-		if (active != null) {
-			PreviewActor outgoing = active;
-			outgoing.exit().whenComplete((ignored, failure) -> actors.remove(outgoing));
-		}
-		PreviewActor next = new PreviewActor(plugin, player, path, model.skin(), motion);
-		active = next;
-		actors.add(next);
-		return next.enter();
+		OutfitPreview.PreviewScene scene = new OutfitPreview.PreviewScene(
+			OnboardingPreviewMode.RUNWAY,
+			model.stage(),
+			model,
+			model,
+			model,
+			0,
+			1
+		);
+		return show(scene);
+	}
+
+	public CompletableFuture<Void> show(OutfitPreview.PreviewScene scene) {
+		Objects.requireNonNull(scene, "scene");
+		return strategy(scene.mode()).show(scene);
 	}
 
 	public void remove() {
-		for (PreviewActor actor : Set.copyOf(actors)) {
-			actor.remove();
-		}
-		actors.clear();
-		active = null;
+		strategies.values().forEach(PreviewStrategy::remove);
+	}
+
+	private PreviewStrategy strategy(OnboardingPreviewMode mode) {
+		PreviewStrategy strategy = strategies.get(mode);
+		if (strategy == null) throw new IllegalArgumentException("Unsupported preview mode: " + mode);
+		return strategy;
 	}
 }

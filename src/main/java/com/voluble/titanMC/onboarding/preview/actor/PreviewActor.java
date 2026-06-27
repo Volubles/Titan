@@ -65,14 +65,12 @@ public final class PreviewActor {
 		CompletableFuture<Void> result = new CompletableFuture<>();
 		focused = result;
 		state = PreviewActorState.ENTERING;
-		current = path.entrance().clone();
-		npc.spawn(toPacketLocation(current));
-		createHiddenNameTeam();
-		npc.addViewer(viewerId);
-		Bukkit.getScheduler().runTaskLater(plugin, () -> {
-			if (state != PreviewActorState.REMOVED) npc.setInTablist(false);
-		}, 10L);
-		playSegment(current, path.focus(), false, () -> {
+		spawnAt(path.entrance());
+		moveTo(path.focus(), false).whenComplete((ignored, failure) -> {
+			if (failure != null) {
+				result.completeExceptionally(failure);
+				return;
+			}
 			if (state == PreviewActorState.REMOVED) return;
 			current = path.focus().clone();
 			state = PreviewActorState.FOCUSED;
@@ -81,6 +79,46 @@ public final class PreviewActor {
 			result.complete(null);
 		});
 		return result;
+	}
+
+	public void stageAt(Location location) {
+		state = PreviewActorState.STAGED;
+		spawnAt(location);
+	}
+
+	public CompletableFuture<Void> moveToFocus() {
+		state = PreviewActorState.ENTERING;
+		return moveTo(path.focus(), false).thenRun(() -> {
+			if (state == PreviewActorState.REMOVED) return;
+			current = path.focus().clone();
+			state = PreviewActorState.FOCUSED;
+			npc.teleport(toPacketLocation(current));
+			npc.rotateHead(toPacketLocation(current));
+		});
+	}
+
+	public CompletableFuture<Void> moveToEntrance() {
+		return moveToEntranceSlot().thenRun(this::remove);
+	}
+
+	public CompletableFuture<Void> moveToEntranceSlot() {
+		state = PreviewActorState.EXITING;
+		return moveTo(path.entrance(), true).thenRun(() -> {
+			if (state == PreviewActorState.REMOVED) return;
+			current = path.entrance().clone();
+			state = PreviewActorState.STAGED;
+			npc.teleport(toPacketLocation(current));
+		});
+	}
+
+	public CompletableFuture<Void> moveToExitSlot() {
+		state = PreviewActorState.EXITING;
+		return moveTo(path.exit(), true).thenRun(() -> {
+			if (state == PreviewActorState.REMOVED) return;
+			current = path.exit().clone();
+			state = PreviewActorState.STAGED;
+			npc.teleport(toPacketLocation(current));
+		});
 	}
 
 	public CompletableFuture<Void> exit() {
@@ -94,7 +132,7 @@ public final class PreviewActor {
 		start.setPitch(target.getPitch());
 		current = start;
 		npc.teleport(toPacketLocation(start));
-		playSegment(start, target, true, this::remove);
+		moveToExitSlot().thenRun(this::remove);
 		return removed;
 	}
 
@@ -139,6 +177,28 @@ public final class PreviewActor {
 			meta.setHatEnabled(true);
 		}
 		return player;
+	}
+
+	private void spawnAt(Location location) {
+		if (current != null && npc.isSpawned()) {
+			current = location.clone();
+			npc.teleport(toPacketLocation(current));
+			return;
+		}
+		current = location.clone();
+		npc.spawn(toPacketLocation(current));
+		createHiddenNameTeam();
+		npc.addViewer(viewerId);
+		Bukkit.getScheduler().runTaskLater(plugin, () -> {
+			if (state != PreviewActorState.REMOVED) npc.setInTablist(false);
+		}, 10L);
+	}
+
+	private CompletableFuture<Void> moveTo(Location target, boolean rotateDuringMove) {
+		CompletableFuture<Void> result = new CompletableFuture<>();
+		Location start = current == null ? target.clone() : current.clone();
+		playSegment(start, target, rotateDuringMove, () -> result.complete(null));
+		return result;
 	}
 
 	private void createHiddenNameTeam() {

@@ -55,6 +55,20 @@ class OnboardingConfigurationTest {
 		assertEquals(9.0, config.previewStage().exit().x());
 	}
 
+	@Test
+	void loadsPreviewMode() {
+		OnboardingConfiguration config = OnboardingConfiguration.load(yaml("""
+			enabled: true
+			cinematic: onboarding_intro
+			preview-mode: carousel
+			preview: { world: world, x: 2, y: 3, z: 4, yaw: 5, pitch: 6 }
+			outfits:
+			  - prison
+			"""));
+
+		assertEquals(OnboardingPreviewMode.CAROUSEL, config.previewMode());
+	}
+
 	private static YamlConfiguration yaml(String source) {
 		YamlConfiguration yaml = new YamlConfiguration();
 		try {

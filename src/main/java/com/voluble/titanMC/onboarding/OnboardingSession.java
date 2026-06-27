@@ -5,18 +5,24 @@ import com.voluble.titanMC.cinematics.runtime.CinematicPlaybackOptions;
 import com.voluble.titanMC.display.notice.MessageDefaults;
 import com.voluble.titanMC.display.notice.PluginMessageService;
 import com.voluble.titanMC.onboarding.config.OnboardingConfiguration;
+import com.voluble.titanMC.onboarding.config.OnboardingPreviewMode;
 import com.voluble.titanMC.onboarding.persistence.OnboardingStorage;
 import com.voluble.titanMC.onboarding.preview.OutfitPreview;
 import com.voluble.titanMC.outfits.OutfitResult;
 import com.voluble.titanMC.outfits.OutfitService;
+import com.voluble.titanMC.outfits.PreparedOutfitSkin;
 import com.voluble.titanMC.outfits.config.OutfitConfigurationManager;
 import com.voluble.titanMC.outfits.model.OutfitDefinition;
 import com.voluble.titanMC.outfits.model.OutfitId;
+import org.bukkit.Bukkit;
 import org.bukkit.Input;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -24,6 +30,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public final class OnboardingSession {
+	private final Plugin plugin;
 	private final Player player;
 	private final OnboardingConfiguration configuration;
 	private final CinematicRuntime cinematics;
@@ -41,6 +48,7 @@ public final class OnboardingSession {
 	private int previewGeneration;
 
 	public OnboardingSession(
+		Plugin plugin,
 		Player player,
 		OnboardingConfiguration configuration,
 		CinematicRuntime cinematics,
@@ -52,6 +60,7 @@ public final class OnboardingSession {
 		Logger logger,
 		Consumer<UUID> completion
 	) {
+		this.plugin = Objects.requireNonNull(plugin, "plugin");
 		this.player = Objects.requireNonNull(player, "player");
 		this.configuration = Objects.requireNonNull(configuration, "configuration");
 		this.cinematics = Objects.requireNonNull(cinematics, "cinematics");
@@ -134,24 +143,106 @@ public final class OnboardingSession {
 			return;
 		}
 		int generation = ++previewGeneration;
+		if (configuration.previewMode() == OnboardingPreviewMode.CAROUSEL) {
+			showCarouselPreview(generation);
+		} else {
+			preparePreviewModel(generation, outfitIndex, model -> {
+				if (model != null) showPreview(generation, model);
+			});
+		}
+	}
+
+	private void showCarouselPreview(int generation) {
+		int size = configuration.outfits().size();
+		int previous = Math.floorMod(outfitIndex - 1, size);
+		int focus = outfitIndex;
+		int next = Math.floorMod(outfitIndex + 1, size);
+		List<Integer> required = List.of(previous, focus, next);
+		Map<Integer, OutfitPreview.PreviewModel> models = new HashMap<>();
+		preparePreviewModels(generation, required, 0, models, prepared -> {
+			OutfitPreview.PreviewModel previousModel = prepared.get(previous);
+			OutfitPreview.PreviewModel focusModel = prepared.get(focus);
+			OutfitPreview.PreviewModel nextModel = prepared.get(next);
+			if (previousModel == null || focusModel == null || nextModel == null) return;
+			showPreview(generation, new OutfitPreview.PreviewScene(
+				configuration.previewMode(),
+				configuration.previewStage(),
+				previousModel,
+				focusModel,
+				nextModel,
+				outfitIndex,
+				size
+			));
+		});
+	}
+
+	private void preparePreviewModels(
+		int generation,
+		List<Integer> indices,
+		int position,
+		Map<Integer, OutfitPreview.PreviewModel> models,
+		Consumer<Map<Integer, OutfitPreview.PreviewModel>> callback
+	) {
+		if (stopping || generation != previewGeneration) return;
+		if (position >= indices.size()) {
+			callback.accept(models);
+			return;
+		}
+		int index = indices.get(position);
+		if (models.containsKey(index)) {
+			preparePreviewModels(generation, indices, position + 1, models, callback);
+			return;
+		}
+		preparePreviewModel(generation, index, model -> {
+			if (model == null) return;
+			models.put(index, model);
+			Bukkit.getScheduler().runTask(plugin, () ->
+				preparePreviewModels(generation, indices, position + 1, models, callback)
+			);
+		});
+	}
+
+	private void preparePreviewModel(int generation, int index, Consumer<OutfitPreview.PreviewModel> callback) {
+		OutfitId outfit = configuration.outfits().get(index);
 		outfits.prepareOutfitSkin(player, outfit, prepared -> {
 			if (stopping || generation != previewGeneration) return;
-			if (prepared.result() != OutfitResult.APPLIED || prepared.property() == null) {
+			if (!prepared(prepared)) {
 				messages.send(player, MessageDefaults.ONBOARDING_PREVIEW_FAILED);
+				callback.accept(null);
 				return;
 			}
-			preview.show(player, new OutfitPreview.PreviewModel(
-					name,
-					configuration.previewStage(),
-					prepared.property()
-				))
-				.whenComplete((ignored, failure) -> {
-					if (stopping || generation != previewGeneration) return;
-					if (failure == null) return;
-					logger.log(Level.WARNING, "Failed to show onboarding preview for " + player.getUniqueId(), failure);
-					messages.send(player, MessageDefaults.ONBOARDING_PREVIEW_FAILED);
-				});
+			callback.accept(new OutfitPreview.PreviewModel(
+				outfitName(outfit),
+				configuration.previewStage(),
+				prepared.property()
+			));
 		});
+	}
+
+	private boolean prepared(PreparedOutfitSkin prepared) {
+		return prepared.result() == OutfitResult.APPLIED && prepared.property() != null;
+	}
+
+	private void showPreview(int generation, OutfitPreview.PreviewModel model) {
+		showPreview(generation, new OutfitPreview.PreviewScene(
+			configuration.previewMode(),
+			configuration.previewStage(),
+			model,
+			model,
+			model,
+			0,
+			1
+		));
+	}
+
+	private void showPreview(int generation, OutfitPreview.PreviewScene scene) {
+		preview.show(player, scene)
+			.whenComplete((ignored, failure) -> {
+				if (stopping || generation != previewGeneration) return;
+				if (failure == null) return;
+				logger.log(Level.WARNING, "Failed to show onboarding preview for " + player.getUniqueId(), failure);
+				messages.send(player, MessageDefaults.ONBOARDING_PREVIEW_FAILED);
+			});
 	}
 
 	private void confirm() {

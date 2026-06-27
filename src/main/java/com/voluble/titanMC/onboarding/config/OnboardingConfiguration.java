@@ -17,11 +17,13 @@ public record OnboardingConfiguration(
 	long firstJoinDelayTicks,
 	CinematicId cinematic,
 	long inputCooldownMillis,
+	OnboardingPreviewMode previewMode,
 	OnboardingPreviewStage previewStage,
 	List<OutfitId> outfits
 ) {
 	public OnboardingConfiguration {
 		Objects.requireNonNull(cinematic, "cinematic");
+		Objects.requireNonNull(previewMode, "previewMode");
 		Objects.requireNonNull(previewStage, "previewStage");
 		outfits = List.copyOf(Objects.requireNonNull(outfits, "outfits"));
 		if (firstJoinDelayTicks < 0L) throw new IllegalArgumentException("first join delay must not be negative");
@@ -38,15 +40,10 @@ public record OnboardingConfiguration(
 			firstJoin == null ? 40L : firstJoin.getLong("delay-ticks", 40L),
 			CinematicId.of(yaml.getString("cinematic", "onboarding_intro")),
 			input == null ? 300L : input.getLong("repeat-cooldown-ms", 300L),
+			OnboardingPreviewMode.parse(yaml.getString("preview-mode", "runway")),
 			OnboardingPreviewStage.load(yaml),
 			yaml.getStringList("outfits").stream().map(OutfitId::of).toList()
 		);
-	}
-
-	private static ConfigurationSection requireSection(FileConfiguration yaml, String path) {
-		ConfigurationSection section = yaml.getConfigurationSection(path);
-		if (section == null) throw new IllegalArgumentException("Missing section: " + path);
-		return section;
 	}
 
 	public record LocationSpec(String world, double x, double y, double z, float yaw, float pitch) {
