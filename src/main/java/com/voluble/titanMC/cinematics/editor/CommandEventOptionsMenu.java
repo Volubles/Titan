@@ -25,7 +25,7 @@ final class CommandEventOptionsMenu {
 
 	void open(Player player, CommandCinematicEvent event) {
 		MenuDefinition.chest(3)
-			.title(MiniMessage.miniMessage().deserialize("<#f7d774>Command Event <gray>| Tick <white>" + event.tick()))
+			.title(MiniMessage.miniMessage().deserialize("<#f7d774>Command Event <gray>| <white>" + CinematicTimeFormat.tickTime(event.tick())))
 			.onOpen(context -> {
 				context.setItem(10, CinematicEditorChrome.display(items.event(event)));
 				context.setItem(11, button(Material.PAPER, "<#f7d774><bold>Set Command", List.of(
@@ -49,6 +49,30 @@ final class CommandEventOptionsMenu {
 					editor.removeEvent(player, event);
 					click.actions().transition(() -> editor.openTimeline(player));
 				}));
+				context.setItem(16, button(
+					Material.REPEATER,
+					"<#f7d774><bold>Move Tick",
+					CinematicEditorClickSteps.tickControlLore("this command event"),
+					click -> CinematicEditorTimelineMutations.moveEvent(
+						player,
+						editor,
+						event,
+						CinematicEditorClickSteps.signedTickDelta(click),
+						click.actions()
+					)
+				));
+				context.setItem(17, button(
+					Material.PISTON,
+					"<#30bbf1><bold>Shift Timeline From Here",
+					CinematicEditorClickSteps.tickControlLore("this event and everything after it"),
+					click -> CinematicEditorTimelineMutations.shiftTimeline(
+						player,
+						editor,
+						event.tick(),
+						CinematicEditorClickSteps.signedTickDelta(click),
+						click.actions()
+					)
+				));
 				context.setItem(22, button(Material.ARROW, "<#30bbf1><bold>Back", List.of("<gray>Return to the timeline."), click ->
 					click.actions().transition(() -> editor.openTimeline(player))));
 			})

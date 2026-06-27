@@ -24,7 +24,7 @@ final class CameraPointOptionsMenu {
 
 	void open(Player player, CameraPoint point) {
 		MenuDefinition.chest(3)
-			.title(MiniMessage.miniMessage().deserialize("<#30bbf1>Camera Point <gray>| Tick <white>" + point.tick()))
+			.title(MiniMessage.miniMessage().deserialize("<#30bbf1>Camera Point <gray>| <white>" + CinematicTimeFormat.tickTime(point.tick())))
 			.onOpen(context -> {
 				context.setItem(10, CinematicEditorChrome.button(
 					items,
@@ -51,8 +51,34 @@ final class CameraPointOptionsMenu {
 					items,
 					Material.CLOCK,
 					"<#f7d774><bold>Set Tick",
-					List.of("<gray>Current: <white>" + point.tick()),
+					List.of("<gray>Current: <white>" + CinematicTimeFormat.tickTime(point.tick())),
 					click -> promptTick(player, point, click.actions())
+				));
+				context.setItem(13, CinematicEditorChrome.button(
+					items,
+					Material.REPEATER,
+					"<#f7d774><bold>Move Tick",
+					CinematicEditorClickSteps.tickControlLore("this camera point"),
+					click -> CinematicEditorTimelineMutations.moveCameraPoint(
+						player,
+						editor,
+						point,
+						CinematicEditorClickSteps.signedTickDelta(click),
+						click.actions()
+					)
+				));
+				context.setItem(14, CinematicEditorChrome.button(
+					items,
+					Material.PISTON,
+					"<#30bbf1><bold>Shift Timeline From Here",
+					CinematicEditorClickSteps.tickControlLore("this point and everything after it"),
+					click -> CinematicEditorTimelineMutations.shiftTimeline(
+						player,
+						editor,
+						point.tick(),
+						CinematicEditorClickSteps.signedTickDelta(click),
+						click.actions()
+					)
 				));
 				context.setItem(15, CinematicEditorChrome.button(
 					items,

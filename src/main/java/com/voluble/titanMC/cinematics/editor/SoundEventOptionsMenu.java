@@ -26,7 +26,7 @@ final class SoundEventOptionsMenu {
 
 	void open(Player player, SoundCinematicEvent event) {
 		MenuDefinition.chest(3)
-			.title(MiniMessage.miniMessage().deserialize("<#42d829>Sound Event <gray>| Tick <white>" + event.tick()))
+			.title(MiniMessage.miniMessage().deserialize("<#42d829>Sound Event <gray>| <white>" + CinematicTimeFormat.tickTime(event.tick())))
 			.onOpen(context -> {
 				context.setItem(10, CinematicEditorChrome.display(items.event(event)));
 				context.setItem(11, promptButton(player, event, Material.NOTE_BLOCK, "<#42d829><bold>Set Sound Key", "Type the sound key.", value ->
@@ -48,6 +48,30 @@ final class SoundEventOptionsMenu {
 					new SoundCinematicEvent(CinematicEditorParsing.nonNegativeInt(value), event.row(), event.position(), event.key(), event.volume(), event.pitch(), event.category())));
 				context.setItem(17, promptButton(player, event, Material.HOPPER, "<#f7d774><bold>Set Row", "Type the new row. Row 0 is reserved for cameras.", value ->
 					new SoundCinematicEvent(event.tick(), CinematicEditorParsing.positiveInt(value), event.position(), event.key(), event.volume(), event.pitch(), event.category())));
+				context.setItem(18, button(
+					Material.REPEATER,
+					"<#f7d774><bold>Move Tick",
+					CinematicEditorClickSteps.tickControlLore("this sound event"),
+					click -> CinematicEditorTimelineMutations.moveEvent(
+						player,
+						editor,
+						event,
+						CinematicEditorClickSteps.signedTickDelta(click),
+						click.actions()
+					)
+				));
+				context.setItem(19, button(
+					Material.PISTON,
+					"<#30bbf1><bold>Shift Timeline From Here",
+					CinematicEditorClickSteps.tickControlLore("this event and everything after it"),
+					click -> CinematicEditorTimelineMutations.shiftTimeline(
+						player,
+						editor,
+						event.tick(),
+						CinematicEditorClickSteps.signedTickDelta(click),
+						click.actions()
+					)
+				));
 				context.setItem(22, button(Material.ARROW, "<#30bbf1><bold>Back", List.of("<gray>Return to the timeline."), click ->
 					click.actions().transition(() -> editor.openTimeline(player))));
 				context.setItem(26, button(Material.REDSTONE_BLOCK, "<#d43030><bold>Delete", List.of("<gray>Remove this sound event."), click -> {

@@ -22,7 +22,7 @@ final class CinematicEditorItemFactory {
 			material,
 			row == 0 ? "<#30bbf1>Empty Camera Tick" : "<gray>Empty Event Tick",
 			List.of(
-				"<gray>Tick: <white>" + tick,
+				"<gray>Tick: <white>" + CinematicTimeFormat.tickTime(tick),
 				"<gray>Row: <white>" + rowName(row),
 				"",
 				row == 0 ? "<green>Click to add a camera point here." : "<green>Click to add a timeline event here."
@@ -35,9 +35,10 @@ final class CinematicEditorItemFactory {
 			Material.ENDER_EYE,
 			"<#30bbf1><bold>Camera Point",
 			List.of(
-				"<gray>Tick: <white>" + point.tick(),
+				"<gray>Tick: <white>" + CinematicTimeFormat.tickTime(point.tick()),
 				"<gray>Row: <white>Camera Path",
-				"<gray>Duration: <white>" + cameraDuration(point, definition) + " ticks",
+				"<gray>Previous camera: <white>" + cameraNeighbor(point, definition, true),
+				"<gray>Next camera: <white>" + cameraNeighbor(point, definition, false),
 				"",
 				"<gray>World: <white>" + point.world(),
 				"<gray>X/Y/Z: <white>" + rounded(point.x()) + ", " + rounded(point.y()) + ", " + rounded(point.z()),
@@ -49,7 +50,7 @@ final class CinematicEditorItemFactory {
 
 	ItemStack event(CinematicEvent event) {
 		List<String> lore = new ArrayList<>();
-		lore.add("<gray>Tick: <white>" + event.tick());
+		lore.add("<gray>Tick: <white>" + CinematicTimeFormat.tickTime(event.tick()));
 		lore.add("<gray>Row: <white>" + rowName(event.row()));
 		lore.add("");
 		switch (event) {
@@ -78,7 +79,7 @@ final class CinematicEditorItemFactory {
 			Material.CLOCK,
 			"<#f7d774><bold>" + definition.id().value(),
 			List.of(
-				"<gray>Duration: <white>" + definition.durationTicks() + " ticks",
+				"<gray>Length: <white>" + CinematicTimeFormat.tickTime(definition.durationTicks()),
 				"<gray>Camera points: <white>" + definition.camera().points().size(),
 				"<gray>Timeline events: <white>" + definition.timeline().events().size(),
 				"",
@@ -100,12 +101,13 @@ final class CinematicEditorItemFactory {
 		return stack;
 	}
 
-	private int cameraDuration(CameraPoint point, CinematicDefinition definition) {
-		return definition.camera().points().stream()
-			.filter(next -> next.tick() > point.tick())
-			.mapToInt(next -> next.tick() - point.tick())
-			.findFirst()
-			.orElse(Math.max(0, definition.durationTicks() - point.tick()));
+	private String cameraNeighbor(CameraPoint point, CinematicDefinition definition, boolean previous) {
+		var stream = definition.camera().points().stream()
+			.mapToInt(CameraPoint::tick);
+		int tick = previous
+			? stream.filter(candidate -> candidate < point.tick()).max().orElse(-1)
+			: stream.filter(candidate -> candidate > point.tick()).min().orElse(-1);
+		return tick < 0 ? "none" : CinematicTimeFormat.tickTime(tick);
 	}
 
 	private Material material(CinematicEvent event) {

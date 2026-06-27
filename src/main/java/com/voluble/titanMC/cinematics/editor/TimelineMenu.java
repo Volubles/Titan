@@ -162,16 +162,16 @@ final class TimelineMenu {
 		writer.set(CinematicEditorLayout.DURATION, CinematicEditorChrome.button(
 			items,
 			Material.CLOCK,
-			"<#f7d774><bold>Set Duration",
+			"<#f7d774><bold>Set Length",
 			List.of(
-				"<gray>Current: <white>" + definition.durationTicks() + " ticks",
-				"<green>Click to type a new duration."
+				"<gray>Current: <white>" + CinematicTimeFormat.tickTime(definition.durationTicks()),
+				"<green>Click to type a new end tick."
 			),
 			context -> {
 				context.actions().close();
 				context.actions().nextTick(() -> editor.input().prompt(
 					player,
-					"Type the cinematic duration in ticks.",
+					"Type the cinematic length in ticks.",
 					value -> setDuration(player, value),
 					() -> open(player)
 				));
@@ -196,7 +196,7 @@ final class TimelineMenu {
 			if (duration <= 0) throw new NumberFormatException("duration must be positive");
 			editor.setDuration(player, duration);
 		} catch (NumberFormatException exception) {
-			player.sendMessage(ChatUtils.format("<#d43030>Duration must be a positive number of ticks."));
+			player.sendMessage(ChatUtils.format("<#d43030>Length must be a positive number of ticks."));
 		}
 		open(player);
 	}
@@ -204,7 +204,8 @@ final class TimelineMenu {
 	private String title(CinematicDefinition definition, CinematicTimelineViewport viewport) {
 		return "<#30bbf1>" + definition.id().value()
 			+ " <gray>| Tick <white>" + viewport.startTick()
-			+ "<gray>/<white>" + definition.durationTicks();
+			+ "<gray>/<white>" + definition.durationTicks()
+			+ " <gray>| <white>" + CinematicTimeFormat.seconds(definition.durationTicks()) + "s";
 	}
 
 	@FunctionalInterface

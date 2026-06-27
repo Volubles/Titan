@@ -7,16 +7,21 @@ import com.voluble.titanMC.cinematics.model.CinematicDefinition;
 import com.voluble.titanMC.cinematics.model.CinematicEvent;
 import com.voluble.titanMC.cinematics.model.CinematicId;
 import com.voluble.titanMC.cinematics.model.CinematicTimeline;
+import com.voluble.titanMC.cinematics.model.CommandCinematicEvent;
+import com.voluble.titanMC.cinematics.model.ParticleCinematicEvent;
+import com.voluble.titanMC.cinematics.model.SoundCinematicEvent;
 import com.voluble.titanMC.cinematics.runtime.CinematicRuntime;
 import io.voluble.michellelib.menu.MenuService;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -130,6 +135,18 @@ public final class CinematicEditorService {
 		));
 	}
 
+	Optional<CameraPoint> moveCameraPoint(Player player, CameraPoint point, int deltaTicks) {
+		int tick = point.tick() + deltaTicks;
+		if (tick < 0) return Optional.empty();
+		CinematicDefinition definition = requireDefinition(player);
+		boolean occupied = definition.camera().points().stream()
+			.anyMatch(existing -> !existing.equals(point) && existing.tick() == tick);
+		if (occupied) return Optional.empty();
+		CameraPoint updated = new CameraPoint(tick, point.world(), point.x(), point.y(), point.z(), point.yaw(), point.pitch());
+		replaceCameraPoint(player, point, updated);
+		return Optional.of(updated);
+	}
+
 	boolean removeCameraPoint(Player player, CameraPoint point) {
 		CinematicDefinition definition = requireDefinition(player);
 		if (definition.camera().points().size() <= 1) return false;
@@ -178,6 +195,18 @@ public final class CinematicEditorService {
 		));
 	}
 
+	Optional<CinematicEvent> moveEvent(Player player, CinematicEvent event, int deltaTicks) {
+		int tick = event.tick() + deltaTicks;
+		if (tick < 0) return Optional.empty();
+		CinematicDefinition definition = requireDefinition(player);
+		boolean occupied = definition.timeline().events().stream()
+			.anyMatch(existing -> !existing.equals(event) && existing.tick() == tick && existing.row() == event.row());
+		if (occupied) return Optional.empty();
+		CinematicEvent updated = withTick(event, tick);
+		replaceEvent(player, event, updated);
+		return Optional.of(updated);
+	}
+
 	void removeEvent(Player player, CinematicEvent event) {
 		CinematicDefinition definition = requireDefinition(player);
 		save(new CinematicDefinition(
@@ -193,8 +222,75 @@ public final class CinematicEditorService {
 		save(new CinematicDefinition(definition.id(), durationTicks, definition.camera(), definition.timeline()));
 	}
 
+	boolean shiftTimeline(Player player, int startTick, int deltaTicks) {
+		if (deltaTicks == 0) return true;
+		CinematicDefinition definition = requireDefinition(player);
+		List<CameraPoint> points = new ArrayList<>();
+		Set<Integer> cameraTicks = new HashSet<>();
+		for (CameraPoint point : definition.camera().points()) {
+			int tick = point.tick() >= startTick ? point.tick() + deltaTicks : point.tick();
+			if (tick < 0 || !cameraTicks.add(tick)) return false;
+			points.add(new CameraPoint(tick, point.world(), point.x(), point.y(), point.z(), point.yaw(), point.pitch()));
+		}
+
+		List<CinematicEvent> events = new ArrayList<>();
+		Set<EventSlot> eventSlots = new HashSet<>();
+		for (CinematicEvent event : definition.timeline().events()) {
+			int tick = event.tick() >= startTick ? event.tick() + deltaTicks : event.tick();
+			EventSlot slot = new EventSlot(tick, event.row());
+			if (tick < 0 || !eventSlots.add(slot)) return false;
+			events.add(withTick(event, tick));
+		}
+
+		int length = Math.max(definition.durationTicks(), maxTick(points, events));
+		save(new CinematicDefinition(
+			definition.id(),
+			Math.max(1, length),
+			new CameraPathDefinition(definition.camera().restorePlayer(), points),
+			new CinematicTimeline(events)
+		));
+		return true;
+	}
+
 	void preview(Player player) {
 		runtime.start(player, session(player).cinematicId());
+	}
+
+	private int maxTick(List<CameraPoint> points, List<CinematicEvent> events) {
+		int tick = 1;
+		for (CameraPoint point : points) {
+			tick = Math.max(tick, point.tick());
+		}
+		for (CinematicEvent event : events) {
+			tick = Math.max(tick, event.tick());
+		}
+		return tick;
+	}
+
+	private CinematicEvent withTick(CinematicEvent event, int tick) {
+		return switch (event) {
+			case CommandCinematicEvent command -> new CommandCinematicEvent(tick, command.row(), command.command(), command.console());
+			case ParticleCinematicEvent particle -> new ParticleCinematicEvent(
+				tick,
+				particle.row(),
+				particle.position(),
+				particle.particle(),
+				particle.count(),
+				particle.offsetX(),
+				particle.offsetY(),
+				particle.offsetZ(),
+				particle.speed()
+			);
+			case SoundCinematicEvent sound -> new SoundCinematicEvent(
+				tick,
+				sound.row(),
+				sound.position(),
+				sound.key(),
+				sound.volume(),
+				sound.pitch(),
+				sound.category()
+			);
+		};
 	}
 
 	private CinematicDefinition requireDefinition(Player player) {
@@ -203,5 +299,8 @@ public final class CinematicEditorService {
 
 	private void save(CinematicDefinition definition) {
 		configuration.saveDefinition(definition);
+	}
+
+	private record EventSlot(int tick, int row) {
 	}
 }
