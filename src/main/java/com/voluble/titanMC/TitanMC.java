@@ -32,7 +32,7 @@ import com.voluble.titanMC.onboarding.bukkit.OnboardingListener;
 import com.voluble.titanMC.onboarding.command.OnboardingCommandModule;
 import com.voluble.titanMC.onboarding.config.OnboardingConfigurationManager;
 import com.voluble.titanMC.onboarding.persistence.OnboardingStorage;
-import com.voluble.titanMC.onboarding.preview.FancyNpcOutfitPreview;
+import com.voluble.titanMC.onboarding.preview.EntityLibOutfitPreview;
 import com.voluble.titanMC.onboarding.preview.OutfitPreview;
 import com.voluble.titanMC.onboarding.preview.UnavailableOutfitPreview;
 import com.voluble.titanMC.donatortools.DonatorToolsService;
@@ -527,11 +527,12 @@ public final class TitanMC extends JavaPlugin {
 	}
 
 	private OutfitPreview outfitPreview() {
-		if (!getServer().getPluginManager().isPluginEnabled("FancyNpcs")) {
-			getLogger().warning("FancyNPCs is not installed; onboarding outfit previews are disabled");
+		if (!getServer().getPluginManager().isPluginEnabled("packetevents")
+			&& !getServer().getPluginManager().isPluginEnabled("PacketEvents")) {
+			getLogger().warning("PacketEvents is not installed; onboarding outfit previews are disabled");
 			return new UnavailableOutfitPreview();
 		}
-		return new FancyNpcOutfitPreview(this);
+		return new EntityLibOutfitPreview(this);
 	}
 
 	private SkinApplier skinApplier() {

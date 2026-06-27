@@ -146,10 +146,7 @@ public final class OnboardingSession {
 					prepared.property()
 				))
 				.whenComplete((ignored, failure) -> {
-					if (stopping || generation != previewGeneration) {
-						if (failure == null) preview.remove(player);
-						return;
-					}
+					if (stopping || generation != previewGeneration) return;
 					if (failure == null) return;
 					logger.log(Level.WARNING, "Failed to show onboarding preview for " + player.getUniqueId(), failure);
 					messages.send(player, MessageDefaults.ONBOARDING_PREVIEW_FAILED);

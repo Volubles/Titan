@@ -13,7 +13,7 @@ public final class UnavailableOutfitPreview implements OutfitPreview {
 
 	@Override
 	public CompletionStage<Void> show(Player player, PreviewModel model) {
-		return CompletableFuture.failedFuture(new PreviewException("FancyNPCs is not installed or enabled"));
+		return CompletableFuture.failedFuture(new PreviewException("Packet outfit previews are not available"));
 	}
 
 	@Override

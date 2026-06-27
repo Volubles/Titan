@@ -1,5 +1,6 @@
 package com.voluble.titanMC.cinematics.runtime.camera;
 
+import com.voluble.titanMC.integrations.entitylib.EntityLibRuntime;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -30,20 +31,6 @@ public final class CinematicCameraDrivers {
 	}
 
 	private static boolean packetCameraAvailable(Plugin plugin) {
-		if (!plugin.getServer().getPluginManager().isPluginEnabled("packetevents")
-			&& !plugin.getServer().getPluginManager().isPluginEnabled("PacketEvents")) {
-			return false;
-		}
-		return present("com.github.retrooper.packetevents.PacketEvents")
-			&& present("me.tofaa.entitylib.EntityLib");
-	}
-
-	private static boolean present(String className) {
-		try {
-			Class.forName(className);
-			return true;
-		} catch (ClassNotFoundException exception) {
-			return false;
-		}
+		return EntityLibRuntime.available(plugin);
 	}
 }

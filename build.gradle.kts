@@ -34,9 +34,6 @@ repositories {
     maven("https://maven.typewritermc.com/external") {
         name = "typewriterExternal"
     }
-    maven("https://repo.fancyplugins.de/releases") {
-        name = "fancyplugins"
-    }
 }
 
 dependencies {
@@ -45,7 +42,6 @@ dependencies {
     compileOnly("com.github.MilkBowl:VaultAPI:1.7")
     compileOnly("me.clip:placeholderapi:2.11.6")
     compileOnly("net.skinsrestorer:skinsrestorer-api:15.10.2")
-    compileOnly("de.oliver:FancyNpcs:2.8.0")
     compileOnly("com.github.retrooper:packetevents-api:2.11.1")
     compileOnly("com.github.retrooper:packetevents-spigot:2.11.1")
 
