@@ -469,6 +469,9 @@ public final class MessageDefaults {
 	public static final MessageDefinition ONBOARDING_PREVIEW_FAILED = message(
 		"onboarding.preview-failed", MessageType.ERROR, "The outfit preview could not be prepared."
 	);
+	public static final MessageDefinition ONBOARDING_PREVIEW_POINT_SET = message(
+		"onboarding.preview-point-set", MessageType.SUCCESS, "Captured onboarding preview {{point}} point."
+	);
 	public static final MessageDefinition ONBOARDING_APPLYING = message(
 		"onboarding.applying", MessageType.INFO, "Applying {{outfit}}..."
 	);

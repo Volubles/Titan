@@ -144,7 +144,7 @@ public final class OnboardingSession {
 			try {
 				preview.show(player, new OutfitPreview.PreviewModel(
 					name,
-					configuration.previewLocation().toLocation(),
+					configuration.previewStage(),
 					prepared.property()
 				));
 			} catch (PreviewException exception) {

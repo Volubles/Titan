@@ -9,13 +9,28 @@ cinematic: "onboarding_intro"
 input:
   repeat-cooldown-ms: 300
 
-preview:
-  world: world
-  x: 0.5
-  y: 79.0
-  z: -2.5
-  yaw: 0.0
-  pitch: 0.0
+preview-stage:
+  entrance:
+    world: world
+    x: -2.5
+    y: 79.0
+    z: -2.5
+    yaw: 90.0
+    pitch: 0.0
+  focus:
+    world: world
+    x: 0.5
+    y: 79.0
+    z: -2.5
+    yaw: 0.0
+    pitch: 0.0
+  exit:
+    world: world
+    x: 3.5
+    y: 79.0
+    z: -2.5
+    yaw: -90.0
+    pitch: 0.0
 
 outfits:
   - prison

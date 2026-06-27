@@ -17,12 +17,12 @@ public record OnboardingConfiguration(
 	long firstJoinDelayTicks,
 	CinematicId cinematic,
 	long inputCooldownMillis,
-	LocationSpec previewLocation,
+	OnboardingPreviewStage previewStage,
 	List<OutfitId> outfits
 ) {
 	public OnboardingConfiguration {
 		Objects.requireNonNull(cinematic, "cinematic");
-		Objects.requireNonNull(previewLocation, "previewLocation");
+		Objects.requireNonNull(previewStage, "previewStage");
 		outfits = List.copyOf(Objects.requireNonNull(outfits, "outfits"));
 		if (firstJoinDelayTicks < 0L) throw new IllegalArgumentException("first join delay must not be negative");
 		if (inputCooldownMillis < 0L) throw new IllegalArgumentException("input cooldown must not be negative");
@@ -38,7 +38,7 @@ public record OnboardingConfiguration(
 			firstJoin == null ? 40L : firstJoin.getLong("delay-ticks", 40L),
 			CinematicId.of(yaml.getString("cinematic", "onboarding_intro")),
 			input == null ? 300L : input.getLong("repeat-cooldown-ms", 300L),
-			LocationSpec.load(requireSection(yaml, "preview")),
+			OnboardingPreviewStage.load(yaml),
 			yaml.getStringList("outfits").stream().map(OutfitId::of).toList()
 		);
 	}
@@ -63,6 +63,18 @@ public record OnboardingConfiguration(
 				section.getDouble("z"),
 				(float) section.getDouble("yaw"),
 				(float) section.getDouble("pitch")
+			);
+		}
+
+		public static LocationSpec from(Location location) {
+			World world = Objects.requireNonNull(location.getWorld(), "location world");
+			return new LocationSpec(
+				world.getName(),
+				location.getX(),
+				location.getY(),
+				location.getZ(),
+				location.getYaw(),
+				location.getPitch()
 			);
 		}
 

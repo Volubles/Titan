@@ -5,6 +5,7 @@ import de.oliver.fancynpcs.api.Npc;
 import de.oliver.fancynpcs.api.NpcData;
 import de.oliver.fancynpcs.api.skins.SkinData;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
 import java.util.Map;
@@ -25,7 +26,8 @@ public final class FancyNpcOutfitPreview implements OutfitPreview {
 		remove(player);
 		try {
 			String name = "titan_onboarding_" + player.getUniqueId().toString().substring(0, 8);
-			NpcData data = new NpcData(name, player.getUniqueId(), model.location().clone())
+			Location focus = model.stage().focus().toLocation();
+			NpcData data = new NpcData(name, player.getUniqueId(), focus)
 				.setDisplayName(model.name())
 				.setShowInTab(false)
 				.setCollidable(false)

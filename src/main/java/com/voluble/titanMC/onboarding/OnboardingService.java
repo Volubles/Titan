@@ -5,6 +5,7 @@ import com.voluble.titanMC.display.notice.MessageDefaults;
 import com.voluble.titanMC.display.notice.PluginMessageService;
 import com.voluble.titanMC.onboarding.config.OnboardingConfiguration;
 import com.voluble.titanMC.onboarding.config.OnboardingConfigurationManager;
+import com.voluble.titanMC.onboarding.config.OnboardingPreviewPoint;
 import com.voluble.titanMC.onboarding.persistence.OnboardingStorage;
 import com.voluble.titanMC.onboarding.preview.OutfitPreview;
 import com.voluble.titanMC.outfits.OutfitService;
@@ -122,6 +123,10 @@ public final class OnboardingService implements AutoCloseable {
 
 	public void reload() {
 		configuration.reload();
+	}
+
+	public void capturePreviewPoint(Player player, OnboardingPreviewPoint point) {
+		configuration.savePreviewPoint(point, player.getLocation());
 	}
 
 	@Override

@@ -4,6 +4,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.voluble.titanMC.display.notice.MessageDefaults;
 import com.voluble.titanMC.display.notice.PluginMessageService;
 import com.voluble.titanMC.onboarding.OnboardingService;
+import com.voluble.titanMC.onboarding.config.OnboardingPreviewPoint;
 import io.voluble.michellelib.commands.CommandModule;
 import io.voluble.michellelib.commands.CommandRegistration;
 import io.voluble.michellelib.commands.arguments.Args;
@@ -35,6 +36,7 @@ public final class OnboardingCommandModule implements CommandModule {
 			.map(Player::getName)
 			.sorted(String.CASE_INSENSITIVE_ORDER)
 			.toList());
+		var previewPoints = Suggest.fromContext(source -> java.util.List.of("entrance", "focus", "exit"));
 		registration.register(CommandTree.root("onboarding")
 			.aliases("ob")
 			.description("Manage onboarding")
@@ -46,6 +48,11 @@ public final class OnboardingCommandModule implements CommandModule {
 			.literalExec("reload", this::reload)
 			.literal("reset", node -> node
 				.argument("player", Args.word(), player -> player.executes(this::reset)))
+			.literal("preview", preview -> preview
+				.literal("set", set -> set
+					.argument("point", Args.word(), point -> point
+						.suggests(previewPoints)
+						.executesPlayer(this::setPreviewPoint))))
 			.spec());
 	}
 
@@ -91,6 +98,19 @@ public final class OnboardingCommandModule implements CommandModule {
 			return CommandTree.ok();
 		}
 		messages.send(context.sender(), MessageDefaults.ONBOARDING_RESET, args -> args.plain("player", displayName(target)));
+		return CommandTree.ok();
+	}
+
+	private int setPreviewPoint(Player player, MichelleCommandContext context) throws CommandSyntaxException {
+		OnboardingPreviewPoint point;
+		try {
+			point = OnboardingPreviewPoint.parse(context.arg("point", String.class));
+		} catch (IllegalArgumentException exception) {
+			messages.send(player, MessageDefaults.COMMAND_RUNTIME_ERROR, args -> args.plain("reason", exception.getMessage()));
+			return CommandTree.ok();
+		}
+		onboarding.capturePreviewPoint(player, point);
+		messages.send(player, MessageDefaults.ONBOARDING_PREVIEW_POINT_SET, args -> args.plain("point", point.key()));
 		return CommandTree.ok();
 	}
 

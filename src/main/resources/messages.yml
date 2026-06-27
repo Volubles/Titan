@@ -298,6 +298,40 @@ messages:
       - "Unknown cinematic: {{cinematic}}"
     point-added:
       - "Added camera point to {{cinematic}} at tick {{tick}}."
+  onboarding:
+    started:
+      - "Use A/D to choose an outfit."
+      - "Jump to confirm. Sneak to cancel."
+    started-other:
+      - "Started onboarding for {{player}}."
+    stopped:
+      - "Stopped onboarding."
+    reloaded:
+      - "Onboarding reloaded."
+    reset:
+      - "Reset onboarding state for {{player}}."
+    disabled:
+      - "Onboarding is currently disabled."
+    already-active:
+      - "You are already in onboarding."
+    start-failed:
+      - "Onboarding could not start. Check the cinematic configuration."
+    outfit-selected:
+      - "Selected outfit: {{outfit}}"
+    preview-unavailable:
+      - "Outfit preview is unavailable until FancyNPCs is installed."
+    preview-failed:
+      - "The outfit preview could not be prepared."
+    preview-point-set:
+      - "Captured onboarding preview {{point}} point."
+    applying:
+      - "Applying {{outfit}}..."
+    apply-failed:
+      - "The outfit could not be applied."
+    completed:
+      - "Onboarding complete."
+    cancelled:
+      - "Onboarding cancelled."
   regions:
     usage:
       - "Usage: /region <create|redefine|delete|list|info|priority|test|flag|message|owner|member>"

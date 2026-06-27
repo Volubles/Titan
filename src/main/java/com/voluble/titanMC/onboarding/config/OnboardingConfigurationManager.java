@@ -3,6 +3,7 @@ package com.voluble.titanMC.onboarding.config;
 import com.voluble.titanMC.managers.ConfigManager;
 import com.voluble.titanMC.util.ComponentFiles;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.Location;
 import org.bukkit.plugin.Plugin;
 
 import java.io.InputStream;
@@ -44,5 +45,29 @@ public final class OnboardingConfigurationManager implements ConfigManager.Compo
 
 	public OnboardingConfiguration current() {
 		return Objects.requireNonNull(current.get(), "onboarding configuration has not been initialized");
+	}
+
+	public void savePreviewPoint(OnboardingPreviewPoint point, Location location) {
+		Objects.requireNonNull(point, "point");
+		Objects.requireNonNull(location, "location");
+		OnboardingConfiguration.LocationSpec spec = OnboardingConfiguration.LocationSpec.from(location);
+		YamlConfiguration yaml = YamlConfiguration.loadConfiguration(path.toFile());
+		String base = "preview-stage." + point.key();
+		yaml.set(base + ".world", spec.world());
+		yaml.set(base + ".x", spec.x());
+		yaml.set(base + ".y", spec.y());
+		yaml.set(base + ".z", spec.z());
+		yaml.set(base + ".yaw", spec.yaw());
+		yaml.set(base + ".pitch", spec.pitch());
+		save(yaml);
+		reload();
+	}
+
+	private void save(YamlConfiguration yaml) {
+		try {
+			yaml.save(path.toFile());
+		} catch (Exception exception) {
+			throw new IllegalStateException("Could not save onboarding/onboarding.yml", exception);
+		}
 	}
 }
