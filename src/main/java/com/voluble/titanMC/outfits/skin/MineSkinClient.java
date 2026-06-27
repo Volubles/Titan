@@ -15,7 +15,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class MineSkinClient {
-	private static final URI UPLOAD_ENDPOINT = URI.create("https://api.mineskin.org/v2/generate/upload");
+	private static final URI UPLOAD_ENDPOINT = URI.create("https://api.mineskin.org/v2/generate");
 	private static final Pattern VALUE = Pattern.compile("\"value\"\\s*:\\s*\"([^\"]+)\"");
 	private static final Pattern SIGNATURE = Pattern.compile("\"signature\"\\s*:\\s*\"([^\"]+)\"");
 
@@ -33,6 +33,7 @@ public final class MineSkinClient {
 		HttpRequest request = HttpRequest.newBuilder(UPLOAD_ENDPOINT)
 			.timeout(Duration.ofSeconds(60))
 			.header("Authorization", "Bearer " + apiKey)
+			.header("Accept", "application/json")
 			.header("User-Agent", "TitanMC-Outfits")
 			.header("Content-Type", "multipart/form-data; boundary=" + boundary)
 			.POST(HttpRequest.BodyPublishers.ofByteArray(body))
