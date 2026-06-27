@@ -2,8 +2,15 @@ package com.voluble.titanMC.cinematics.config;
 
 import com.voluble.titanMC.cinematics.model.CameraPathDefinition;
 import com.voluble.titanMC.cinematics.model.CameraPoint;
+import com.voluble.titanMC.cinematics.model.CinematicEvent;
+import com.voluble.titanMC.cinematics.model.CinematicEventPosition;
+import com.voluble.titanMC.cinematics.model.CinematicEventType;
 import com.voluble.titanMC.cinematics.model.CinematicDefinition;
 import com.voluble.titanMC.cinematics.model.CinematicId;
+import com.voluble.titanMC.cinematics.model.CinematicTimeline;
+import com.voluble.titanMC.cinematics.model.CommandCinematicEvent;
+import com.voluble.titanMC.cinematics.model.ParticleCinematicEvent;
+import com.voluble.titanMC.cinematics.model.SoundCinematicEvent;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 
@@ -52,7 +59,50 @@ public record CinematicConfiguration(
 		List<CameraPoint> points = camera.getMapList("points").stream()
 			.map(CinematicConfiguration::point)
 			.toList();
-		return new CinematicDefinition(id, duration, new CameraPathDefinition(restorePlayer, points));
+		return new CinematicDefinition(id, duration, new CameraPathDefinition(restorePlayer, points), timeline(section));
+	}
+
+	private static CinematicTimeline timeline(ConfigurationSection cinematic) {
+		ConfigurationSection section = cinematic.getConfigurationSection("timeline");
+		if (section == null) return CinematicTimeline.EMPTY;
+		List<CinematicEvent> events = section.getMapList("events").stream()
+			.map(CinematicConfiguration::event)
+			.toList();
+		return new CinematicTimeline(events);
+	}
+
+	private static CinematicEvent event(Map<?, ?> raw) {
+		CinematicEventType type = CinematicEventType.parse(text(raw, "type"));
+		int tick = number(raw, "tick").intValue();
+		int row = number(raw, "row", 1).intValue();
+		return switch (type) {
+			case COMMAND -> new CommandCinematicEvent(
+				tick,
+				row,
+				text(raw, "command"),
+				bool(raw, "console", true)
+			);
+			case PARTICLE -> new ParticleCinematicEvent(
+				tick,
+				row,
+				position(raw),
+				text(raw, "particle", "CLOUD"),
+				number(raw, "count", 8).intValue(),
+				number(raw, "offset-x", 0.0).doubleValue(),
+				number(raw, "offset-y", 0.0).doubleValue(),
+				number(raw, "offset-z", 0.0).doubleValue(),
+				number(raw, "speed", 0.0).doubleValue()
+			);
+			case SOUND -> new SoundCinematicEvent(
+				tick,
+				row,
+				position(raw),
+				text(raw, "key"),
+				number(raw, "volume", 1.0).floatValue(),
+				number(raw, "pitch", 1.0).floatValue(),
+				text(raw, "category", "MASTER")
+			);
+		};
 	}
 
 	private static CameraPoint point(Map<?, ?> raw) {
@@ -74,12 +124,42 @@ public record CinematicConfiguration(
 		throw new IllegalArgumentException("camera point is missing numeric field: " + key);
 	}
 
+	private static Number number(Map<?, ?> raw, String key, Number fallback) {
+		Object value = raw.get(key);
+		if (value == null) return fallback;
+		if (value instanceof Number number) return number;
+		if (value instanceof String text) return Double.parseDouble(text);
+		throw new IllegalArgumentException("cinematic event has invalid numeric field: " + key);
+	}
+
 	private static String text(Map<?, ?> raw, String key) {
 		Object value = raw.get(key);
 		if (value == null || value.toString().isBlank()) {
-			throw new IllegalArgumentException("camera point is missing text field: " + key);
+			throw new IllegalArgumentException("cinematic entry is missing text field: " + key);
 		}
 		return value.toString();
+	}
+
+	private static String text(Map<?, ?> raw, String key, String fallback) {
+		Object value = raw.get(key);
+		if (value == null || value.toString().isBlank()) return fallback;
+		return value.toString();
+	}
+
+	private static boolean bool(Map<?, ?> raw, String key, boolean fallback) {
+		Object value = raw.get(key);
+		if (value == null) return fallback;
+		if (value instanceof Boolean bool) return bool;
+		return Boolean.parseBoolean(value.toString());
+	}
+
+	private static CinematicEventPosition position(Map<?, ?> raw) {
+		return new CinematicEventPosition(
+			text(raw, "world"),
+			number(raw, "x").doubleValue(),
+			number(raw, "y").doubleValue(),
+			number(raw, "z").doubleValue()
+		);
 	}
 
 	private static ConfigurationSection requireSection(ConfigurationSection parent, String key) {

@@ -14,6 +14,7 @@ public final class CinematicSession {
 	private final Player player;
 	private final CinematicDefinition definition;
 	private final Consumer<UUID> completion;
+	private final CinematicEventExecutor events;
 	private CinematicPlayerState playerState;
 	private BukkitTask task;
 	private int frame;
@@ -29,6 +30,7 @@ public final class CinematicSession {
 		this.player = Objects.requireNonNull(player, "player");
 		this.definition = Objects.requireNonNull(definition, "definition");
 		this.completion = Objects.requireNonNull(completion, "completion");
+		this.events = new CinematicEventExecutor(plugin);
 	}
 
 	public UUID playerId() {
@@ -75,6 +77,9 @@ public final class CinematicSession {
 			return;
 		}
 		player.teleport(CameraPathInterpolator.locationAt(definition.camera().points(), frame));
+		for (var event : definition.timeline().atTick(frame)) {
+			events.execute(player, event);
+		}
 		frame++;
 	}
 }
