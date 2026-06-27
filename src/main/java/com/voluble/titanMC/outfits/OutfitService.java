@@ -143,7 +143,13 @@ public final class OutfitService implements AutoCloseable {
 			GeneratedOutfitSkin cached = storage.generatedSkin(playerId, outfit.id(), outfit.model(), originalHash).orElse(null);
 			if (cached != null) return cached.property();
 			byte[] png = composer.compose(originalSkin, outfit);
-			SkinPropertyData generated = mineSkin.upload(apiKey, outfit.id(), outfit.model(), png);
+			SkinPropertyData generated = mineSkin.upload(
+				apiKey,
+				outfit.id(),
+				outfit.model(),
+				configuration.current().mineSkinVisibility(),
+				png
+			);
 			storage.saveGeneratedSkin(playerId, new GeneratedOutfitSkin(
 				outfit.id(), outfit.model(), originalHash, generated, System.currentTimeMillis()
 			));

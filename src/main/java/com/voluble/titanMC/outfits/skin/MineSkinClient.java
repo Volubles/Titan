@@ -23,13 +23,20 @@ public final class MineSkinClient {
 		.connectTimeout(Duration.ofSeconds(10))
 		.build();
 
-	public SkinPropertyData upload(String apiKey, OutfitId outfitId, SkinModel model, byte[] png) throws IOException, InterruptedException {
+	public SkinPropertyData upload(
+		String apiKey,
+		OutfitId outfitId,
+		SkinModel model,
+		MineSkinVisibility visibility,
+		byte[] png
+	) throws IOException, InterruptedException {
 		Objects.requireNonNull(apiKey, "apiKey");
 		Objects.requireNonNull(outfitId, "outfitId");
 		Objects.requireNonNull(model, "model");
+		Objects.requireNonNull(visibility, "visibility");
 		Objects.requireNonNull(png, "png");
 		String boundary = "TitanMCBoundary" + System.nanoTime();
-		byte[] body = multipart(boundary, outfitId, model, png);
+		byte[] body = multipart(boundary, outfitId, model, visibility, png);
 		HttpRequest request = HttpRequest.newBuilder(UPLOAD_ENDPOINT)
 			.timeout(Duration.ofSeconds(60))
 			.header("Authorization", "Bearer " + apiKey)
@@ -45,7 +52,13 @@ public final class MineSkinClient {
 		return property(response.body());
 	}
 
-	private static byte[] multipart(String boundary, OutfitId outfitId, SkinModel model, byte[] png) {
+	private static byte[] multipart(
+		String boundary,
+		OutfitId outfitId,
+		SkinModel model,
+		MineSkinVisibility visibility,
+		byte[] png
+	) {
 		String prefix = ""
 			+ "--" + boundary + "\r\n"
 			+ "Content-Disposition: form-data; name=\"name\"\r\n\r\n"
@@ -55,7 +68,7 @@ public final class MineSkinClient {
 			+ (model == SkinModel.SLIM ? "slim" : "classic") + "\r\n"
 			+ "--" + boundary + "\r\n"
 			+ "Content-Disposition: form-data; name=\"visibility\"\r\n\r\n"
-			+ "private\r\n"
+			+ visibility.apiName() + "\r\n"
 			+ "--" + boundary + "\r\n"
 			+ "Content-Disposition: form-data; name=\"file\"; filename=\"skin.png\"\r\n"
 			+ "Content-Type: image/png\r\n\r\n";

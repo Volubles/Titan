@@ -8,6 +8,7 @@ integrations:
   mineskin:
     api-key: ""
     api-key-env: "TITANMC_MINESKIN_API_KEY"
+    visibility: "unlisted"
 
 outfits:
   prison:

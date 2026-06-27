@@ -3,6 +3,7 @@ package com.voluble.titanMC.outfits.config;
 import com.voluble.titanMC.outfits.model.OutfitDefinition;
 import com.voluble.titanMC.outfits.model.OutfitId;
 import com.voluble.titanMC.outfits.model.SkinModel;
+import com.voluble.titanMC.outfits.skin.MineSkinVisibility;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 
@@ -19,10 +20,12 @@ public record OutfitConfiguration(
 	boolean firstJoinPrompt,
 	long firstJoinPromptDelayTicks,
 	Optional<String> mineSkinApiKey,
+	MineSkinVisibility mineSkinVisibility,
 	Map<OutfitId, OutfitDefinition> outfits
 ) {
 	public OutfitConfiguration {
 		Objects.requireNonNull(mineSkinApiKey, "mineSkinApiKey");
+		Objects.requireNonNull(mineSkinVisibility, "mineSkinVisibility");
 		outfits = Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(outfits, "outfits")));
 		if (firstJoinPromptDelayTicks < 0L) throw new IllegalArgumentException("first join prompt delay must not be negative");
 	}
@@ -35,8 +38,9 @@ public record OutfitConfiguration(
 		boolean prompt = firstJoin == null || firstJoin.getBoolean("prompt", true);
 		long promptDelay = firstJoin == null ? 60L : firstJoin.getLong("delay-ticks", 60L);
 		String token = apiKey(yaml);
+		MineSkinVisibility visibility = MineSkinVisibility.parse(yaml.getString("integrations.mineskin.visibility", "unlisted"));
 		Map<OutfitId, OutfitDefinition> outfits = outfits(requireSection(yaml, "outfits"), folder);
-		return new OutfitConfiguration(enabled, prompt, promptDelay, optionalText(token), outfits);
+		return new OutfitConfiguration(enabled, prompt, promptDelay, optionalText(token), visibility, outfits);
 	}
 
 	public Optional<OutfitDefinition> find(OutfitId id) {
