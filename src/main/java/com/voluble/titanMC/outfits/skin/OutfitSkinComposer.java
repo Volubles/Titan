@@ -31,6 +31,7 @@ public final class OutfitSkinComposer {
 		BufferedImage result = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
 		Graphics2D graphics = result.createGraphics();
 		try {
+			graphics.drawImage(original, 0, 0, null);
 			graphics.drawImage(template, 0, 0, 64, 64, null);
 			copyHead(original, graphics);
 		} finally {
