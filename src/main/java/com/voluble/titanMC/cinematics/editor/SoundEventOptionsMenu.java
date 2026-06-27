@@ -42,7 +42,7 @@ final class SoundEventOptionsMenu {
 						event.tick(), event.timelineSlot(), event.row(), CinematicEventPosition.at(player.getLocation()), event.key(), event.volume(), event.pitch(), event.category()
 					);
 					editor.replaceEvent(player, event, updated);
-					click.actions().transition(() -> open(player, updated));
+					click.actions().transition(() -> editor.openTimeline(player));
 				}));
 				context.setItem(16, promptButton(player, event, Material.CLOCK, "<#f7d774><bold>Set Tick", "Type the new tick.", value ->
 					new SoundCinematicEvent(CinematicEditorParsing.nonNegativeInt(value), event.timelineSlot(), event.row(), event.position(), event.key(), event.volume(), event.pitch(), event.category())));

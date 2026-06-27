@@ -45,7 +45,7 @@ final class ParticleEventOptionsMenu {
 						event.offsetX(), event.offsetY(), event.offsetZ(), event.speed()
 					);
 					editor.replaceEvent(player, event, updated);
-					click.actions().transition(() -> open(player, updated));
+					click.actions().transition(() -> editor.openTimeline(player));
 				}));
 				context.setItem(16, promptButton(player, event, Material.CLOCK, "<#f7d774><bold>Set Tick", "Type the new tick.", value ->
 					new ParticleCinematicEvent(CinematicEditorParsing.nonNegativeInt(value), event.timelineSlot(), event.row(), event.position(), event.particle(), event.count(), event.offsetX(), event.offsetY(), event.offsetZ(), event.speed())));

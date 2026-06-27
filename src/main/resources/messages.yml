@@ -277,6 +277,27 @@ messages:
         - "Template reset enabled."
     palette-enabled:
       - "Palette reset enabled."
+  cinematics:
+    list:
+      - "Cinematics: {{cinematics}}"
+    reloaded:
+      - "Cinematics reloaded."
+    created:
+      - "Created cinematic {{cinematic}}."
+    already-exists:
+      - "Cinematic {{cinematic}} already exists. Use /cinematic edit {{cinematic}}."
+    started:
+      - "Started cinematic {{cinematic}}."
+    stopped:
+      - "Stopped cinematic."
+    not-active:
+      - "You are not in a cinematic."
+    disabled:
+      - "Cinematics are currently disabled."
+    unknown:
+      - "Unknown cinematic: {{cinematic}}"
+    point-added:
+      - "Added camera point to {{cinematic}} at tick {{tick}}."
   regions:
     usage:
       - "Usage: /region <create|redefine|delete|list|info|priority|test|flag|message|owner|member>"

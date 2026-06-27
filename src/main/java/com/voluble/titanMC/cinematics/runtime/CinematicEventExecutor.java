@@ -55,6 +55,6 @@ final class CinematicEventExecutor {
 
 	private void sound(Player player, SoundCinematicEvent event) {
 		SoundCategory category = SoundCategory.valueOf(event.category().trim().replace('-', '_').toUpperCase(Locale.ROOT));
-		player.playSound(event.position().toLocation(), event.key(), category, event.volume(), event.pitch());
+		player.playSound(player.getLocation(), event.key(), category, event.volume(), event.pitch());
 	}
 }

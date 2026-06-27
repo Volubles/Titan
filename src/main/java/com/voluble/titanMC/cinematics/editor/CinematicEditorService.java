@@ -11,6 +11,8 @@ import com.voluble.titanMC.cinematics.model.CommandCinematicEvent;
 import com.voluble.titanMC.cinematics.model.ParticleCinematicEvent;
 import com.voluble.titanMC.cinematics.model.SoundCinematicEvent;
 import com.voluble.titanMC.cinematics.runtime.CinematicRuntime;
+import com.voluble.titanMC.display.notice.MessageDefaults;
+import com.voluble.titanMC.display.notice.PluginMessageService;
 import io.voluble.michellelib.menu.MenuService;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -28,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class CinematicEditorService {
 	private final CinematicConfigurationManager configuration;
 	private final CinematicRuntime runtime;
+	private final PluginMessageService messages;
 	private final Map<UUID, CinematicEditorSession> sessions = new ConcurrentHashMap<>();
 	private final CinematicEditorInputService input;
 	private final TimelineMenu timelineMenu;
@@ -41,12 +44,14 @@ public final class CinematicEditorService {
 		Plugin plugin,
 		MenuService menus,
 		CinematicConfigurationManager configuration,
-		CinematicRuntime runtime
+		CinematicRuntime runtime,
+		PluginMessageService messages
 	) {
 		Objects.requireNonNull(plugin, "plugin");
 		Objects.requireNonNull(menus, "menus");
 		this.configuration = Objects.requireNonNull(configuration, "configuration");
 		this.runtime = Objects.requireNonNull(runtime, "runtime");
+		this.messages = Objects.requireNonNull(messages, "messages");
 		CinematicEditorItemFactory items = new CinematicEditorItemFactory();
 		input = new CinematicEditorInputService(plugin);
 		timelineMenu = new TimelineMenu(menus, this, items);
@@ -264,7 +269,13 @@ public final class CinematicEditorService {
 	}
 
 	void preview(Player player) {
-		runtime.start(player, session(player).cinematicId());
+		CinematicId id = session(player).cinematicId();
+		CinematicRuntime.StartResult result = runtime.start(player, id);
+		switch (result) {
+			case STARTED -> messages.send(player, MessageDefaults.CINEMATICS_STARTED, args -> args.plain("cinematic", id.value()));
+			case DISABLED -> messages.send(player, MessageDefaults.CINEMATICS_DISABLED);
+			case UNKNOWN -> messages.send(player, MessageDefaults.CINEMATICS_UNKNOWN, args -> args.plain("cinematic", id.value()));
+		}
 	}
 
 	private int maxTick(List<CameraPoint> points, List<CinematicEvent> events) {

@@ -44,7 +44,7 @@ final class CameraPointOptionsMenu {
 					click -> {
 						CameraPoint updated = CameraPoint.at(point.tick(), point.timelineSlot(), player.getLocation());
 						editor.replaceCameraPoint(player, point, updated);
-						click.actions().transition(() -> open(player, updated));
+						click.actions().transition(() -> editor.openTimeline(player));
 					}
 				));
 				context.setItem(12, CinematicEditorChrome.button(

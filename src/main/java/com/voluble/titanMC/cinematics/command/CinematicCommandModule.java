@@ -82,11 +82,17 @@ public final class CinematicCommandModule implements CommandModule {
 	private int create(MichelleCommandContext context) throws CommandSyntaxException {
 		CinematicId id = id(context.arg("id", String.class));
 		if (context.sender() instanceof Player player) {
-			configuration.createIfMissing(id, player.getLocation());
+			if (!configuration.createIfMissing(id, player.getLocation())) {
+				messages.send(player, MessageDefaults.CINEMATICS_ALREADY_EXISTS, args -> args.plain("cinematic", id.value()));
+				return CommandTree.ok();
+			}
 			messages.send(player, MessageDefaults.CINEMATICS_CREATED, args -> args.plain("cinematic", id.value()));
 			editor.open(player, id);
 		} else {
-			configuration.createIfMissing(id);
+			if (!configuration.createIfMissing(id)) {
+				messages.send(context.sender(), MessageDefaults.CINEMATICS_ALREADY_EXISTS, args -> args.plain("cinematic", id.value()));
+				return CommandTree.ok();
+			}
 			messages.send(context.sender(), MessageDefaults.CINEMATICS_CREATED, args -> args.plain("cinematic", id.value()));
 		}
 		return CommandTree.ok();

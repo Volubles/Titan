@@ -412,6 +412,9 @@ public final class MessageDefaults {
 	public static final MessageDefinition CINEMATICS_CREATED = message(
 		"cinematics.created", MessageType.SUCCESS, "Created cinematic {{cinematic}}."
 	);
+	public static final MessageDefinition CINEMATICS_ALREADY_EXISTS = message(
+		"cinematics.already-exists", MessageType.ERROR, "Cinematic {{cinematic}} already exists. Use /cinematic edit {{cinematic}}."
+	);
 	public static final MessageDefinition CINEMATICS_STARTED = message(
 		"cinematics.started", MessageType.SUCCESS, "Started cinematic {{cinematic}}."
 	);

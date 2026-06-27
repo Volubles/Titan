@@ -59,16 +59,16 @@ public final class CinematicConfigurationManager implements ConfigManager.Compon
 		return Objects.requireNonNull(current.get(), "cinematic configuration has not been initialized");
 	}
 
-	public void createIfMissing(CinematicId id) {
-		createIfMissing(id, defaultOrigin());
+	public boolean createIfMissing(CinematicId id) {
+		return createIfMissing(id, defaultOrigin());
 	}
 
-	public void createIfMissing(CinematicId id, Location origin) {
+	public boolean createIfMissing(CinematicId id, Location origin) {
 		Objects.requireNonNull(origin, "origin");
 		World world = Objects.requireNonNull(origin.getWorld(), "origin world");
 		YamlConfiguration yaml = YamlConfiguration.loadConfiguration(path.toFile());
 		String base = "cinematics." + id.value();
-		if (yaml.isConfigurationSection(base)) return;
+		if (yaml.isConfigurationSection(base)) return false;
 		yaml.set(base + ".duration-ticks", 80);
 		yaml.set(base + ".camera.restore-player", current().defaultRestorePlayer());
 		yaml.set(base + ".camera.points", List.of(
@@ -96,6 +96,7 @@ public final class CinematicConfigurationManager implements ConfigManager.Compon
 		yaml.set(base + ".timeline.events", List.of());
 		save(yaml);
 		reload();
+		return true;
 	}
 
 	public void saveDefinition(CinematicDefinition definition) {
