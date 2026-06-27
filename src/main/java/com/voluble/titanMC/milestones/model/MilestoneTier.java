@@ -7,8 +7,7 @@ public record MilestoneTier(
 	String name,
 	MilestoneObjective objective,
 	MilestoneRewards rewards,
-	int menuSlot,
-	MilestoneNotificationPolicy notifications
+	int menuSlot
 ) {
 	public MilestoneTier {
 		id = requireId(id, "tier id");
@@ -16,7 +15,6 @@ public record MilestoneTier(
 		Objects.requireNonNull(objective, "objective");
 		rewards = Objects.requireNonNull(rewards, "rewards");
 		if (menuSlot < -1) throw new IllegalArgumentException("tier menu slot must be -1 or greater");
-		notifications = Objects.requireNonNull(notifications, "notifications");
 	}
 
 	public long target() {

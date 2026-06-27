@@ -2,7 +2,6 @@ package com.voluble.titanMC.milestones.config;
 
 import com.voluble.titanMC.milestones.model.MilestoneCategory;
 import com.voluble.titanMC.milestones.model.MilestoneMetric;
-import com.voluble.titanMC.milestones.model.MilestoneNotificationPolicy;
 import com.voluble.titanMC.milestones.model.MilestoneObjective;
 import com.voluble.titanMC.milestones.model.MilestoneRewards;
 import com.voluble.titanMC.milestones.model.MilestoneTier;
@@ -88,7 +87,6 @@ public record MilestoneConfiguration(
 				subject,
 				entry.getBoolean("linear", true),
 				entry.getInt("slot", -1),
-				notificationPolicy(entry.getConfigurationSection("notifications")),
 				tiers(entry, id, metric, subject)
 			);
 			tracks.put(track.id(), track);
@@ -121,36 +119,10 @@ public record MilestoneConfiguration(
 					number.longValue()
 				),
 				rewards(values),
-				integer(values, "slot", -1, "track " + trackId + " tier " + id),
-				notificationPolicy(values.get("notifications"), "track " + trackId + " tier " + id)
+				integer(values, "slot", -1, "track " + trackId + " tier " + id)
 			));
 		}
 		return tiers;
-	}
-
-	private static MilestoneNotificationPolicy notificationPolicy(ConfigurationSection section) {
-		if (section == null) return MilestoneNotificationPolicy.DEFAULT;
-		return new MilestoneNotificationPolicy(
-			optionalBoolean(section, "enabled"),
-			optionalBoolean(section, "player-message"),
-			optionalBoolean(section, "sound"),
-			optionalBoolean(section, "broadcast"),
-			optionalBoolean(section, "broadcast-sound")
-		);
-	}
-
-	private static MilestoneNotificationPolicy notificationPolicy(Object raw, String path) {
-		if (raw == null) return MilestoneNotificationPolicy.DEFAULT;
-		if (!(raw instanceof Map<?, ?> values)) {
-			throw new IllegalArgumentException(path + ".notifications must be a map");
-		}
-		return new MilestoneNotificationPolicy(
-			optionalBoolean(values, "enabled", path + ".notifications"),
-			optionalBoolean(values, "player-message", path + ".notifications"),
-			optionalBoolean(values, "sound", path + ".notifications"),
-			optionalBoolean(values, "broadcast", path + ".notifications"),
-			optionalBoolean(values, "broadcast-sound", path + ".notifications")
-		);
 	}
 
 	private static MilestoneRewards rewards(Map<?, ?> values) {
@@ -202,29 +174,12 @@ public record MilestoneConfiguration(
 		return value == null || value.isBlank() ? Optional.empty() : Optional.of(value.trim());
 	}
 
-	private static Optional<Boolean> optionalBoolean(ConfigurationSection section, String key) {
-		if (!section.contains(key)) return Optional.empty();
-		if (!section.isBoolean(key)) {
-			throw new IllegalArgumentException(section.getCurrentPath() + "." + key + " must be true or false");
-		}
-		return Optional.of(section.getBoolean(key));
-	}
-
 	private static boolean booleanValue(ConfigurationSection section, String key, boolean fallback) {
 		if (!section.contains(key)) return fallback;
 		if (!section.isBoolean(key)) {
 			throw new IllegalArgumentException(section.getCurrentPath() + "." + key + " must be true or false");
 		}
 		return section.getBoolean(key);
-	}
-
-	private static Optional<Boolean> optionalBoolean(Map<?, ?> values, String key, String path) {
-		Object value = values.get(key);
-		if (value == null) return Optional.empty();
-		if (!(value instanceof Boolean booleanValue)) {
-			throw new IllegalArgumentException(path + "." + key + " must be true or false");
-		}
-		return Optional.of(booleanValue);
 	}
 
 	private static MilestoneMetric metric(ConfigurationSection section, String key) {

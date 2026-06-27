@@ -16,7 +16,6 @@ public record MilestoneTrack(
 	String subject,
 	boolean linear,
 	int menuSlot,
-	MilestoneNotificationPolicy notifications,
 	List<MilestoneTier> tiers
 ) {
 	public MilestoneTrack {
@@ -28,7 +27,6 @@ public record MilestoneTrack(
 		Objects.requireNonNull(metric, "metric");
 		subject = subject == null ? "" : subject.trim().toLowerCase(java.util.Locale.ROOT);
 		if (menuSlot < -1) throw new IllegalArgumentException("track menu slot must be -1 or greater");
-		notifications = Objects.requireNonNull(notifications, "notifications");
 		tiers = List.copyOf(Objects.requireNonNull(tiers, "tiers"));
 		if (tiers.isEmpty()) throw new IllegalArgumentException("track must contain at least one tier");
 		Map<MilestoneObjectiveKey, Long> previousTargets = new LinkedHashMap<>();

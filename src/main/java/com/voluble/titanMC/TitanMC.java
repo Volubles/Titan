@@ -377,7 +377,7 @@ public final class TitanMC extends JavaPlugin {
 		}
 		milestoneMenus = new MilestoneMenuService(menuService, milestoneConfiguration, milestoneService);
 		MilestoneCompletionHandler completionHandler = new MilestoneCompletionHandler(
-			getServer(), milestoneConfiguration, progressionEngine, economyManager.getEconomy(), displayBroadcastService
+			this, getServer(), milestoneConfiguration, progressionEngine, economyManager.getEconomy(), displayBroadcastService
 		);
 		MineResetWindowTracker resetWindows = new MineResetWindowTracker(Duration.ofMinutes(5));
 		getServer().getPluginManager().registerEvents(resetWindows, this);

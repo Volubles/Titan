@@ -223,8 +223,6 @@ tracks:
     icon: NETHER_STAR
     metric: RANK_REACHED
     slot: 10
-    notifications:
-      enabled: false
     tiers:
       - id: rank_reached_e4
         name: "Reach E4"
@@ -352,8 +350,6 @@ tracks:
     icon: BEACON
     metric: WARD_REACHED
     slot: 11
-    notifications:
-      enabled: false
     tiers:
       - id: ward_reached_e
         name: "Enter E Ward"
@@ -391,8 +387,6 @@ tracks:
     icon: AMETHYST_SHARD
     metric: PRESTIGE_REACHED
     slot: 12
-    notifications:
-      enabled: false
     tiers:
       - id: prestige_reached_1
         name: "Reach Prestige 1"
