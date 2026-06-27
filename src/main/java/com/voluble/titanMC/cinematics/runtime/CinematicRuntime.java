@@ -23,13 +23,18 @@ public final class CinematicRuntime implements AutoCloseable {
 	}
 
 	public StartResult start(Player player, CinematicId id) {
+		return start(player, id, CinematicPlaybackOptions.defaults());
+	}
+
+	public StartResult start(Player player, CinematicId id, CinematicPlaybackOptions options) {
 		Objects.requireNonNull(player, "player");
 		Objects.requireNonNull(id, "id");
+		Objects.requireNonNull(options, "options");
 		if (!configuration.current().enabled()) return StartResult.DISABLED;
 		Optional<CinematicDefinition> definition = configuration.current().find(id);
 		if (definition.isEmpty()) return StartResult.UNKNOWN;
 		stop(player.getUniqueId(), true);
-		CinematicSession session = new CinematicSession(plugin, player, definition.get(), sessions::remove);
+		CinematicSession session = new CinematicSession(plugin, player, definition.get(), options, sessions::remove);
 		sessions.put(player.getUniqueId(), session);
 		session.start();
 		return StartResult.STARTED;

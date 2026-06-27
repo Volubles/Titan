@@ -1,6 +1,7 @@
 package com.voluble.titanMC.onboarding;
 
 import com.voluble.titanMC.cinematics.runtime.CinematicRuntime;
+import com.voluble.titanMC.cinematics.runtime.CinematicPlaybackOptions;
 import com.voluble.titanMC.display.notice.MessageDefaults;
 import com.voluble.titanMC.display.notice.PluginMessageService;
 import com.voluble.titanMC.onboarding.config.OnboardingConfiguration;
@@ -37,6 +38,7 @@ public final class OnboardingSession {
 	private int outfitIndex;
 	private long lastInputMillis;
 	private boolean stopping;
+	private boolean interactive;
 	private int previewGeneration;
 
 	public OnboardingSession(
@@ -68,18 +70,20 @@ public final class OnboardingSession {
 	}
 
 	public void start() {
-		CinematicRuntime.StartResult result = cinematics.start(player, configuration.cinematic());
+		CinematicRuntime.StartResult result = cinematics.start(
+			player,
+			configuration.cinematic(),
+			CinematicPlaybackOptions.holdLastFrame().withHoldCallback(this::beginSelection)
+		);
 		if (result != CinematicRuntime.StartResult.STARTED) {
 			messages.send(player, MessageDefaults.ONBOARDING_START_FAILED);
 			stop(false);
 			return;
 		}
-		messages.send(player, MessageDefaults.ONBOARDING_STARTED);
-		showSelectedOutfit();
 	}
 
 	public void handle(Input input) {
-		if (stopping || input == null) return;
+		if (stopping || !interactive || input == null) return;
 		long now = System.currentTimeMillis();
 		if (now - lastInputMillis < configuration.inputCooldownMillis()) return;
 		if (input.isRight() && !input.isLeft()) {
@@ -107,6 +111,13 @@ public final class OnboardingSession {
 
 	private void nextOutfit() {
 		outfitIndex = (outfitIndex + 1) % configuration.outfits().size();
+		showSelectedOutfit();
+	}
+
+	private void beginSelection() {
+		if (stopping || !player.isOnline()) return;
+		interactive = true;
+		messages.send(player, MessageDefaults.ONBOARDING_STARTED);
 		showSelectedOutfit();
 	}
 

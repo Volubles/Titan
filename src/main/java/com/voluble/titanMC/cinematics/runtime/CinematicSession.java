@@ -12,9 +12,12 @@ import java.util.UUID;
 import java.util.function.Consumer;
 
 public final class CinematicSession {
+	private static final int HOLD_SYNC_INTERVAL_TICKS = 10;
+
 	private final Plugin plugin;
 	private final Player player;
 	private final CinematicDefinition definition;
+	private final CinematicPlaybackOptions options;
 	private final Consumer<UUID> completion;
 	private final CinematicEventExecutor events;
 	private final CinematicCameraDriver camera;
@@ -22,6 +25,8 @@ public final class CinematicSession {
 	private CinematicPlayerPresentation presentation;
 	private BukkitTask task;
 	private int frame;
+	private int holdTicks;
+	private boolean held;
 	private boolean stopped;
 
 	public CinematicSession(
@@ -30,9 +35,20 @@ public final class CinematicSession {
 		CinematicDefinition definition,
 		Consumer<UUID> completion
 	) {
+		this(plugin, player, definition, CinematicPlaybackOptions.defaults(), completion);
+	}
+
+	public CinematicSession(
+		Plugin plugin,
+		Player player,
+		CinematicDefinition definition,
+		CinematicPlaybackOptions options,
+		Consumer<UUID> completion
+	) {
 		this.plugin = Objects.requireNonNull(plugin, "plugin");
 		this.player = Objects.requireNonNull(player, "player");
 		this.definition = Objects.requireNonNull(definition, "definition");
+		this.options = Objects.requireNonNull(options, "options");
 		this.completion = Objects.requireNonNull(completion, "completion");
 		this.events = new CinematicEventExecutor(plugin);
 		this.camera = CinematicCameraDrivers.create(plugin, player);
@@ -85,8 +101,12 @@ public final class CinematicSession {
 				stop(false);
 				return;
 			}
+			if (held) {
+				holdTick();
+				return;
+			}
 			if (frame > definition.durationTicks()) {
-				stop(true);
+				finishPlayback();
 				return;
 			}
 			camera.move(frame, CameraPathInterpolator.locationAt(definition.camera().points(), frame));
@@ -100,5 +120,28 @@ public final class CinematicSession {
 			);
 			stop(true);
 		}
+	}
+
+	private void finishPlayback() {
+		if (options.endMode() == CinematicEndMode.HOLD_LAST_FRAME) {
+			enterHold();
+			return;
+		}
+		stop(true);
+	}
+
+	private void enterHold() {
+		held = true;
+		frame = definition.durationTicks();
+		holdTicks = 0;
+		camera.move(frame, CameraPathInterpolator.locationAt(definition.camera().points(), frame));
+		options.notifyHeld();
+	}
+
+	private void holdTick() {
+		if (holdTicks % HOLD_SYNC_INTERVAL_TICKS == 0) {
+			camera.move(frame + holdTicks, CameraPathInterpolator.locationAt(definition.camera().points(), frame));
+		}
+		holdTicks++;
 	}
 }
