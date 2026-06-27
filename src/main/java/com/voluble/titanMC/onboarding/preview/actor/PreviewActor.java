@@ -1,15 +1,19 @@
 package com.voluble.titanMC.onboarding.preview.actor;
 
+import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.protocol.entity.type.EntityTypes;
 import com.github.retrooper.packetevents.protocol.player.GameMode;
 import com.github.retrooper.packetevents.protocol.player.TextureProperty;
 import com.github.retrooper.packetevents.protocol.player.UserProfile;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityRelativeMove;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityRelativeMoveAndRotation;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerTeams;
 import com.voluble.titanMC.outfits.skin.SkinPropertyData;
 import me.tofaa.entitylib.EntityLib;
 import me.tofaa.entitylib.meta.types.PlayerMeta;
 import me.tofaa.entitylib.wrapper.WrapperPlayer;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -18,6 +22,7 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -26,6 +31,9 @@ public final class PreviewActor {
 	private final Plugin plugin;
 	private final Player viewer;
 	private final UUID viewerId;
+	private final UUID npcId;
+	private final String npcName;
+	private final String teamName;
 	private final PreviewPath path;
 	private final PreviewMotion motion;
 	private final WrapperPlayer npc;
@@ -38,7 +46,6 @@ public final class PreviewActor {
 	public PreviewActor(
 		Plugin plugin,
 		Player viewer,
-		String displayName,
 		PreviewPath path,
 		SkinPropertyData skin,
 		PreviewMotion motion
@@ -46,9 +53,12 @@ public final class PreviewActor {
 		this.plugin = Objects.requireNonNull(plugin, "plugin");
 		this.viewer = Objects.requireNonNull(viewer, "viewer");
 		this.viewerId = viewer.getUniqueId();
+		this.npcId = UUID.randomUUID();
+		this.npcName = username(npcId);
+		this.teamName = teamName(npcId);
 		this.path = Objects.requireNonNull(path, "path");
 		this.motion = Objects.requireNonNull(motion, "motion");
-		this.npc = createNpc(displayName, Objects.requireNonNull(skin, "skin"));
+		this.npc = createNpc(Objects.requireNonNull(skin, "skin"));
 	}
 
 	public CompletableFuture<Void> enter() {
@@ -57,6 +67,7 @@ public final class PreviewActor {
 		state = PreviewActorState.ENTERING;
 		current = path.entrance().clone();
 		npc.spawn(toPacketLocation(current));
+		createHiddenNameTeam();
 		npc.addViewer(viewerId);
 		Bukkit.getScheduler().runTaskLater(plugin, () -> {
 			if (state != PreviewActorState.REMOVED) npc.setInTablist(false);
@@ -96,6 +107,8 @@ public final class PreviewActor {
 			npc.remove();
 		} catch (Exception ignored) {
 			// Preview cleanup should never interrupt onboarding teardown.
+		} finally {
+			removeHiddenNameTeam();
 		}
 		removed.complete(null);
 	}
@@ -105,18 +118,17 @@ public final class PreviewActor {
 		focused.completeExceptionally(new CancellationException(message));
 	}
 
-	private WrapperPlayer createNpc(String displayName, SkinPropertyData skin) {
-		UUID npcUuid = UUID.randomUUID();
+	private WrapperPlayer createNpc(SkinPropertyData skin) {
 		UserProfile profile = new UserProfile(
-			npcUuid,
-			username(npcUuid),
+			npcId,
+			npcName,
 			List.of(new TextureProperty("textures", skin.value(), skin.signature()))
 		);
-		int entityId = EntityLib.getPlatform().getEntityIdProvider().provide(npcUuid, EntityTypes.PLAYER);
+		int entityId = EntityLib.getPlatform().getEntityIdProvider().provide(npcId, EntityTypes.PLAYER);
 		WrapperPlayer player = new WrapperPlayer(profile, entityId);
 		player.setGameMode(GameMode.SURVIVAL);
-		player.setDisplayName(net.kyori.adventure.text.Component.text(displayName));
 		player.setLatency(0);
+		player.getEntityMeta().setCustomNameVisible(false);
 		if (player.getEntityMeta() instanceof PlayerMeta meta) {
 			meta.setCapeEnabled(true);
 			meta.setJacketEnabled(true);
@@ -127,6 +139,30 @@ public final class PreviewActor {
 			meta.setHatEnabled(true);
 		}
 		return player;
+	}
+
+	private void createHiddenNameTeam() {
+		Component empty = Component.empty();
+		WrapperPlayServerTeams.ScoreBoardTeamInfo info = new WrapperPlayServerTeams.ScoreBoardTeamInfo(
+			empty,
+			empty,
+			empty,
+			WrapperPlayServerTeams.NameTagVisibility.NEVER,
+			WrapperPlayServerTeams.CollisionRule.NEVER,
+			NamedTextColor.WHITE,
+			WrapperPlayServerTeams.OptionData.NONE
+		);
+		PacketEvents.getAPI().getPlayerManager().sendPacket(
+			viewer,
+			new WrapperPlayServerTeams(teamName, WrapperPlayServerTeams.TeamMode.CREATE, info, npcName)
+		);
+	}
+
+	private void removeHiddenNameTeam() {
+		PacketEvents.getAPI().getPlayerManager().sendPacket(
+			viewer,
+			new WrapperPlayServerTeams(teamName, WrapperPlayServerTeams.TeamMode.REMOVE, Optional.empty(), List.of())
+		);
 	}
 
 	private void playSegment(Location start, Location target, boolean rotateDuringMove, Runnable complete) {
@@ -208,6 +244,10 @@ public final class PreviewActor {
 
 	private static String username(UUID uuid) {
 		return "TMC" + uuid.toString().replace("-", "").substring(0, 10);
+	}
+
+	private static String teamName(UUID uuid) {
+		return "tmc_ob_" + uuid.toString().replace("-", "").substring(0, 8);
 	}
 
 	private static com.github.retrooper.packetevents.protocol.world.Location toPacketLocation(Location location) {

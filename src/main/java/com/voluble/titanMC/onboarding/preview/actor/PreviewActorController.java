@@ -29,7 +29,7 @@ public final class PreviewActorController {
 			PreviewActor outgoing = active;
 			outgoing.exit().whenComplete((ignored, failure) -> actors.remove(outgoing));
 		}
-		PreviewActor next = new PreviewActor(plugin, player, model.name(), path, model.skin(), motion);
+		PreviewActor next = new PreviewActor(plugin, player, path, model.skin(), motion);
 		active = next;
 		actors.add(next);
 		return next.enter();
