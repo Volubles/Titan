@@ -46,6 +46,11 @@ commands:
     description: Manage Titan cinematics
     usage: /cinematic <list|reload|create|play|stop|point>
     permission: titanmc.cinematic.admin
+  onboarding:
+    aliases: [ob]
+    description: Manage onboarding
+    usage: /onboarding <start|stop|reload|reset>
+    permission: titanmc.onboarding.admin
 permissions:
   donatortools.give:
     description: Allows giving donator tools
@@ -101,6 +106,9 @@ permissions:
     default: op
   titanmc.cinematic.admin:
     description: Allows managing Titan cinematics
+    default: op
+  titanmc.onboarding.admin:
+    description: Allows managing onboarding
     default: op
   titanmc.protection.bypass:
     description: Bypasses Titan region protection

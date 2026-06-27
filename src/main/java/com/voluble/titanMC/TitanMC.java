@@ -26,6 +26,14 @@ import com.voluble.titanMC.cinematics.command.CinematicCommandModule;
 import com.voluble.titanMC.cinematics.config.CinematicConfigurationManager;
 import com.voluble.titanMC.cinematics.runtime.CinematicRuntime;
 import com.voluble.titanMC.managers.ConfigManager;
+import com.voluble.titanMC.onboarding.OnboardingService;
+import com.voluble.titanMC.onboarding.bukkit.OnboardingListener;
+import com.voluble.titanMC.onboarding.command.OnboardingCommandModule;
+import com.voluble.titanMC.onboarding.config.OnboardingConfigurationManager;
+import com.voluble.titanMC.onboarding.persistence.OnboardingStorage;
+import com.voluble.titanMC.onboarding.preview.FancyNpcOutfitPreview;
+import com.voluble.titanMC.onboarding.preview.OutfitPreview;
+import com.voluble.titanMC.onboarding.preview.UnavailableOutfitPreview;
 import com.voluble.titanMC.donatortools.DonatorToolsService;
 import com.voluble.titanMC.donatortools.command.DonatorToolsCommandModule;
 import com.voluble.titanMC.donatortools.config.DonatorToolsConfigurationManager;
@@ -163,6 +171,8 @@ public final class TitanMC extends JavaPlugin {
 	private OutfitService outfitService;
 	private CinematicConfigurationManager cinematicConfiguration;
 	private CinematicRuntime cinematicRuntime;
+	private OnboardingConfigurationManager onboardingConfiguration;
+	private OnboardingService onboardingService;
 
 	@Override
 	public void onEnable() {
@@ -195,6 +205,7 @@ public final class TitanMC extends JavaPlugin {
 		milestoneConfiguration = new MilestoneConfigurationManager(this);
 		outfitConfiguration = new OutfitConfigurationManager(this);
 		cinematicConfiguration = new CinematicConfigurationManager(this);
+		onboardingConfiguration = new OnboardingConfigurationManager(this);
 		messageConfiguration = new MessageConfigurationManager(this, MessageDefaults.all());
 		try {
 			configManager.registerComponent(messageConfiguration);
@@ -203,6 +214,7 @@ public final class TitanMC extends JavaPlugin {
 			configManager.registerComponent(milestoneConfiguration);
 			configManager.registerComponent(outfitConfiguration);
 			configManager.registerComponent(cinematicConfiguration);
+			configManager.registerComponent(onboardingConfiguration);
 			configManager.registerComponent(donatorToolsConfiguration);
 			configManager.registerComponent(cellsConfiguration);
 			configManager.registerComponent(auctionConfiguration);
@@ -223,6 +235,7 @@ public final class TitanMC extends JavaPlugin {
 		if (!initializeMilestones()) return;
 		if (!initializeOutfits()) return;
 		initializeCinematics();
+		if (!initializeOnboarding()) return;
 		registerTitanPlaceholders();
 		managedBlockAccess = new ManagedBlockAccessRegistry(getLogger());
 		if (!initializeProtection()) return;
@@ -342,6 +355,7 @@ public final class TitanMC extends JavaPlugin {
 			.addModule(new MilestoneCommandModule(milestoneMenus, milestoneConfiguration, milestoneService, messages))
 			.addModule(new OutfitCommandModule(outfitConfiguration, outfitService, messages))
 			.addModule(new CinematicCommandModule(cinematicConfiguration, cinematicRuntime, messages))
+			.addModule(new OnboardingCommandModule(onboardingService, messages))
 			.install();
 
 		getLogger().info("TitanMC has been enabled!");
@@ -483,6 +497,39 @@ public final class TitanMC extends JavaPlugin {
 		getLogger().info("Cinematics ready");
 	}
 
+	private boolean initializeOnboarding() {
+		try {
+			onboardingService = new OnboardingService(
+				this,
+				onboardingConfiguration,
+				new OnboardingStorage(ComponentFiles.resolveData(getDataFolder().toPath(), "onboarding", "onboarding.db")),
+				cinematicRuntime,
+				outfitService,
+				outfitConfiguration,
+				outfitPreview(),
+				messages,
+				getLogger()
+			);
+		} catch (java.sql.SQLException exception) {
+			getLogger().severe("Failed to open onboarding storage: " + exception.getMessage());
+			getServer().getPluginManager().disablePlugin(this);
+			return false;
+		}
+		getServer().getPluginManager().registerEvents(
+			new OnboardingListener(this, onboardingConfiguration, onboardingService), this
+		);
+		getLogger().info("Onboarding ready");
+		return true;
+	}
+
+	private OutfitPreview outfitPreview() {
+		if (!getServer().getPluginManager().isPluginEnabled("FancyNpcs")) {
+			getLogger().warning("FancyNPCs is not installed; onboarding outfit previews are disabled");
+			return new UnavailableOutfitPreview();
+		}
+		return new FancyNpcOutfitPreview();
+	}
+
 	private SkinApplier skinApplier() {
 		if (!getServer().getPluginManager().isPluginEnabled("SkinsRestorer")) {
 			getLogger().warning("SkinsRestorer is not installed; outfit skins cannot be applied yet");
@@ -607,6 +654,10 @@ public final class TitanMC extends JavaPlugin {
 			try { outfitService.close(); }
 			catch (Exception exception) { getLogger().severe("Failed to close Outfits cleanly: " + exception.getMessage()); }
 		}
+		if (onboardingService != null) {
+			try { onboardingService.close(); }
+			catch (Exception exception) { getLogger().severe("Failed to close Onboarding cleanly: " + exception.getMessage()); }
+		}
 		if (cinematicRuntime != null) cinematicRuntime.close();
 		if (regionEngine != null) {
 			try {
@@ -637,4 +688,6 @@ public final class TitanMC extends JavaPlugin {
 	public DisplayBroadcastService getDisplayBroadcastService() { return displayBroadcastService; }
 	public PluginMessageService getMessages() { return messages; }
 	public CinematicRuntime getCinematicRuntime() { return cinematicRuntime; }
+	public OutfitService getOutfitService() { return outfitService; }
+	public OutfitConfigurationManager getOutfitConfiguration() { return outfitConfiguration; }
 }

@@ -59,33 +59,60 @@ public final class OutfitService implements AutoCloseable {
 	}
 
 	public void applyOutfit(Player player, OutfitId outfitId, Consumer<OutfitResult> callback) {
-		if (!configuration.current().enabled()) {
-			callback.accept(OutfitResult.DISABLED);
-			return;
-		}
-		OutfitDefinition outfit = configuration.current().find(outfitId).orElse(null);
-		if (outfit == null) {
-			callback.accept(OutfitResult.UNKNOWN_OUTFIT);
-			return;
-		}
-		String apiKey = configuration.current().mineSkinApiKey().orElse(null);
-		if (apiKey == null) {
-			callback.accept(OutfitResult.NO_MINESKIN_KEY);
-			return;
-		}
 		if (!skinApplier.available()) {
 			callback.accept(OutfitResult.SKINS_RESTORER_UNAVAILABLE);
 			return;
 		}
+		prepareOutfitSkin(player, outfitId, prepared -> {
+			if (prepared.result() != OutfitResult.APPLIED || prepared.property() == null) {
+				callback.accept(prepared.result());
+				return;
+			}
+			try {
+				Player online = Bukkit.getPlayer(player.getUniqueId());
+				if (online == null) {
+					callback.accept(OutfitResult.FAILED);
+					return;
+				}
+				OutfitDefinition outfit = configuration.current().find(outfitId).orElse(null);
+				if (outfit == null) {
+					callback.accept(OutfitResult.UNKNOWN_OUTFIT);
+					return;
+				}
+				skinApplier.apply(online, prepared.property());
+				storage.savePreference(player.getUniqueId(), OutfitPreference.outfit(outfit.id()), System.currentTimeMillis());
+				callback.accept(OutfitResult.APPLIED);
+			} catch (Exception exception) {
+				logger.log(Level.WARNING, "Failed to apply outfit " + outfitId + " for " + player.getUniqueId(), exception);
+				callback.accept(OutfitResult.FAILED);
+			}
+		});
+	}
+
+	public void prepareOutfitSkin(Player player, OutfitId outfitId, Consumer<PreparedOutfitSkin> callback) {
+		if (!configuration.current().enabled()) {
+			callback.accept(PreparedOutfitSkin.failed(OutfitResult.DISABLED));
+			return;
+		}
+		OutfitDefinition outfit = configuration.current().find(outfitId).orElse(null);
+		if (outfit == null) {
+			callback.accept(PreparedOutfitSkin.failed(OutfitResult.UNKNOWN_OUTFIT));
+			return;
+		}
+		String apiKey = configuration.current().mineSkinApiKey().orElse(null);
+		if (apiKey == null) {
+			callback.accept(PreparedOutfitSkin.failed(OutfitResult.NO_MINESKIN_KEY));
+			return;
+		}
 		if (!active.add(player.getUniqueId())) {
-			callback.accept(OutfitResult.BUSY);
+			callback.accept(PreparedOutfitSkin.failed(OutfitResult.BUSY));
 			return;
 		}
 		UUID playerId = player.getUniqueId();
 		URL originalSkin = skinSource.skinUrl(player).orElse(null);
 		if (originalSkin == null) {
 			active.remove(playerId);
-			callback.accept(OutfitResult.NO_ORIGINAL_SKIN);
+			callback.accept(PreparedOutfitSkin.failed(OutfitResult.NO_ORIGINAL_SKIN));
 			return;
 		}
 		CompletableFuture.supplyAsync(() -> prepare(playerId, apiKey, originalSkin, outfit))
@@ -93,20 +120,13 @@ public final class OutfitService implements AutoCloseable {
 				try {
 					if (failure != null || property == null) {
 						logger.log(Level.WARNING, "Failed to prepare outfit " + outfit.id() + " for " + playerId, failure);
-						callback.accept(OutfitResult.FAILED);
-						return;
+						callback.accept(PreparedOutfitSkin.failed(OutfitResult.FAILED));
+					} else {
+						callback.accept(PreparedOutfitSkin.success(property));
 					}
-					Player online = Bukkit.getPlayer(playerId);
-					if (online == null) {
-						callback.accept(OutfitResult.FAILED);
-						return;
-					}
-					skinApplier.apply(online, property);
-					storage.savePreference(playerId, OutfitPreference.outfit(outfit.id()), System.currentTimeMillis());
-					callback.accept(OutfitResult.APPLIED);
 				} catch (Exception exception) {
-					logger.log(Level.WARNING, "Failed to apply outfit " + outfit.id() + " for " + playerId, exception);
-					callback.accept(OutfitResult.FAILED);
+					logger.log(Level.WARNING, "Failed to prepare outfit " + outfit.id() + " for " + playerId, exception);
+					callback.accept(PreparedOutfitSkin.failed(OutfitResult.FAILED));
 				} finally {
 					active.remove(playerId);
 				}

@@ -431,6 +431,54 @@ public final class MessageDefaults {
 		"cinematics.point-added", MessageType.SUCCESS, "Added camera point to {{cinematic}} at tick {{tick}}."
 	);
 
+	public static final MessageDefinition ONBOARDING_STARTED = lines(
+		"onboarding.started", MessageType.INFO,
+		"Use A/D to choose an outfit.",
+		"Jump to confirm. Sneak to cancel."
+	);
+	public static final MessageDefinition ONBOARDING_STARTED_OTHER = message(
+		"onboarding.started-other", MessageType.SUCCESS, "Started onboarding for {{player}}."
+	);
+	public static final MessageDefinition ONBOARDING_STOPPED = message(
+		"onboarding.stopped", MessageType.SUCCESS, "Stopped onboarding."
+	);
+	public static final MessageDefinition ONBOARDING_RELOADED = message(
+		"onboarding.reloaded", MessageType.SUCCESS, "Onboarding reloaded."
+	);
+	public static final MessageDefinition ONBOARDING_RESET = message(
+		"onboarding.reset", MessageType.SUCCESS, "Reset onboarding state for {{player}}."
+	);
+	public static final MessageDefinition ONBOARDING_DISABLED = message(
+		"onboarding.disabled", MessageType.ERROR, "Onboarding is currently disabled."
+	);
+	public static final MessageDefinition ONBOARDING_ALREADY_ACTIVE = message(
+		"onboarding.already-active", MessageType.ERROR, "You are already in onboarding."
+	);
+	public static final MessageDefinition ONBOARDING_START_FAILED = message(
+		"onboarding.start-failed", MessageType.ERROR, "Onboarding could not start. Check the cinematic configuration."
+	);
+	public static final MessageDefinition ONBOARDING_OUTFIT_SELECTED = message(
+		"onboarding.outfit-selected", MessageType.INFO, "Selected outfit: {{outfit}}"
+	);
+	public static final MessageDefinition ONBOARDING_PREVIEW_UNAVAILABLE = message(
+		"onboarding.preview-unavailable", MessageType.ERROR, "Outfit preview is unavailable until FancyNPCs is installed."
+	);
+	public static final MessageDefinition ONBOARDING_PREVIEW_FAILED = message(
+		"onboarding.preview-failed", MessageType.ERROR, "The outfit preview could not be prepared."
+	);
+	public static final MessageDefinition ONBOARDING_APPLYING = message(
+		"onboarding.applying", MessageType.INFO, "Applying {{outfit}}..."
+	);
+	public static final MessageDefinition ONBOARDING_APPLY_FAILED = message(
+		"onboarding.apply-failed", MessageType.ERROR, "The outfit could not be applied."
+	);
+	public static final MessageDefinition ONBOARDING_COMPLETED = message(
+		"onboarding.completed", MessageType.SUCCESS, "Onboarding complete."
+	);
+	public static final MessageDefinition ONBOARDING_CANCELLED = message(
+		"onboarding.cancelled", MessageType.INFO, "Onboarding cancelled."
+	);
+
 	public static final MessageDefinition MINES_LIST = message(
 		"mines.list", MessageType.INFO, "Mines: {{mines}}"
 	);

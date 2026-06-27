@@ -1,0 +1,21 @@
+enabled: true
+
+first-join:
+  enabled: true
+  delay-ticks: 40
+
+cinematic: "onboarding_intro"
+
+input:
+  repeat-cooldown-ms: 300
+
+preview:
+  world: world
+  x: 0.5
+  y: 79.0
+  z: -2.5
+  yaw: 0.0
+  pitch: 0.0
+
+outfits:
+  - prison
