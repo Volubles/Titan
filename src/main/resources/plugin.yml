@@ -44,7 +44,7 @@ commands:
   cinematic:
     aliases: [cinematics]
     description: Manage Titan cinematics
-    usage: /cinematic <list|reload|create|play|stop|point>
+    usage: /cinematic <list|reload|create|edit|play|stop|point>
     permission: titanmc.cinematic.admin
   onboarding:
     aliases: [ob]

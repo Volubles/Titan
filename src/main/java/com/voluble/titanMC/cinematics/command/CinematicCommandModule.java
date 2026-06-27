@@ -2,6 +2,7 @@ package com.voluble.titanMC.cinematics.command;
 
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.voluble.titanMC.cinematics.config.CinematicConfigurationManager;
+import com.voluble.titanMC.cinematics.editor.CinematicEditorService;
 import com.voluble.titanMC.cinematics.model.CameraPoint;
 import com.voluble.titanMC.cinematics.model.CinematicId;
 import com.voluble.titanMC.cinematics.runtime.CinematicRuntime;
@@ -23,15 +24,18 @@ public final class CinematicCommandModule implements CommandModule {
 
 	private final CinematicConfigurationManager configuration;
 	private final CinematicRuntime runtime;
+	private final CinematicEditorService editor;
 	private final PluginMessageService messages;
 
 	public CinematicCommandModule(
 		CinematicConfigurationManager configuration,
 		CinematicRuntime runtime,
+		CinematicEditorService editor,
 		PluginMessageService messages
 	) {
 		this.configuration = Objects.requireNonNull(configuration, "configuration");
 		this.runtime = Objects.requireNonNull(runtime, "runtime");
+		this.editor = Objects.requireNonNull(editor, "editor");
 		this.messages = Objects.requireNonNull(messages, "messages");
 	}
 
@@ -49,6 +53,8 @@ public final class CinematicCommandModule implements CommandModule {
 			.literalExec("reload", this::reload)
 			.literal("create", node -> node
 				.argument("id", Args.word(), id -> id.executes(this::create)))
+			.literal("edit", node -> node
+				.argument("id", Args.word(), id -> id.suggests(ids).executes(this::edit)))
 			.literal("play", node -> node
 				.argument("id", Args.word(), id -> id.suggests(ids).executes(this::play)))
 			.literal("stop", node -> node.executesPlayer((player, context) -> stop(player)))
@@ -77,6 +83,20 @@ public final class CinematicCommandModule implements CommandModule {
 		CinematicId id = id(context.arg("id", String.class));
 		configuration.createIfMissing(id);
 		messages.send(context.sender(), MessageDefaults.CINEMATICS_CREATED, args -> args.plain("cinematic", id.value()));
+		if (context.sender() instanceof Player player) {
+			editor.open(player, id);
+		}
+		return CommandTree.ok();
+	}
+
+	private int edit(MichelleCommandContext context) throws CommandSyntaxException {
+		Player player = context.playerExecutor();
+		CinematicId id = id(context.arg("id", String.class));
+		if (configuration.current().find(id).isEmpty()) {
+			messages.send(player, MessageDefaults.CINEMATICS_UNKNOWN, args -> args.plain("cinematic", id.value()));
+			return CommandTree.ok();
+		}
+		editor.open(player, id);
 		return CommandTree.ok();
 	}
 

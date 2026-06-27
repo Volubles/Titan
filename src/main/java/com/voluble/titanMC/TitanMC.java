@@ -24,6 +24,7 @@ import com.voluble.titanMC.cells.ui.CellMenuService;
 import com.voluble.titanMC.cinematics.bukkit.CinematicListener;
 import com.voluble.titanMC.cinematics.command.CinematicCommandModule;
 import com.voluble.titanMC.cinematics.config.CinematicConfigurationManager;
+import com.voluble.titanMC.cinematics.editor.CinematicEditorService;
 import com.voluble.titanMC.cinematics.runtime.CinematicRuntime;
 import com.voluble.titanMC.managers.ConfigManager;
 import com.voluble.titanMC.onboarding.OnboardingService;
@@ -171,6 +172,7 @@ public final class TitanMC extends JavaPlugin {
 	private OutfitService outfitService;
 	private CinematicConfigurationManager cinematicConfiguration;
 	private CinematicRuntime cinematicRuntime;
+	private CinematicEditorService cinematicEditor;
 	private OnboardingConfigurationManager onboardingConfiguration;
 	private OnboardingService onboardingService;
 
@@ -354,7 +356,7 @@ public final class TitanMC extends JavaPlugin {
 			.addModule(new CredCommandModule(progressionEngine, progressionBars, messages))
 			.addModule(new MilestoneCommandModule(milestoneMenus, milestoneConfiguration, milestoneService, messages))
 			.addModule(new OutfitCommandModule(outfitConfiguration, outfitService, messages))
-			.addModule(new CinematicCommandModule(cinematicConfiguration, cinematicRuntime, messages))
+			.addModule(new CinematicCommandModule(cinematicConfiguration, cinematicRuntime, cinematicEditor, messages))
 			.addModule(new OnboardingCommandModule(onboardingService, messages))
 			.install();
 
@@ -493,7 +495,9 @@ public final class TitanMC extends JavaPlugin {
 
 	private void initializeCinematics() {
 		cinematicRuntime = new CinematicRuntime(this, cinematicConfiguration);
+		cinematicEditor = new CinematicEditorService(this, menuService, cinematicConfiguration, cinematicRuntime);
 		getServer().getPluginManager().registerEvents(new CinematicListener(cinematicRuntime), this);
+		getServer().getPluginManager().registerEvents(cinematicEditor.input(), this);
 		getLogger().info("Cinematics ready");
 	}
 
