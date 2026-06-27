@@ -6,7 +6,7 @@ import java.util.Objects;
 
 final class CinematicEditorSession {
 	private final CinematicId cinematicId;
-	private int viewportTick;
+	private int viewportSlot;
 	private int viewportRow;
 
 	CinematicEditorSession(CinematicId cinematicId) {
@@ -17,23 +17,23 @@ final class CinematicEditorSession {
 		return cinematicId;
 	}
 
-	int viewportTick() {
-		return viewportTick;
+	int viewportSlot() {
+		return viewportSlot;
 	}
 
 	int viewportRow() {
 		return viewportRow;
 	}
 
-	void moveTicks(int delta) {
-		viewportTick = Math.max(0, viewportTick + delta);
+	void moveSlots(int delta) {
+		viewportSlot = Math.max(0, viewportSlot + delta);
 	}
 
 	void moveRows(int delta) {
 		viewportRow = Math.max(0, viewportRow + delta);
 	}
 
-	void jumpTo(int tick) {
-		viewportTick = Math.max(0, tick);
+	void jumpToSlot(int slot) {
+		viewportSlot = Math.max(0, slot);
 	}
 }

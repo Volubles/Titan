@@ -11,11 +11,14 @@ public final class CameraPathInterpolator {
 
 	public static Location locationAt(List<CameraPoint> points, int frame) {
 		if (points.isEmpty()) throw new IllegalArgumentException("points must not be empty");
-		if (frame <= points.getFirst().tick()) return points.getFirst().toLocation();
+		if (frame < points.getFirst().tick()) return points.getFirst().toLocation();
 		for (int index = 1; index < points.size(); index++) {
 			CameraPoint previous = points.get(index - 1);
 			CameraPoint next = points.get(index);
-			if (frame <= next.tick()) return interpolate(previous, next, frame);
+			if (frame <= next.tick()) {
+				if (next.tick() <= previous.tick()) return next.toLocation();
+				return interpolate(previous, next, frame);
+			}
 		}
 		return points.getLast().toLocation();
 	}

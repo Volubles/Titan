@@ -125,7 +125,8 @@ public final class CinematicCommandModule implements CommandModule {
 		Player player = context.playerExecutor();
 		CinematicId id = id(context.arg("id", String.class));
 		int tick = configuration.nextPointTick(id);
-		configuration.appendCameraPoint(id, CameraPoint.at(tick, player.getLocation()));
+		int slot = configuration.nextPointSlot(id);
+		configuration.appendCameraPoint(id, CameraPoint.at(tick, slot, player.getLocation()));
 		messages.send(player, MessageDefaults.CINEMATICS_POINT_ADDED, args -> args
 			.plain("cinematic", id.value())
 			.plain("tick", tick));

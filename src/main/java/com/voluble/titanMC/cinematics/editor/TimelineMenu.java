@@ -27,7 +27,7 @@ final class TimelineMenu {
 
 	void open(Player player) {
 		CinematicEditorSession session = editor.session(player);
-		CinematicTimelineViewport viewport = new CinematicTimelineViewport(session.viewportTick(), session.viewportRow());
+		CinematicTimelineViewport viewport = new CinematicTimelineViewport(session.viewportSlot(), session.viewportRow());
 		CinematicDefinition definition = editor.definition(player).orElse(null);
 		if (definition == null) {
 			player.closeInventory();
@@ -52,71 +52,71 @@ final class TimelineMenu {
 		for (int visibleRow = 0; visibleRow < CinematicTimelineViewport.ROWS; visibleRow++) {
 			int row = viewport.row(visibleRow);
 			for (int column = 0; column < CinematicTimelineViewport.COLUMNS; column++) {
-				int tick = viewport.tick(column);
+				int timelineSlot = viewport.timelineSlot(column);
 				int slot = viewport.slot(visibleRow, column);
 				if (!CinematicEditorLayout.timelineSlot(slot)) continue;
 				MenuItem item = row == 0
-					? cameraSlot(player, definition, tick)
-					: eventSlot(player, definition, tick, row);
+					? cameraSlot(player, definition, timelineSlot)
+					: eventSlot(player, definition, timelineSlot, row);
 				writer.set(slot, item);
 			}
 		}
 	}
 
-	private MenuItem cameraSlot(Player player, CinematicDefinition definition, int tick) {
+	private MenuItem cameraSlot(Player player, CinematicDefinition definition, int timelineSlot) {
 		CameraPoint point = definition.camera().points().stream()
-			.filter(candidate -> candidate.tick() == tick)
+			.filter(candidate -> candidate.timelineSlot() == timelineSlot)
 			.findFirst()
 			.orElse(null);
 		if (point != null) {
 			return CinematicEditorChrome.item(items.cameraPoint(point, definition), context -> {
 				if (context.click().isKeyboardClick()) {
-					editor.session(player).jumpTo(point.tick());
+					editor.session(player).jumpToSlot(point.timelineSlot());
 					context.actions().transition(() -> open(player));
 					return;
 				}
 				context.actions().transition(() -> editor.openCameraOptions(player, point));
 			});
 		}
-		return CinematicEditorChrome.item(items.emptySlot(tick, 0), context -> {
-			editor.addCameraPoint(player, tick);
-			context.actions().transition(() -> editor.openCameraOptions(player, CameraPoint.at(tick, player.getLocation())));
+		return CinematicEditorChrome.item(items.emptySlot(timelineSlot, 0), context -> {
+			CameraPoint added = editor.addCameraPoint(player, timelineSlot);
+			context.actions().transition(() -> editor.openCameraOptions(player, added));
 		});
 	}
 
-	private MenuItem eventSlot(Player player, CinematicDefinition definition, int tick, int row) {
+	private MenuItem eventSlot(Player player, CinematicDefinition definition, int timelineSlot, int row) {
 		CinematicEvent event = definition.timeline().events().stream()
-			.filter(candidate -> candidate.tick() == tick && candidate.row() == row)
+			.filter(candidate -> candidate.timelineSlot() == timelineSlot && candidate.row() == row)
 			.findFirst()
 			.orElse(null);
 		if (event != null) {
 			return CinematicEditorChrome.item(items.event(event), context -> context.actions().transition(() -> editor.openEventOptions(player, event)));
 		}
-		return CinematicEditorChrome.item(items.emptySlot(tick, row), context -> context.actions().transition(() -> editor.openAddNode(player, tick, row)));
+		return CinematicEditorChrome.item(items.emptySlot(timelineSlot, row), context -> context.actions().transition(() -> editor.openAddNode(player, timelineSlot, row)));
 	}
 
 	private void renderFooter(Player player, CinematicDefinition definition, SlotWriter writer) {
-		writer.set(CinematicEditorLayout.TICKS_BACK, CinematicEditorChrome.button(
+		writer.set(CinematicEditorLayout.SLOTS_BACK, CinematicEditorChrome.button(
 			items,
 			Material.ARROW,
-			"<#f7d774><bold>Previous Ticks",
+			"<#f7d774><bold>Previous Slots",
 			List.of(
-				"<gray>Left click: <white>-1 tick",
-				"<gray>Right click: <white>-20 ticks",
-				"<gray>Shift click: <white>-60 ticks"
+				"<gray>Left click: <white>-1 slot",
+				"<gray>Right click: <white>-9 slots",
+				"<gray>Shift click: <white>-27 slots"
 			),
-			context -> moveTicks(player, -tickStep(context), context)
+			context -> moveSlots(player, -slotStep(context), context)
 		));
-		writer.set(CinematicEditorLayout.TICKS_FORWARD, CinematicEditorChrome.button(
+		writer.set(CinematicEditorLayout.SLOTS_FORWARD, CinematicEditorChrome.button(
 			items,
 			Material.ARROW,
-			"<#f7d774><bold>Next Ticks",
+			"<#f7d774><bold>Next Slots",
 			List.of(
-				"<gray>Left click: <white>+1 tick",
-				"<gray>Right click: <white>+20 ticks",
-				"<gray>Shift click: <white>+60 ticks"
+				"<gray>Left click: <white>+1 slot",
+				"<gray>Right click: <white>+9 slots",
+				"<gray>Shift click: <white>+27 slots"
 			),
-			context -> moveTicks(player, tickStep(context), context)
+			context -> moveSlots(player, slotStep(context), context)
 		));
 		writer.set(CinematicEditorLayout.ROW_UP, CinematicEditorChrome.button(
 			items,
@@ -150,7 +150,7 @@ final class TimelineMenu {
 		));
 		writer.set(CinematicEditorLayout.SUMMARY, CinematicEditorChrome.display(items.summary(
 			definition,
-			new CinematicTimelineViewport(editor.session(player).viewportTick(), editor.session(player).viewportRow())
+			new CinematicTimelineViewport(editor.session(player).viewportSlot(), editor.session(player).viewportRow())
 		)));
 		writer.set(CinematicEditorLayout.CLOSE, CinematicEditorChrome.button(
 			items,
@@ -179,14 +179,14 @@ final class TimelineMenu {
 		));
 	}
 
-	private void moveTicks(Player player, int delta, io.voluble.michellelib.menu.item.ClickContext context) {
-		editor.session(player).moveTicks(delta);
+	private void moveSlots(Player player, int delta, io.voluble.michellelib.menu.item.ClickContext context) {
+		editor.session(player).moveSlots(delta);
 		context.actions().transition(() -> open(player));
 	}
 
-	private int tickStep(io.voluble.michellelib.menu.item.ClickContext context) {
-		if (context.shiftClick()) return 60;
-		if (context.click().isRightClick()) return 20;
+	private int slotStep(io.voluble.michellelib.menu.item.ClickContext context) {
+		if (context.shiftClick()) return 27;
+		if (context.click().isRightClick()) return 9;
 		return 1;
 	}
 
@@ -203,8 +203,8 @@ final class TimelineMenu {
 
 	private String title(CinematicDefinition definition, CinematicTimelineViewport viewport) {
 		return "<#30bbf1>" + definition.id().value()
-			+ " <gray>| Tick <white>" + viewport.startTick()
-			+ "<gray>/<white>" + definition.durationTicks()
+			+ " <gray>| Slot <white>" + viewport.startSlot()
+			+ " <gray>| Length <white>" + definition.durationTicks()
 			+ " <gray>| <white>" + CinematicTimeFormat.seconds(definition.durationTicks()) + "s";
 	}
 

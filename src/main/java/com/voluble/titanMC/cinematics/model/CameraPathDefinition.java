@@ -7,7 +7,7 @@ import java.util.Objects;
 public record CameraPathDefinition(boolean restorePlayer, List<CameraPoint> points) {
 	public CameraPathDefinition {
 		points = Objects.requireNonNull(points, "points").stream()
-			.sorted(Comparator.comparingInt(CameraPoint::tick))
+			.sorted(Comparator.comparingInt(CameraPoint::timelineSlot).thenComparingInt(CameraPoint::tick))
 			.toList();
 		if (points.isEmpty()) throw new IllegalArgumentException("camera path must contain at least one point");
 	}

@@ -8,6 +8,7 @@ import java.util.Objects;
 
 public record CameraPoint(
 	int tick,
+	int timelineSlot,
 	String world,
 	double x,
 	double y,
@@ -17,15 +18,17 @@ public record CameraPoint(
 ) {
 	public CameraPoint {
 		if (tick < 0) throw new IllegalArgumentException("camera point tick must not be negative");
+		if (timelineSlot < 0) throw new IllegalArgumentException("camera point timeline slot must not be negative");
 		world = Objects.requireNonNull(world, "world").trim();
 		if (world.isBlank()) throw new IllegalArgumentException("camera point world must not be blank");
 	}
 
-	public static CameraPoint at(int tick, Location location) {
+	public static CameraPoint at(int tick, int timelineSlot, Location location) {
 		Objects.requireNonNull(location, "location");
 		World world = Objects.requireNonNull(location.getWorld(), "location world");
 		return new CameraPoint(
 			tick,
+			timelineSlot,
 			world.getName(),
 			location.getX(),
 			location.getY(),

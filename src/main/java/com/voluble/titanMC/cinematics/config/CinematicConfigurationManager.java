@@ -74,6 +74,7 @@ public final class CinematicConfigurationManager implements ConfigManager.Compon
 		yaml.set(base + ".camera.points", List.of(
 			Map.of(
 				"tick", 0,
+				"slot", 0,
 				"world", world.getName(),
 				"x", origin.getX(),
 				"y", origin.getY(),
@@ -83,6 +84,7 @@ public final class CinematicConfigurationManager implements ConfigManager.Compon
 			),
 			Map.of(
 				"tick", 80,
+				"slot", 4,
 				"world", world.getName(),
 				"x", origin.getX(),
 				"y", origin.getY(),
@@ -121,6 +123,7 @@ public final class CinematicConfigurationManager implements ConfigManager.Compon
 		List<Map<?, ?>> points = yaml.getMapList(base + ".camera.points");
 		points.add(Map.of(
 			"tick", point.tick(),
+			"slot", point.timelineSlot(),
 			"world", point.world(),
 			"x", point.x(),
 			"y", point.y(),
@@ -140,6 +143,15 @@ public final class CinematicConfigurationManager implements ConfigManager.Compon
 				.mapToInt(CameraPoint::tick)
 				.max()
 				.orElse(0) + current().defaultPointDurationTicks())
+			.orElse(0);
+	}
+
+	public int nextPointSlot(CinematicId id) {
+		return current().find(id)
+			.map(definition -> definition.camera().points().stream()
+				.mapToInt(CameraPoint::timelineSlot)
+				.max()
+				.orElse(-1) + 1)
 			.orElse(0);
 	}
 
@@ -202,6 +214,7 @@ public final class CinematicConfigurationManager implements ConfigManager.Compon
 	private Map<String, Object> cameraPointMap(CameraPoint point) {
 		Map<String, Object> raw = new java.util.LinkedHashMap<>();
 		raw.put("tick", point.tick());
+		raw.put("slot", point.timelineSlot());
 		raw.put("world", point.world());
 		raw.put("x", point.x());
 		raw.put("y", point.y());
@@ -215,6 +228,7 @@ public final class CinematicConfigurationManager implements ConfigManager.Compon
 		Map<String, Object> raw = new java.util.LinkedHashMap<>();
 		raw.put("type", event.type().name().toLowerCase(java.util.Locale.ROOT));
 		raw.put("tick", event.tick());
+		raw.put("slot", event.timelineSlot());
 		raw.put("row", event.row());
 		switch (event) {
 			case CommandCinematicEvent command -> {

@@ -74,16 +74,19 @@ public record CinematicConfiguration(
 	private static CinematicEvent event(Map<?, ?> raw) {
 		CinematicEventType type = CinematicEventType.parse(text(raw, "type"));
 		int tick = number(raw, "tick").intValue();
+		int slot = number(raw, "slot", tick).intValue();
 		int row = number(raw, "row", 1).intValue();
 		return switch (type) {
 			case COMMAND -> new CommandCinematicEvent(
 				tick,
+				slot,
 				row,
 				text(raw, "command"),
 				bool(raw, "console", true)
 			);
 			case PARTICLE -> new ParticleCinematicEvent(
 				tick,
+				slot,
 				row,
 				position(raw),
 				text(raw, "particle", "CLOUD"),
@@ -95,6 +98,7 @@ public record CinematicConfiguration(
 			);
 			case SOUND -> new SoundCinematicEvent(
 				tick,
+				slot,
 				row,
 				position(raw),
 				text(raw, "key"),
@@ -106,8 +110,10 @@ public record CinematicConfiguration(
 	}
 
 	private static CameraPoint point(Map<?, ?> raw) {
+		int tick = number(raw, "tick").intValue();
 		return new CameraPoint(
-			number(raw, "tick").intValue(),
+			tick,
+			number(raw, "slot", tick).intValue(),
 			text(raw, "world"),
 			number(raw, "x").doubleValue(),
 			number(raw, "y").doubleValue(),

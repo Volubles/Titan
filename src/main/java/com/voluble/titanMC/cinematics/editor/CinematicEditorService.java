@@ -73,8 +73,8 @@ public final class CinematicEditorService {
 		timelineMenu.open(player);
 	}
 
-	void openAddNode(Player player, int tick, int row) {
-		addNodeMenu.open(player, tick, row);
+	void openAddNode(Player player, int timelineSlot, int row) {
+		addNodeMenu.open(player, timelineSlot, row);
 	}
 
 	void openCameraOptions(Player player, CameraPoint point) {
@@ -99,11 +99,12 @@ public final class CinematicEditorService {
 		return configuration.current().find(session(player).cinematicId());
 	}
 
-	void addCameraPoint(Player player, int tick) {
+	CameraPoint addCameraPoint(Player player, int timelineSlot) {
 		CinematicDefinition definition = requireDefinition(player);
-		CameraPoint point = CameraPoint.at(tick, player.getLocation());
+		int tick = defaultTickForSlot(player, timelineSlot);
+		CameraPoint point = CameraPoint.at(tick, timelineSlot, player.getLocation());
 		List<CameraPoint> points = new ArrayList<>(definition.camera().points().stream()
-			.filter(existing -> existing.tick() != tick)
+			.filter(existing -> existing.timelineSlot() != timelineSlot)
 			.toList());
 		points.add(point);
 		save(new CinematicDefinition(
@@ -112,6 +113,7 @@ public final class CinematicEditorService {
 			new CameraPathDefinition(definition.camera().restorePlayer(), points),
 			definition.timeline()
 		));
+		return point;
 	}
 
 	void replaceCameraPoint(Player player, CameraPoint oldPoint, CameraPoint newPoint) {
@@ -122,7 +124,7 @@ public final class CinematicEditorService {
 			if (point.equals(oldPoint)) {
 				points.add(newPoint);
 				replaced = true;
-			} else if (point.tick() != newPoint.tick()) {
+			} else if (point.timelineSlot() != newPoint.timelineSlot()) {
 				points.add(point);
 			}
 		}
@@ -135,14 +137,14 @@ public final class CinematicEditorService {
 		));
 	}
 
-	Optional<CameraPoint> moveCameraPoint(Player player, CameraPoint point, int deltaTicks) {
-		int tick = point.tick() + deltaTicks;
-		if (tick < 0) return Optional.empty();
+	Optional<CameraPoint> moveCameraPointSlot(Player player, CameraPoint point, int deltaSlots) {
+		int timelineSlot = point.timelineSlot() + deltaSlots;
+		if (timelineSlot < 0) return Optional.empty();
 		CinematicDefinition definition = requireDefinition(player);
 		boolean occupied = definition.camera().points().stream()
-			.anyMatch(existing -> !existing.equals(point) && existing.tick() == tick);
+			.anyMatch(existing -> !existing.equals(point) && existing.timelineSlot() == timelineSlot);
 		if (occupied) return Optional.empty();
-		CameraPoint updated = new CameraPoint(tick, point.world(), point.x(), point.y(), point.z(), point.yaw(), point.pitch());
+		CameraPoint updated = new CameraPoint(point.tick(), timelineSlot, point.world(), point.x(), point.y(), point.z(), point.yaw(), point.pitch());
 		replaceCameraPoint(player, point, updated);
 		return Optional.of(updated);
 	}
@@ -165,7 +167,7 @@ public final class CinematicEditorService {
 	void addEvent(Player player, CinematicEvent event) {
 		CinematicDefinition definition = requireDefinition(player);
 		List<CinematicEvent> events = new ArrayList<>(definition.timeline().events().stream()
-			.filter(existing -> existing.tick() != event.tick() || existing.row() != event.row())
+			.filter(existing -> existing.timelineSlot() != event.timelineSlot() || existing.row() != event.row())
 			.toList());
 		events.add(event);
 		save(new CinematicDefinition(
@@ -179,7 +181,7 @@ public final class CinematicEditorService {
 	void replaceEvent(Player player, CinematicEvent oldEvent, CinematicEvent newEvent) {
 		CinematicDefinition definition = requireDefinition(player);
 		List<CinematicEvent> events = new ArrayList<>(definition.timeline().events().stream()
-			.filter(existing -> existing.equals(oldEvent) || existing.tick() != newEvent.tick() || existing.row() != newEvent.row())
+			.filter(existing -> existing.equals(oldEvent) || existing.timelineSlot() != newEvent.timelineSlot() || existing.row() != newEvent.row())
 			.toList());
 		int index = events.indexOf(oldEvent);
 		if (index >= 0) {
@@ -195,14 +197,14 @@ public final class CinematicEditorService {
 		));
 	}
 
-	Optional<CinematicEvent> moveEvent(Player player, CinematicEvent event, int deltaTicks) {
-		int tick = event.tick() + deltaTicks;
-		if (tick < 0) return Optional.empty();
+	Optional<CinematicEvent> moveEventSlot(Player player, CinematicEvent event, int deltaSlots) {
+		int timelineSlot = event.timelineSlot() + deltaSlots;
+		if (timelineSlot < 0) return Optional.empty();
 		CinematicDefinition definition = requireDefinition(player);
 		boolean occupied = definition.timeline().events().stream()
-			.anyMatch(existing -> !existing.equals(event) && existing.tick() == tick && existing.row() == event.row());
+			.anyMatch(existing -> !existing.equals(event) && existing.timelineSlot() == timelineSlot && existing.row() == event.row());
 		if (occupied) return Optional.empty();
-		CinematicEvent updated = withTick(event, tick);
+		CinematicEvent updated = withTimelineSlot(event, timelineSlot);
 		replaceEvent(player, event, updated);
 		return Optional.of(updated);
 	}
@@ -222,24 +224,33 @@ public final class CinematicEditorService {
 		save(new CinematicDefinition(definition.id(), durationTicks, definition.camera(), definition.timeline()));
 	}
 
-	boolean shiftTimeline(Player player, int startTick, int deltaTicks) {
-		if (deltaTicks == 0) return true;
+	int defaultTickForSlot(Player player, int timelineSlot) {
+		CinematicDefinition definition = requireDefinition(player);
+		return definition.camera().points().stream()
+			.filter(point -> point.timelineSlot() < timelineSlot)
+			.max(java.util.Comparator.comparingInt(CameraPoint::timelineSlot))
+			.map(CameraPoint::tick)
+			.orElse(0);
+	}
+
+	boolean shiftTimeline(Player player, int startSlot, int deltaSlots) {
+		if (deltaSlots == 0) return true;
 		CinematicDefinition definition = requireDefinition(player);
 		List<CameraPoint> points = new ArrayList<>();
-		Set<Integer> cameraTicks = new HashSet<>();
+		Set<Integer> cameraSlots = new HashSet<>();
 		for (CameraPoint point : definition.camera().points()) {
-			int tick = point.tick() >= startTick ? point.tick() + deltaTicks : point.tick();
-			if (tick < 0 || !cameraTicks.add(tick)) return false;
-			points.add(new CameraPoint(tick, point.world(), point.x(), point.y(), point.z(), point.yaw(), point.pitch()));
+			int timelineSlot = point.timelineSlot() >= startSlot ? point.timelineSlot() + deltaSlots : point.timelineSlot();
+			if (timelineSlot < 0 || !cameraSlots.add(timelineSlot)) return false;
+			points.add(new CameraPoint(point.tick(), timelineSlot, point.world(), point.x(), point.y(), point.z(), point.yaw(), point.pitch()));
 		}
 
 		List<CinematicEvent> events = new ArrayList<>();
 		Set<EventSlot> eventSlots = new HashSet<>();
 		for (CinematicEvent event : definition.timeline().events()) {
-			int tick = event.tick() >= startTick ? event.tick() + deltaTicks : event.tick();
-			EventSlot slot = new EventSlot(tick, event.row());
-			if (tick < 0 || !eventSlots.add(slot)) return false;
-			events.add(withTick(event, tick));
+			int timelineSlot = event.timelineSlot() >= startSlot ? event.timelineSlot() + deltaSlots : event.timelineSlot();
+			EventSlot slot = new EventSlot(timelineSlot, event.row());
+			if (timelineSlot < 0 || !eventSlots.add(slot)) return false;
+			events.add(withTimelineSlot(event, timelineSlot));
 		}
 
 		int length = Math.max(definition.durationTicks(), maxTick(points, events));
@@ -269,9 +280,10 @@ public final class CinematicEditorService {
 
 	private CinematicEvent withTick(CinematicEvent event, int tick) {
 		return switch (event) {
-			case CommandCinematicEvent command -> new CommandCinematicEvent(tick, command.row(), command.command(), command.console());
+			case CommandCinematicEvent command -> new CommandCinematicEvent(tick, command.timelineSlot(), command.row(), command.command(), command.console());
 			case ParticleCinematicEvent particle -> new ParticleCinematicEvent(
 				tick,
+				particle.timelineSlot(),
 				particle.row(),
 				particle.position(),
 				particle.particle(),
@@ -283,6 +295,35 @@ public final class CinematicEditorService {
 			);
 			case SoundCinematicEvent sound -> new SoundCinematicEvent(
 				tick,
+				sound.timelineSlot(),
+				sound.row(),
+				sound.position(),
+				sound.key(),
+				sound.volume(),
+				sound.pitch(),
+				sound.category()
+			);
+		};
+	}
+
+	private CinematicEvent withTimelineSlot(CinematicEvent event, int timelineSlot) {
+		return switch (event) {
+			case CommandCinematicEvent command -> new CommandCinematicEvent(command.tick(), timelineSlot, command.row(), command.command(), command.console());
+			case ParticleCinematicEvent particle -> new ParticleCinematicEvent(
+				particle.tick(),
+				timelineSlot,
+				particle.row(),
+				particle.position(),
+				particle.particle(),
+				particle.count(),
+				particle.offsetX(),
+				particle.offsetY(),
+				particle.offsetZ(),
+				particle.speed()
+			);
+			case SoundCinematicEvent sound -> new SoundCinematicEvent(
+				sound.tick(),
+				timelineSlot,
 				sound.row(),
 				sound.position(),
 				sound.key(),

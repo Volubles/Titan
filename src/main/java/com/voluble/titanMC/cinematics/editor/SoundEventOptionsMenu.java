@@ -26,49 +26,49 @@ final class SoundEventOptionsMenu {
 
 	void open(Player player, SoundCinematicEvent event) {
 		MenuDefinition.chest(3)
-			.title(MiniMessage.miniMessage().deserialize("<#42d829>Sound Event <gray>| <white>" + CinematicTimeFormat.tickTime(event.tick())))
+			.title(MiniMessage.miniMessage().deserialize("<#42d829>Sound Event <gray>| Slot <white>" + event.timelineSlot()))
 			.onOpen(context -> {
 				context.setItem(10, CinematicEditorChrome.display(items.event(event)));
 				context.setItem(11, promptButton(player, event, Material.NOTE_BLOCK, "<#42d829><bold>Set Sound Key", "Type the sound key.", value ->
-					new SoundCinematicEvent(event.tick(), event.row(), event.position(), value, event.volume(), event.pitch(), event.category())));
+					new SoundCinematicEvent(event.tick(), event.timelineSlot(), event.row(), event.position(), value, event.volume(), event.pitch(), event.category())));
 				context.setItem(12, promptButton(player, event, Material.AMETHYST_SHARD, "<#f7d774><bold>Set Volume", "Type the volume.", value ->
-					new SoundCinematicEvent(event.tick(), event.row(), event.position(), event.key(), CinematicEditorParsing.nonNegativeFloat(value), event.pitch(), event.category())));
+					new SoundCinematicEvent(event.tick(), event.timelineSlot(), event.row(), event.position(), event.key(), CinematicEditorParsing.nonNegativeFloat(value), event.pitch(), event.category())));
 				context.setItem(13, promptButton(player, event, Material.GOAT_HORN, "<#f7d774><bold>Set Pitch", "Type the pitch.", value ->
-					new SoundCinematicEvent(event.tick(), event.row(), event.position(), event.key(), event.volume(), CinematicEditorParsing.nonNegativeFloat(value), event.category())));
+					new SoundCinematicEvent(event.tick(), event.timelineSlot(), event.row(), event.position(), event.key(), event.volume(), CinematicEditorParsing.nonNegativeFloat(value), event.category())));
 				context.setItem(14, promptButton(player, event, Material.SCULK_SENSOR, "<#30bbf1><bold>Set Category", "Type the Bukkit sound category, for example MASTER or PLAYERS.", value ->
-					new SoundCinematicEvent(event.tick(), event.row(), event.position(), event.key(), event.volume(), event.pitch(), value)));
+					new SoundCinematicEvent(event.tick(), event.timelineSlot(), event.row(), event.position(), event.key(), event.volume(), event.pitch(), value)));
 				context.setItem(15, button(Material.ENDER_EYE, "<#42d829><bold>Capture Location", List.of("<gray>Use your current position."), click -> {
 					SoundCinematicEvent updated = new SoundCinematicEvent(
-						event.tick(), event.row(), CinematicEventPosition.at(player.getLocation()), event.key(), event.volume(), event.pitch(), event.category()
+						event.tick(), event.timelineSlot(), event.row(), CinematicEventPosition.at(player.getLocation()), event.key(), event.volume(), event.pitch(), event.category()
 					);
 					editor.replaceEvent(player, event, updated);
 					click.actions().transition(() -> open(player, updated));
 				}));
 				context.setItem(16, promptButton(player, event, Material.CLOCK, "<#f7d774><bold>Set Tick", "Type the new tick.", value ->
-					new SoundCinematicEvent(CinematicEditorParsing.nonNegativeInt(value), event.row(), event.position(), event.key(), event.volume(), event.pitch(), event.category())));
+					new SoundCinematicEvent(CinematicEditorParsing.nonNegativeInt(value), event.timelineSlot(), event.row(), event.position(), event.key(), event.volume(), event.pitch(), event.category())));
 				context.setItem(17, promptButton(player, event, Material.HOPPER, "<#f7d774><bold>Set Row", "Type the new row. Row 0 is reserved for cameras.", value ->
-					new SoundCinematicEvent(event.tick(), CinematicEditorParsing.positiveInt(value), event.position(), event.key(), event.volume(), event.pitch(), event.category())));
+					new SoundCinematicEvent(event.tick(), event.timelineSlot(), CinematicEditorParsing.positiveInt(value), event.position(), event.key(), event.volume(), event.pitch(), event.category())));
 				context.setItem(18, button(
 					Material.REPEATER,
-					"<#f7d774><bold>Move Tick",
-					CinematicEditorClickSteps.tickControlLore("this sound event"),
-					click -> CinematicEditorTimelineMutations.moveEvent(
+					"<#f7d774><bold>Move Slot",
+					CinematicEditorClickSteps.slotControlLore("this sound event"),
+					click -> CinematicEditorTimelineMutations.moveEventSlot(
 						player,
 						editor,
 						event,
-						CinematicEditorClickSteps.signedTickDelta(click),
+						CinematicEditorClickSteps.signedSlotDelta(click),
 						click.actions()
 					)
 				));
 				context.setItem(19, button(
 					Material.PISTON,
 					"<#30bbf1><bold>Shift Timeline From Here",
-					CinematicEditorClickSteps.tickControlLore("this event and everything after it"),
+					CinematicEditorClickSteps.slotControlLore("this event and everything after it"),
 					click -> CinematicEditorTimelineMutations.shiftTimeline(
 						player,
 						editor,
-						event.tick(),
-						CinematicEditorClickSteps.signedTickDelta(click),
+						event.timelineSlot(),
+						CinematicEditorClickSteps.signedSlotDelta(click),
 						click.actions()
 					)
 				));

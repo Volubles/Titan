@@ -4,6 +4,7 @@ import java.util.Objects;
 
 public record SoundCinematicEvent(
 	int tick,
+	int timelineSlot,
 	int row,
 	CinematicEventPosition position,
 	String key,
@@ -12,7 +13,7 @@ public record SoundCinematicEvent(
 	String category
 ) implements CinematicEvent {
 	public SoundCinematicEvent {
-		CommandCinematicEvent.validatePlacement(tick, row);
+		CommandCinematicEvent.validatePlacement(tick, timelineSlot, row);
 		position = Objects.requireNonNull(position, "position");
 		key = Objects.requireNonNull(key, "key").trim();
 		if (key.isBlank()) throw new IllegalArgumentException("cinematic sound key must not be blank");

@@ -16,13 +16,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 final class CinematicEditorItemFactory {
-	ItemStack emptySlot(int tick, int row) {
+	ItemStack emptySlot(int timelineSlot, int row) {
 		Material material = row == 0 ? Material.LIGHT_BLUE_STAINED_GLASS_PANE : Material.GRAY_STAINED_GLASS_PANE;
 		return item(
 			material,
-			row == 0 ? "<#30bbf1>Empty Camera Tick" : "<gray>Empty Event Tick",
+			row == 0 ? "<#30bbf1>Empty Camera Slot" : "<gray>Empty Event Slot",
 			List.of(
-				"<gray>Tick: <white>" + CinematicTimeFormat.tickTime(tick),
+				"<gray>Canvas slot: <white>" + timelineSlot,
 				"<gray>Row: <white>" + rowName(row),
 				"",
 				row == 0 ? "<green>Click to add a camera point here." : "<green>Click to add a timeline event here."
@@ -35,6 +35,7 @@ final class CinematicEditorItemFactory {
 			Material.ENDER_EYE,
 			"<#30bbf1><bold>Camera Point",
 			List.of(
+				"<gray>Canvas slot: <white>" + point.timelineSlot(),
 				"<gray>Tick: <white>" + CinematicTimeFormat.tickTime(point.tick()),
 				"<gray>Row: <white>Camera Path",
 				"<gray>Previous camera: <white>" + cameraNeighbor(point, definition, true),
@@ -50,6 +51,7 @@ final class CinematicEditorItemFactory {
 
 	ItemStack event(CinematicEvent event) {
 		List<String> lore = new ArrayList<>();
+		lore.add("<gray>Canvas slot: <white>" + event.timelineSlot());
 		lore.add("<gray>Tick: <white>" + CinematicTimeFormat.tickTime(event.tick()));
 		lore.add("<gray>Row: <white>" + rowName(event.row()));
 		lore.add("");
@@ -83,7 +85,7 @@ final class CinematicEditorItemFactory {
 				"<gray>Camera points: <white>" + definition.camera().points().size(),
 				"<gray>Timeline events: <white>" + definition.timeline().events().size(),
 				"",
-				"<gray>Viewing ticks <white>" + viewport.startTick() + " - " + (viewport.startTick() + CinematicTimelineViewport.COLUMNS - 1),
+				"<gray>Viewing slots <white>" + viewport.startSlot() + " - " + (viewport.startSlot() + CinematicTimelineViewport.COLUMNS - 1),
 				"<gray>Rows <white>" + viewport.startRow() + " - " + (viewport.startRow() + CinematicTimelineViewport.ROWS - 1)
 			)
 		);
@@ -103,11 +105,15 @@ final class CinematicEditorItemFactory {
 
 	private String cameraNeighbor(CameraPoint point, CinematicDefinition definition, boolean previous) {
 		var stream = definition.camera().points().stream()
-			.mapToInt(CameraPoint::tick);
-		int tick = previous
-			? stream.filter(candidate -> candidate < point.tick()).max().orElse(-1)
-			: stream.filter(candidate -> candidate > point.tick()).min().orElse(-1);
-		return tick < 0 ? "none" : CinematicTimeFormat.tickTime(tick);
+			.filter(candidate -> previous
+				? candidate.timelineSlot() < point.timelineSlot()
+				: candidate.timelineSlot() > point.timelineSlot())
+			.sorted(previous
+				? java.util.Comparator.comparingInt(CameraPoint::timelineSlot).reversed()
+				: java.util.Comparator.comparingInt(CameraPoint::timelineSlot));
+		return stream.findFirst()
+			.map(candidate -> "slot " + candidate.timelineSlot() + ", " + CinematicTimeFormat.tickTime(candidate.tick()))
+			.orElse("none");
 	}
 
 	private Material material(CinematicEvent event) {

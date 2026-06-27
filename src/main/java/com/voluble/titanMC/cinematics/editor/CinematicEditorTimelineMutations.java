@@ -10,35 +10,35 @@ final class CinematicEditorTimelineMutations {
 	private CinematicEditorTimelineMutations() {
 	}
 
-	static void moveCameraPoint(
+	static void moveCameraPointSlot(
 		Player player,
 		CinematicEditorService editor,
 		CameraPoint point,
-		int deltaTicks,
+		int deltaSlots,
 		MenuActions actions
 	) {
-		editor.moveCameraPoint(player, point, deltaTicks)
+		editor.moveCameraPointSlot(player, point, deltaSlots)
 			.ifPresentOrElse(
 				updated -> actions.transition(() -> editor.openCameraOptions(player, updated)),
 				() -> {
-					player.sendMessage(ChatUtils.format("<#d43030>That tick is not available for this camera point."));
+					player.sendMessage(ChatUtils.format("<#d43030>That canvas slot is not available for this camera point."));
 					actions.transition(() -> editor.openCameraOptions(player, point));
 				}
 			);
 	}
 
-	static void moveEvent(
+	static void moveEventSlot(
 		Player player,
 		CinematicEditorService editor,
 		CinematicEvent event,
-		int deltaTicks,
+		int deltaSlots,
 		MenuActions actions
 	) {
-		editor.moveEvent(player, event, deltaTicks)
+		editor.moveEventSlot(player, event, deltaSlots)
 			.ifPresentOrElse(
 				updated -> actions.transition(() -> editor.openEventOptions(player, updated)),
 				() -> {
-					player.sendMessage(ChatUtils.format("<#d43030>That tick and row are not available for this event."));
+					player.sendMessage(ChatUtils.format("<#d43030>That canvas slot and row are not available for this event."));
 					actions.transition(() -> editor.openEventOptions(player, event));
 				}
 			);
@@ -47,12 +47,12 @@ final class CinematicEditorTimelineMutations {
 	static void shiftTimeline(
 		Player player,
 		CinematicEditorService editor,
-		int startTick,
-		int deltaTicks,
+		int startSlot,
+		int deltaSlots,
 		MenuActions actions
 	) {
-		if (!editor.shiftTimeline(player, startTick, deltaTicks)) {
-			player.sendMessage(ChatUtils.format("<#d43030>Timeline shift would create a collision or a negative tick."));
+		if (!editor.shiftTimeline(player, startSlot, deltaSlots)) {
+			player.sendMessage(ChatUtils.format("<#d43030>Timeline shift would create a collision or a negative canvas slot."));
 		}
 		actions.transition(() -> editor.openTimeline(player));
 	}

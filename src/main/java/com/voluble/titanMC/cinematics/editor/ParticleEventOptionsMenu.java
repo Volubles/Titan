@@ -26,52 +26,52 @@ final class ParticleEventOptionsMenu {
 
 	void open(Player player, ParticleCinematicEvent event) {
 		MenuDefinition.chest(3)
-			.title(MiniMessage.miniMessage().deserialize("<#b36bff>Particle Event <gray>| <white>" + CinematicTimeFormat.tickTime(event.tick())))
+			.title(MiniMessage.miniMessage().deserialize("<#b36bff>Particle Event <gray>| Slot <white>" + event.timelineSlot()))
 			.onOpen(context -> {
 				context.setItem(10, CinematicEditorChrome.display(items.event(event)));
 				context.setItem(11, promptButton(player, event, Material.BLAZE_POWDER, "<#b36bff><bold>Set Particle", "Type the Bukkit particle name.", value ->
-					new ParticleCinematicEvent(event.tick(), event.row(), event.position(), value, event.count(), event.offsetX(), event.offsetY(), event.offsetZ(), event.speed())));
+					new ParticleCinematicEvent(event.tick(), event.timelineSlot(), event.row(), event.position(), value, event.count(), event.offsetX(), event.offsetY(), event.offsetZ(), event.speed())));
 				context.setItem(12, promptButton(player, event, Material.GLOWSTONE_DUST, "<#f7d774><bold>Set Count", "Type the particle count.", value ->
-					new ParticleCinematicEvent(event.tick(), event.row(), event.position(), event.particle(), CinematicEditorParsing.positiveInt(value), event.offsetX(), event.offsetY(), event.offsetZ(), event.speed())));
+					new ParticleCinematicEvent(event.tick(), event.timelineSlot(), event.row(), event.position(), event.particle(), CinematicEditorParsing.positiveInt(value), event.offsetX(), event.offsetY(), event.offsetZ(), event.speed())));
 				context.setItem(13, promptButton(player, event, Material.SUGAR, "<#f7d774><bold>Set Speed", "Type the particle speed.", value ->
-					new ParticleCinematicEvent(event.tick(), event.row(), event.position(), event.particle(), event.count(), event.offsetX(), event.offsetY(), event.offsetZ(), CinematicEditorParsing.decimal(value))));
+					new ParticleCinematicEvent(event.tick(), event.timelineSlot(), event.row(), event.position(), event.particle(), event.count(), event.offsetX(), event.offsetY(), event.offsetZ(), CinematicEditorParsing.decimal(value))));
 				context.setItem(14, promptButton(player, event, Material.MAP, "<#30bbf1><bold>Set Offsets", "Type offsets as: x y z", value -> {
 					double[] vector = CinematicEditorParsing.vector3(value);
-					return new ParticleCinematicEvent(event.tick(), event.row(), event.position(), event.particle(), event.count(), vector[0], vector[1], vector[2], event.speed());
+					return new ParticleCinematicEvent(event.tick(), event.timelineSlot(), event.row(), event.position(), event.particle(), event.count(), vector[0], vector[1], vector[2], event.speed());
 				}));
 				context.setItem(15, button(Material.ENDER_EYE, "<#42d829><bold>Capture Location", List.of("<gray>Use your current position."), click -> {
 					ParticleCinematicEvent updated = new ParticleCinematicEvent(
-						event.tick(), event.row(), CinematicEventPosition.at(player.getLocation()), event.particle(), event.count(),
+						event.tick(), event.timelineSlot(), event.row(), CinematicEventPosition.at(player.getLocation()), event.particle(), event.count(),
 						event.offsetX(), event.offsetY(), event.offsetZ(), event.speed()
 					);
 					editor.replaceEvent(player, event, updated);
 					click.actions().transition(() -> open(player, updated));
 				}));
 				context.setItem(16, promptButton(player, event, Material.CLOCK, "<#f7d774><bold>Set Tick", "Type the new tick.", value ->
-					new ParticleCinematicEvent(CinematicEditorParsing.nonNegativeInt(value), event.row(), event.position(), event.particle(), event.count(), event.offsetX(), event.offsetY(), event.offsetZ(), event.speed())));
+					new ParticleCinematicEvent(CinematicEditorParsing.nonNegativeInt(value), event.timelineSlot(), event.row(), event.position(), event.particle(), event.count(), event.offsetX(), event.offsetY(), event.offsetZ(), event.speed())));
 				context.setItem(17, promptButton(player, event, Material.HOPPER, "<#f7d774><bold>Set Row", "Type the new row. Row 0 is reserved for cameras.", value ->
-					new ParticleCinematicEvent(event.tick(), CinematicEditorParsing.positiveInt(value), event.position(), event.particle(), event.count(), event.offsetX(), event.offsetY(), event.offsetZ(), event.speed())));
+					new ParticleCinematicEvent(event.tick(), event.timelineSlot(), CinematicEditorParsing.positiveInt(value), event.position(), event.particle(), event.count(), event.offsetX(), event.offsetY(), event.offsetZ(), event.speed())));
 				context.setItem(18, button(
 					Material.REPEATER,
-					"<#f7d774><bold>Move Tick",
-					CinematicEditorClickSteps.tickControlLore("this particle event"),
-					click -> CinematicEditorTimelineMutations.moveEvent(
+					"<#f7d774><bold>Move Slot",
+					CinematicEditorClickSteps.slotControlLore("this particle event"),
+					click -> CinematicEditorTimelineMutations.moveEventSlot(
 						player,
 						editor,
 						event,
-						CinematicEditorClickSteps.signedTickDelta(click),
+						CinematicEditorClickSteps.signedSlotDelta(click),
 						click.actions()
 					)
 				));
 				context.setItem(19, button(
 					Material.PISTON,
 					"<#30bbf1><bold>Shift Timeline From Here",
-					CinematicEditorClickSteps.tickControlLore("this event and everything after it"),
+					CinematicEditorClickSteps.slotControlLore("this event and everything after it"),
 					click -> CinematicEditorTimelineMutations.shiftTimeline(
 						player,
 						editor,
-						event.tick(),
-						CinematicEditorClickSteps.signedTickDelta(click),
+						event.timelineSlot(),
+						CinematicEditorClickSteps.signedSlotDelta(click),
 						click.actions()
 					)
 				));

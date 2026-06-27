@@ -24,7 +24,7 @@ final class CameraPointOptionsMenu {
 
 	void open(Player player, CameraPoint point) {
 		MenuDefinition.chest(3)
-			.title(MiniMessage.miniMessage().deserialize("<#30bbf1>Camera Point <gray>| <white>" + CinematicTimeFormat.tickTime(point.tick())))
+			.title(MiniMessage.miniMessage().deserialize("<#30bbf1>Camera Point <gray>| Slot <white>" + point.timelineSlot()))
 			.onOpen(context -> {
 				context.setItem(10, CinematicEditorChrome.button(
 					items,
@@ -42,7 +42,7 @@ final class CameraPointOptionsMenu {
 					"<#42d829><bold>Capture Current Location",
 					List.of("<gray>Replace this point with your current position."),
 					click -> {
-						CameraPoint updated = CameraPoint.at(point.tick(), player.getLocation());
+						CameraPoint updated = CameraPoint.at(point.tick(), point.timelineSlot(), player.getLocation());
 						editor.replaceCameraPoint(player, point, updated);
 						click.actions().transition(() -> open(player, updated));
 					}
@@ -57,13 +57,13 @@ final class CameraPointOptionsMenu {
 				context.setItem(13, CinematicEditorChrome.button(
 					items,
 					Material.REPEATER,
-					"<#f7d774><bold>Move Tick",
-					CinematicEditorClickSteps.tickControlLore("this camera point"),
-					click -> CinematicEditorTimelineMutations.moveCameraPoint(
+					"<#f7d774><bold>Move Slot",
+					CinematicEditorClickSteps.slotControlLore("this camera point"),
+					click -> CinematicEditorTimelineMutations.moveCameraPointSlot(
 						player,
 						editor,
 						point,
-						CinematicEditorClickSteps.signedTickDelta(click),
+						CinematicEditorClickSteps.signedSlotDelta(click),
 						click.actions()
 					)
 				));
@@ -71,12 +71,12 @@ final class CameraPointOptionsMenu {
 					items,
 					Material.PISTON,
 					"<#30bbf1><bold>Shift Timeline From Here",
-					CinematicEditorClickSteps.tickControlLore("this point and everything after it"),
+					CinematicEditorClickSteps.slotControlLore("this point and everything after it"),
 					click -> CinematicEditorTimelineMutations.shiftTimeline(
 						player,
 						editor,
-						point.tick(),
-						CinematicEditorClickSteps.signedTickDelta(click),
+						point.timelineSlot(),
+						CinematicEditorClickSteps.signedSlotDelta(click),
 						click.actions()
 					)
 				));
@@ -112,7 +112,7 @@ final class CameraPointOptionsMenu {
 			value -> {
 				try {
 					int tick = CinematicEditorParsing.nonNegativeInt(value);
-					CameraPoint updated = new CameraPoint(tick, point.world(), point.x(), point.y(), point.z(), point.yaw(), point.pitch());
+					CameraPoint updated = new CameraPoint(tick, point.timelineSlot(), point.world(), point.x(), point.y(), point.z(), point.yaw(), point.pitch());
 					editor.replaceCameraPoint(player, point, updated);
 					open(player, updated);
 				} catch (NumberFormatException exception) {

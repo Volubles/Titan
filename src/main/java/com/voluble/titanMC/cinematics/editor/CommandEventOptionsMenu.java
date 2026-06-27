@@ -25,51 +25,51 @@ final class CommandEventOptionsMenu {
 
 	void open(Player player, CommandCinematicEvent event) {
 		MenuDefinition.chest(3)
-			.title(MiniMessage.miniMessage().deserialize("<#f7d774>Command Event <gray>| <white>" + CinematicTimeFormat.tickTime(event.tick())))
+			.title(MiniMessage.miniMessage().deserialize("<#f7d774>Command Event <gray>| Slot <white>" + event.timelineSlot()))
 			.onOpen(context -> {
 				context.setItem(10, CinematicEditorChrome.display(items.event(event)));
 				context.setItem(11, button(Material.PAPER, "<#f7d774><bold>Set Command", List.of(
 					"<gray>Current: <white>" + event.command(),
 					"<green>Click to type a command."
 				), click -> prompt(player, event, "Type the command without a leading slash.", value ->
-					new CommandCinematicEvent(event.tick(), event.row(), value, event.console()))));
+					new CommandCinematicEvent(event.tick(), event.timelineSlot(), event.row(), value, event.console()))));
 				context.setItem(12, button(Material.COMPARATOR, "<#30bbf1><bold>Toggle Sender", List.of(
 					"<gray>Current: <white>" + (event.console() ? "Console" : "Player"),
 					"<green>Click to toggle."
 				), click -> {
-					CommandCinematicEvent updated = new CommandCinematicEvent(event.tick(), event.row(), event.command(), !event.console());
+					CommandCinematicEvent updated = new CommandCinematicEvent(event.tick(), event.timelineSlot(), event.row(), event.command(), !event.console());
 					editor.replaceEvent(player, event, updated);
 					click.actions().transition(() -> open(player, updated));
 				}));
 				context.setItem(13, numeric(player, event, Material.CLOCK, "<#f7d774><bold>Set Tick", "Type the new tick.", value ->
-					new CommandCinematicEvent(CinematicEditorParsing.nonNegativeInt(value), event.row(), event.command(), event.console())));
+					new CommandCinematicEvent(CinematicEditorParsing.nonNegativeInt(value), event.timelineSlot(), event.row(), event.command(), event.console())));
 				context.setItem(14, numeric(player, event, Material.HOPPER, "<#f7d774><bold>Set Row", "Type the new row. Row 0 is reserved for cameras.", value ->
-					new CommandCinematicEvent(event.tick(), CinematicEditorParsing.positiveInt(value), event.command(), event.console())));
+					new CommandCinematicEvent(event.tick(), event.timelineSlot(), CinematicEditorParsing.positiveInt(value), event.command(), event.console())));
 				context.setItem(15, button(Material.REDSTONE_BLOCK, "<#d43030><bold>Delete", List.of("<gray>Remove this command event."), click -> {
 					editor.removeEvent(player, event);
 					click.actions().transition(() -> editor.openTimeline(player));
 				}));
 				context.setItem(16, button(
 					Material.REPEATER,
-					"<#f7d774><bold>Move Tick",
-					CinematicEditorClickSteps.tickControlLore("this command event"),
-					click -> CinematicEditorTimelineMutations.moveEvent(
+					"<#f7d774><bold>Move Slot",
+					CinematicEditorClickSteps.slotControlLore("this command event"),
+					click -> CinematicEditorTimelineMutations.moveEventSlot(
 						player,
 						editor,
 						event,
-						CinematicEditorClickSteps.signedTickDelta(click),
+						CinematicEditorClickSteps.signedSlotDelta(click),
 						click.actions()
 					)
 				));
 				context.setItem(17, button(
 					Material.PISTON,
 					"<#30bbf1><bold>Shift Timeline From Here",
-					CinematicEditorClickSteps.tickControlLore("this event and everything after it"),
+					CinematicEditorClickSteps.slotControlLore("this event and everything after it"),
 					click -> CinematicEditorTimelineMutations.shiftTimeline(
 						player,
 						editor,
-						event.tick(),
-						CinematicEditorClickSteps.signedTickDelta(click),
+						event.timelineSlot(),
+						CinematicEditorClickSteps.signedSlotDelta(click),
 						click.actions()
 					)
 				));
@@ -88,7 +88,10 @@ final class CommandEventOptionsMenu {
 		String prompt,
 		Function<String, CommandCinematicEvent> mapper
 	) {
-		return button(material, name, List.of("<gray>Current tick/row: <white>" + event.tick() + " / " + event.row()), click ->
+		return button(material, name, List.of(
+			"<gray>Current slot: <white>" + event.timelineSlot(),
+			"<gray>Current tick/row: <white>" + event.tick() + " / " + event.row()
+		), click ->
 			prompt(player, event, prompt, mapper));
 	}
 

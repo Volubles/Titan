@@ -9,7 +9,7 @@ public record CinematicTimeline(List<CinematicEvent> events) {
 
 	public CinematicTimeline {
 		events = Objects.requireNonNull(events, "events").stream()
-			.sorted(Comparator.comparingInt(CinematicEvent::tick).thenComparingInt(CinematicEvent::row))
+			.sorted(Comparator.comparingInt(CinematicEvent::timelineSlot).thenComparingInt(CinematicEvent::row).thenComparingInt(CinematicEvent::tick))
 			.toList();
 	}
 

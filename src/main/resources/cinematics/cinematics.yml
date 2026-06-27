@@ -11,6 +11,7 @@ cinematics:
       restore-player: true
       points:
         - tick: 0
+          slot: 0
           world: world
           x: 0.5
           y: 80.0
@@ -18,6 +19,7 @@ cinematics:
           yaw: 0.0
           pitch: 0.0
         - tick: 120
+          slot: 4
           world: world
           x: 0.5
           y: 80.0

@@ -25,25 +25,31 @@ final class AddNodeMenu {
 		this.items = Objects.requireNonNull(items, "items");
 	}
 
-	void open(Player player, int tick, int row) {
+	void open(Player player, int timelineSlot, int row) {
 		MenuDefinition.chest(3)
-			.title(MiniMessage.miniMessage().deserialize("<#30bbf1>Add Node <gray>| Tick <white>" + tick))
+			.title(MiniMessage.miniMessage().deserialize("<#30bbf1>Add Node <gray>| Slot <white>" + timelineSlot))
 			.onOpen(context -> {
 				if (row == 0) {
 					context.setItem(13, CinematicEditorChrome.button(
 						items,
 						Material.ENDER_EYE,
 						"<#30bbf1><bold>Add Camera Point",
-						List.of("<gray>Captures your current position.", "<green>Click to add."),
+						List.of(
+							"<gray>Canvas slot: <white>" + timelineSlot,
+							"<gray>Default tick: <white>" + CinematicTimeFormat.tickTime(editor.defaultTickForSlot(player, timelineSlot)),
+							"",
+							"<gray>Captures your current position.",
+							"<green>Click to add."
+						),
 						click -> {
-							editor.addCameraPoint(player, tick);
-							click.actions().transition(() -> editor.openCameraOptions(player, CameraPoint.at(tick, player.getLocation())));
+							CameraPoint point = editor.addCameraPoint(player, timelineSlot);
+							click.actions().transition(() -> editor.openCameraOptions(player, point));
 						}
 					));
 				} else {
-					context.setItem(11, sound(player, tick, row));
-					context.setItem(13, command(player, tick, row));
-					context.setItem(15, particle(player, tick, row));
+					context.setItem(11, sound(player, timelineSlot, row));
+					context.setItem(13, command(player, timelineSlot, row));
+					context.setItem(15, particle(player, timelineSlot, row));
 				}
 				context.setItem(22, CinematicEditorChrome.button(
 					items,
@@ -57,15 +63,16 @@ final class AddNodeMenu {
 			.open(menus, player);
 	}
 
-	private io.voluble.michellelib.menu.item.MenuItem sound(Player player, int tick, int row) {
+	private io.voluble.michellelib.menu.item.MenuItem sound(Player player, int timelineSlot, int row) {
 		return CinematicEditorChrome.button(
 			items,
 			Material.NOTE_BLOCK,
 			"<#42d829><bold>Add Sound",
-			List.of("<gray>Creates a sound event at your current position.", "<green>Click to add."),
+			addLore(player, timelineSlot, "Creates a sound event at your current position."),
 			context -> {
 				SoundCinematicEvent event = new SoundCinematicEvent(
-					tick,
+					editor.defaultTickForSlot(player, timelineSlot),
+					timelineSlot,
 					row,
 					CinematicEventPosition.at(player.getLocation()),
 					"minecraft:block.note_block.pling",
@@ -79,29 +86,36 @@ final class AddNodeMenu {
 		);
 	}
 
-	private io.voluble.michellelib.menu.item.MenuItem command(Player player, int tick, int row) {
+	private io.voluble.michellelib.menu.item.MenuItem command(Player player, int timelineSlot, int row) {
 		return CinematicEditorChrome.button(
 			items,
 			Material.COMMAND_BLOCK,
 			"<#f7d774><bold>Add Command",
-			List.of("<gray>Creates a console command event.", "<green>Click to add."),
+			addLore(player, timelineSlot, "Creates a console command event."),
 			context -> {
-				CommandCinematicEvent event = new CommandCinematicEvent(tick, row, "tell {player} Cinematic command event", true);
+				CommandCinematicEvent event = new CommandCinematicEvent(
+					editor.defaultTickForSlot(player, timelineSlot),
+					timelineSlot,
+					row,
+					"tell {player} Cinematic command event",
+					true
+				);
 				editor.addEvent(player, event);
 				context.actions().transition(() -> editor.openEventOptions(player, event));
 			}
 		);
 	}
 
-	private io.voluble.michellelib.menu.item.MenuItem particle(Player player, int tick, int row) {
+	private io.voluble.michellelib.menu.item.MenuItem particle(Player player, int timelineSlot, int row) {
 		return CinematicEditorChrome.button(
 			items,
 			Material.BLAZE_POWDER,
 			"<#b36bff><bold>Add Particle",
-			List.of("<gray>Creates a particle event at your current position.", "<green>Click to add."),
+			addLore(player, timelineSlot, "Creates a particle event at your current position."),
 			context -> {
 				ParticleCinematicEvent event = new ParticleCinematicEvent(
-					tick,
+					editor.defaultTickForSlot(player, timelineSlot),
+					timelineSlot,
 					row,
 					CinematicEventPosition.at(player.getLocation()),
 					"CLOUD",
@@ -114,6 +128,16 @@ final class AddNodeMenu {
 				editor.addEvent(player, event);
 				context.actions().transition(() -> editor.openEventOptions(player, event));
 			}
+		);
+	}
+
+	private List<String> addLore(Player player, int timelineSlot, String description) {
+		return List.of(
+			"<gray>Canvas slot: <white>" + timelineSlot,
+			"<gray>Default tick: <white>" + CinematicTimeFormat.tickTime(editor.defaultTickForSlot(player, timelineSlot)),
+			"",
+			"<gray>" + description,
+			"<green>Click to add."
 		);
 	}
 }

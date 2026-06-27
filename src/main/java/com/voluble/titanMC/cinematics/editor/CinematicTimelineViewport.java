@@ -1,6 +1,6 @@
 package com.voluble.titanMC.cinematics.editor;
 
-record CinematicTimelineViewport(int startTick, int startRow) {
+record CinematicTimelineViewport(int startSlot, int startRow) {
 	static final int COLUMNS = 9;
 	static final int ROWS = 5;
 
@@ -8,8 +8,8 @@ record CinematicTimelineViewport(int startTick, int startRow) {
 		return visibleRow * COLUMNS + column;
 	}
 
-	int tick(int column) {
-		return startTick + column;
+	int timelineSlot(int column) {
+		return startSlot + column;
 	}
 
 	int row(int visibleRow) {
