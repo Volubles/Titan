@@ -57,7 +57,7 @@ public final class CinematicEditorService {
 	}
 
 	public void open(Player player, CinematicId id) {
-		configuration.createIfMissing(id);
+		configuration.createIfMissing(id, player.getLocation());
 		sessions.compute(player.getUniqueId(), (uuid, existing) -> existing == null || !existing.cinematicId().equals(id)
 			? new CinematicEditorSession(id)
 			: existing);

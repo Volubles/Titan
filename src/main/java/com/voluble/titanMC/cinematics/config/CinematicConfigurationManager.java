@@ -10,6 +10,8 @@ import com.voluble.titanMC.cinematics.model.ParticleCinematicEvent;
 import com.voluble.titanMC.cinematics.model.SoundCinematicEvent;
 import com.voluble.titanMC.managers.ConfigManager;
 import com.voluble.titanMC.util.ComponentFiles;
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
@@ -41,6 +43,7 @@ public final class CinematicConfigurationManager implements ConfigManager.Compon
 					Files.copy(source, path, StandardCopyOption.REPLACE_EXISTING);
 				}
 			}
+			repairDefaultWorldPlaceholder();
 			reload();
 		} catch (Exception exception) {
 			throw new IllegalStateException("Could not initialize cinematics/cinematics.yml", exception);
@@ -57,14 +60,36 @@ public final class CinematicConfigurationManager implements ConfigManager.Compon
 	}
 
 	public void createIfMissing(CinematicId id) {
+		createIfMissing(id, defaultOrigin());
+	}
+
+	public void createIfMissing(CinematicId id, Location origin) {
+		Objects.requireNonNull(origin, "origin");
+		World world = Objects.requireNonNull(origin.getWorld(), "origin world");
 		YamlConfiguration yaml = YamlConfiguration.loadConfiguration(path.toFile());
 		String base = "cinematics." + id.value();
 		if (yaml.isConfigurationSection(base)) return;
 		yaml.set(base + ".duration-ticks", 80);
 		yaml.set(base + ".camera.restore-player", current().defaultRestorePlayer());
 		yaml.set(base + ".camera.points", List.of(
-			Map.of("tick", 0, "world", "world", "x", 0.5, "y", 80.0, "z", 0.5, "yaw", 0.0, "pitch", 0.0),
-			Map.of("tick", 80, "world", "world", "x", 0.5, "y", 80.0, "z", 0.5, "yaw", 0.0, "pitch", 0.0)
+			Map.of(
+				"tick", 0,
+				"world", world.getName(),
+				"x", origin.getX(),
+				"y", origin.getY(),
+				"z", origin.getZ(),
+				"yaw", origin.getYaw(),
+				"pitch", origin.getPitch()
+			),
+			Map.of(
+				"tick", 80,
+				"world", world.getName(),
+				"x", origin.getX(),
+				"y", origin.getY(),
+				"z", origin.getZ(),
+				"yaw", origin.getYaw(),
+				"pitch", origin.getPitch()
+			)
 		));
 		yaml.set(base + ".timeline.events", List.of());
 		save(yaml);
@@ -91,7 +116,7 @@ public final class CinematicConfigurationManager implements ConfigManager.Compon
 	public void appendCameraPoint(CinematicId id, CameraPoint point) {
 		YamlConfiguration yaml = YamlConfiguration.loadConfiguration(path.toFile());
 		String base = "cinematics." + id.value();
-		if (!yaml.isConfigurationSection(base)) createIfMissing(id);
+		if (!yaml.isConfigurationSection(base)) createIfMissing(id, point.toLocation());
 		yaml = YamlConfiguration.loadConfiguration(path.toFile());
 		List<Map<?, ?>> points = yaml.getMapList(base + ".camera.points");
 		points.add(Map.of(
@@ -124,6 +149,54 @@ public final class CinematicConfigurationManager implements ConfigManager.Compon
 		} catch (Exception exception) {
 			throw new IllegalStateException("Could not save cinematics/cinematics.yml", exception);
 		}
+	}
+
+	private void repairDefaultWorldPlaceholder() {
+		World replacement = primaryWorld();
+		if (replacement == null || plugin.getServer().getWorld("world") != null) return;
+		YamlConfiguration yaml = YamlConfiguration.loadConfiguration(path.toFile());
+		boolean changed = false;
+		var cinematics = yaml.getConfigurationSection("cinematics");
+		if (cinematics != null) {
+			for (String id : cinematics.getKeys(false)) {
+				String cameraPoints = "cinematics." + id + ".camera.points";
+				String timelineEvents = "cinematics." + id + ".timeline.events";
+				changed |= replaceWorld(yaml.getMapList(cameraPoints), replacement.getName(), yaml, cameraPoints);
+				changed |= replaceWorld(yaml.getMapList(timelineEvents), replacement.getName(), yaml, timelineEvents);
+			}
+		}
+		if (changed) {
+			save(yaml);
+			plugin.getLogger().info("Updated cinematic placeholder world 'world' to '" + replacement.getName() + "'.");
+		}
+	}
+
+	private boolean replaceWorld(List<Map<?, ?>> entries, String replacement, YamlConfiguration yaml, String path) {
+		if (entries.isEmpty()) return false;
+		boolean changed = false;
+		java.util.ArrayList<Map<String, Object>> updated = new java.util.ArrayList<>();
+		for (Map<?, ?> entry : entries) {
+			Map<String, Object> copy = new java.util.LinkedHashMap<>();
+			entry.forEach((key, value) -> copy.put(String.valueOf(key), value));
+			if ("world".equals(copy.get("world"))) {
+				copy.put("world", replacement);
+				changed = true;
+			}
+			updated.add(copy);
+		}
+		if (changed) yaml.set(path, updated);
+		return changed;
+	}
+
+	private Location defaultOrigin() {
+		World world = primaryWorld();
+		if (world == null) throw new IllegalStateException("Cannot create cinematic without a loaded world");
+		return world.getSpawnLocation();
+	}
+
+	private World primaryWorld() {
+		if (plugin.getServer().getWorlds().isEmpty()) return null;
+		return plugin.getServer().getWorlds().getFirst();
 	}
 
 	private Map<String, Object> cameraPointMap(CameraPoint point) {

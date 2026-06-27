@@ -68,18 +68,25 @@ public final class CinematicSession {
 	}
 
 	private void tick() {
-		if (!player.isOnline()) {
-			stop(false);
-			return;
-		}
-		if (frame > definition.durationTicks()) {
+		try {
+			if (!player.isOnline()) {
+				stop(false);
+				return;
+			}
+			if (frame > definition.durationTicks()) {
+				stop(true);
+				return;
+			}
+			player.teleport(CameraPathInterpolator.locationAt(definition.camera().points(), frame));
+			for (var event : definition.timeline().atTick(frame)) {
+				events.execute(player, event);
+			}
+			frame++;
+		} catch (Exception exception) {
+			plugin.getLogger().warning(
+				"Stopped cinematic " + definition.id().value() + " for " + player.getName() + ": " + exception.getMessage()
+			);
 			stop(true);
-			return;
 		}
-		player.teleport(CameraPathInterpolator.locationAt(definition.camera().points(), frame));
-		for (var event : definition.timeline().atTick(frame)) {
-			events.execute(player, event);
-		}
-		frame++;
 	}
 }
