@@ -56,8 +56,11 @@ public final class PreviewActor {
 		focused = result;
 		state = PreviewActorState.ENTERING;
 		current = path.entrance().clone();
-		npc.addViewer(viewerId);
 		npc.spawn(toPacketLocation(current));
+		npc.addViewer(viewerId);
+		Bukkit.getScheduler().runTaskLater(plugin, () -> {
+			if (state != PreviewActorState.REMOVED) npc.setInTablist(false);
+		}, 10L);
 		playSegment(current, path.focus(), false, () -> {
 			if (state == PreviewActorState.REMOVED) return;
 			current = path.focus().clone();
@@ -111,7 +114,6 @@ public final class PreviewActor {
 		);
 		int entityId = EntityLib.getPlatform().getEntityIdProvider().provide(npcUuid, EntityTypes.PLAYER);
 		WrapperPlayer player = new WrapperPlayer(profile, entityId);
-		player.setInTablist(false);
 		player.setGameMode(GameMode.SURVIVAL);
 		player.setDisplayName(net.kyori.adventure.text.Component.text(displayName));
 		player.setLatency(0);
