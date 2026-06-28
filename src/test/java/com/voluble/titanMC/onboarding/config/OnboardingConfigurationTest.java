@@ -4,7 +4,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class OnboardingConfigurationTest {
@@ -57,7 +57,7 @@ class OnboardingConfigurationTest {
 	}
 
 	@Test
-	void synchronizesMissingPresentationAsDisabled() {
+	void synchronizesMissingPresentationDefaults() {
 		YamlConfiguration yaml = yaml("""
 			enabled: true
 			first-join:
@@ -85,7 +85,9 @@ class OnboardingConfigurationTest {
 		OnboardingYamlSynchronizer.sync(yaml);
 		OnboardingConfiguration config = OnboardingConfiguration.load(yaml);
 
-		assertFalse(config.presentation().enabled());
+		assertTrue(config.presentation().enabled());
+		assertEquals(2, config.presentation().steps().size());
+		assertTrue(config.presentation().previewSpawnSound().enabled());
 	}
 
 	@Test
