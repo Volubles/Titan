@@ -88,4 +88,35 @@ preview:
 input:
   repeat-cooldown-ms:
 
+presentation:
+  enabled:
+  steps:
+    - title:
+        text:
+        style:
+      subtitle:
+        text:
+        style:
+      typewriter:
+        total-ticks:
+        sound:
+          enabled:
+          key:
+          category:
+          volume:
+          pitch:
+      hold-ticks:
+  complete-sound:
+    enabled:
+    key:
+    category:
+    volume:
+    pitch:
+  preview-spawn-sound:
+    enabled:
+    key:
+    category:
+    volume:
+    pitch:
+
 outfits:

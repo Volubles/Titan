@@ -14,6 +14,7 @@ class OnboardingConfigurationTest {
 		assertEquals(6.0, config.previewStage().focus().x());
 		assertEquals(17.0, config.previewStage().leftStage().x());
 		assertEquals(20.0, config.previewStage().rightStage().x());
+		assertEquals(2, config.presentation().steps().size());
 	}
 
 	@Test
@@ -27,7 +28,7 @@ class OnboardingConfigurationTest {
 
 	@Test
 	void carouselRequiresCompleteCarouselStage() {
-		assertThrows(IllegalArgumentException.class, () -> OnboardingConfiguration.load(yaml("""
+		String source = """
 			enabled: true
 			first-join:
 			  enabled: true
@@ -39,9 +40,12 @@ class OnboardingConfigurationTest {
 			    focus: { world: world, x: 6, y: 7, z: 8, yaw: 9, pitch: 10 }
 			input:
 			  repeat-cooldown-ms: 300
+			%s
 			outfits:
 			  - prison
-			""")));
+			""".formatted(presentationConfig());
+
+		assertThrows(IllegalArgumentException.class, () -> OnboardingConfiguration.load(yaml(source)));
 	}
 
 	@Test
@@ -53,7 +57,7 @@ class OnboardingConfigurationTest {
 
 	@Test
 	void requiresPreviewMode() {
-		assertThrows(IllegalArgumentException.class, () -> OnboardingConfiguration.load(yaml("""
+		String source = """
 			enabled: true
 			first-join:
 			  enabled: true
@@ -61,12 +65,15 @@ class OnboardingConfigurationTest {
 			cinematic: onboarding_intro
 			input:
 			  repeat-cooldown-ms: 300
+			%s
 			preview:
 			  carousel:
 			    focus: { world: world, x: 6, y: 7, z: 8, yaw: 9, pitch: 10 }
 			outfits:
 			  - prison
-			""")));
+			""".formatted(presentationConfig());
+
+		assertThrows(IllegalArgumentException.class, () -> OnboardingConfiguration.load(yaml(source)));
 	}
 
 	@Test
@@ -81,13 +88,15 @@ class OnboardingConfigurationTest {
 			  mode:
 			input:
 			  repeat-cooldown-ms:
+			presentation:
+			  enabled:
 			outfits:
 			""")));
 	}
 
 	@Test
 	void rejectsNonNumericLocationValues() {
-		assertThrows(IllegalArgumentException.class, () -> OnboardingConfiguration.load(yaml("""
+		String source = """
 			enabled: true
 			first-join:
 			  enabled: true
@@ -101,9 +110,12 @@ class OnboardingConfigurationTest {
 			    exit: { world: world, x: 11, y: 12, z: 13, yaw: 14, pitch: 15 }
 			input:
 			  repeat-cooldown-ms: 300
+			%s
 			outfits:
 			  - prison
-			""")));
+			""".formatted(presentationConfig());
+
+		assertThrows(IllegalArgumentException.class, () -> OnboardingConfiguration.load(yaml(source)));
 	}
 
 	private static String carouselConfig() {
@@ -127,9 +139,10 @@ class OnboardingConfigurationTest {
 			      exit: { world: world, x: 21, y: 2, z: 3, yaw: 4, pitch: 5 }
 			input:
 			  repeat-cooldown-ms: 300
+			%s
 			outfits:
 			  - prison
-			""";
+			""".formatted(presentationConfig());
 	}
 
 	private static String runwayConfig() {
@@ -147,8 +160,43 @@ class OnboardingConfigurationTest {
 			    exit: { world: world, x: 11, y: 12, z: 13, yaw: 14, pitch: 15 }
 			input:
 			  repeat-cooldown-ms: 300
+			%s
 			outfits:
 			  - prison
+			""".formatted(presentationConfig());
+	}
+
+	private static String presentationConfig() {
+		return """
+			presentation:
+			  enabled: true
+			  steps:
+			    - title:
+			        text: "Välkommen till"
+			        style: "<color:#30bbf1>{{text}}</color>"
+			      subtitle:
+			        text: "Svea Prison"
+			        style: "<color:#42d829><bold>{{text}}</bold></color>"
+			      typewriter:
+			        total-ticks: 40
+			        sound:
+			          enabled: false
+			      hold-ticks: 20
+			    - title:
+			        text: "Välj din outfit"
+			        style: "<color:#30bbf1>{{text}}</color>"
+			      subtitle:
+			        text: "Använd A och D"
+			        style: "<gray>{{text}}</gray>"
+			      typewriter:
+			        total-ticks: 25
+			        sound:
+			          enabled: false
+			      hold-ticks: 10
+			  complete-sound:
+			    enabled: false
+			  preview-spawn-sound:
+			    enabled: false
 			""";
 	}
 

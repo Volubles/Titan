@@ -7,6 +7,8 @@ import com.voluble.titanMC.display.notice.PluginMessageService;
 import com.voluble.titanMC.onboarding.config.OnboardingConfiguration;
 import com.voluble.titanMC.onboarding.config.OnboardingPreviewMode;
 import com.voluble.titanMC.onboarding.persistence.OnboardingStorage;
+import com.voluble.titanMC.onboarding.presentation.OnboardingPresentationPlayback;
+import com.voluble.titanMC.onboarding.presentation.OnboardingPresentationRunner;
 import com.voluble.titanMC.onboarding.preview.OutfitPreview;
 import com.voluble.titanMC.outfits.OutfitResult;
 import com.voluble.titanMC.outfits.OutfitService;
@@ -37,6 +39,7 @@ public final class OnboardingSession {
 	private final OutfitService outfits;
 	private final OutfitConfigurationManager outfitConfiguration;
 	private final OutfitPreview preview;
+	private final OnboardingPresentationRunner presentation;
 	private final OnboardingStorage storage;
 	private final PluginMessageService messages;
 	private final Logger logger;
@@ -47,6 +50,7 @@ public final class OnboardingSession {
 	private boolean interactive;
 	private boolean previewTransitioning;
 	private int previewGeneration;
+	private OnboardingPresentationPlayback presentationPlayback;
 
 	public OnboardingSession(
 		Plugin plugin,
@@ -56,6 +60,7 @@ public final class OnboardingSession {
 		OutfitService outfits,
 		OutfitConfigurationManager outfitConfiguration,
 		OutfitPreview preview,
+		OnboardingPresentationRunner presentation,
 		OnboardingStorage storage,
 		PluginMessageService messages,
 		Logger logger,
@@ -68,6 +73,7 @@ public final class OnboardingSession {
 		this.outfits = Objects.requireNonNull(outfits, "outfits");
 		this.outfitConfiguration = Objects.requireNonNull(outfitConfiguration, "outfitConfiguration");
 		this.preview = Objects.requireNonNull(preview, "preview");
+		this.presentation = Objects.requireNonNull(presentation, "presentation");
 		this.storage = Objects.requireNonNull(storage, "storage");
 		this.messages = Objects.requireNonNull(messages, "messages");
 		this.logger = Objects.requireNonNull(logger, "logger");
@@ -115,6 +121,7 @@ public final class OnboardingSession {
 	public void stop(boolean restorePlayer) {
 		if (stopping) return;
 		stopping = true;
+		if (presentationPlayback != null) presentationPlayback.cancel();
 		preview.remove(player);
 		cinematics.stop(player.getUniqueId(), restorePlayer);
 		completion.accept(player.getUniqueId());
@@ -128,8 +135,18 @@ public final class OnboardingSession {
 
 	private void beginSelection() {
 		if (stopping || !player.isOnline()) return;
+		presentationPlayback = presentation.play(player, configuration.presentation());
+		presentationPlayback.completion().whenComplete((ignored, failure) -> {
+			if (failure != null) return;
+			Bukkit.getScheduler().runTask(plugin, this::beginInteractiveSelection);
+		});
+	}
+
+	private void beginInteractiveSelection() {
+		if (stopping || !player.isOnline()) return;
 		interactive = true;
 		messages.send(player, MessageDefaults.ONBOARDING_STARTED);
+		presentation.playSound(player, configuration.presentation().previewSpawnSound());
 		showSelectedOutfit(0);
 	}
 

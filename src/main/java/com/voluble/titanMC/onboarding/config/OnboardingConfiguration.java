@@ -19,12 +19,14 @@ public record OnboardingConfiguration(
 	long inputCooldownMillis,
 	OnboardingPreviewMode previewMode,
 	OnboardingPreviewStage previewStage,
+	OnboardingPresentationConfiguration presentation,
 	List<OutfitId> outfits
 ) {
 	public OnboardingConfiguration {
 		Objects.requireNonNull(cinematic, "cinematic");
 		Objects.requireNonNull(previewMode, "previewMode");
 		Objects.requireNonNull(previewStage, "previewStage");
+		Objects.requireNonNull(presentation, "presentation");
 		outfits = List.copyOf(Objects.requireNonNull(outfits, "outfits"));
 		if (firstJoinDelayTicks < 0L) throw new IllegalArgumentException("first join delay must not be negative");
 		if (inputCooldownMillis < 0L) throw new IllegalArgumentException("input cooldown must not be negative");
@@ -35,6 +37,7 @@ public record OnboardingConfiguration(
 		ConfigurationSection firstJoin = yaml.getConfigurationSection("first-join");
 		ConfigurationSection input = yaml.getConfigurationSection("input");
 		ConfigurationSection preview = requiredSection(yaml, "preview");
+		ConfigurationSection presentation = requiredSection(yaml, "presentation");
 		OnboardingPreviewMode previewMode = OnboardingPreviewMode.parse(requiredString(preview, "preview.mode"));
 		return new OnboardingConfiguration(
 			requiredBoolean(yaml, "enabled"),
@@ -44,6 +47,7 @@ public record OnboardingConfiguration(
 			requiredLong(input, "input.repeat-cooldown-ms"),
 			previewMode,
 			OnboardingPreviewStage.load(preview, previewMode),
+			OnboardingPresentationConfiguration.load(presentation),
 			requiredStringList(yaml, "outfits").stream().map(OutfitId::of).toList()
 		);
 	}
@@ -84,21 +88,21 @@ public record OnboardingConfiguration(
 		}
 	}
 
-	private static boolean requiredBoolean(ConfigurationSection section, String path) {
+	static boolean requiredBoolean(ConfigurationSection section, String path) {
 		if (section == null) throw new IllegalArgumentException("Missing onboarding config section for " + path);
 		if (!section.contains(lastPathPart(path))) throw new IllegalArgumentException("Missing onboarding config value: " + path);
 		if (!section.isBoolean(lastPathPart(path))) throw new IllegalArgumentException("Onboarding config value must be boolean: " + path);
 		return section.getBoolean(lastPathPart(path));
 	}
 
-	private static ConfigurationSection requiredSection(ConfigurationSection section, String path) {
+	static ConfigurationSection requiredSection(ConfigurationSection section, String path) {
 		if (section == null) throw new IllegalArgumentException("Missing onboarding config section for " + path);
 		ConfigurationSection child = section.getConfigurationSection(lastPathPart(path));
 		if (child == null) throw new IllegalArgumentException("Missing onboarding config section: " + path);
 		return child;
 	}
 
-	private static long requiredLong(ConfigurationSection section, String path) {
+	static long requiredLong(ConfigurationSection section, String path) {
 		if (section == null) throw new IllegalArgumentException("Missing onboarding config section for " + path);
 		if (!section.contains(lastPathPart(path))) throw new IllegalArgumentException("Missing onboarding config value: " + path);
 		if (!section.isLong(lastPathPart(path)) && !section.isInt(lastPathPart(path))) {
@@ -107,7 +111,7 @@ public record OnboardingConfiguration(
 		return section.getLong(lastPathPart(path));
 	}
 
-	private static double requiredDouble(ConfigurationSection section, String path) {
+	static double requiredDouble(ConfigurationSection section, String path) {
 		if (section == null) throw new IllegalArgumentException("Missing onboarding config section for " + path);
 		if (!section.contains(lastPathPart(path))) throw new IllegalArgumentException("Missing onboarding config value: " + path);
 		if (!section.isDouble(lastPathPart(path)) && !section.isLong(lastPathPart(path)) && !section.isInt(lastPathPart(path))) {
@@ -116,7 +120,7 @@ public record OnboardingConfiguration(
 		return section.getDouble(lastPathPart(path));
 	}
 
-	private static String requiredString(ConfigurationSection section, String path) {
+	static String requiredString(ConfigurationSection section, String path) {
 		if (section == null) throw new IllegalArgumentException("Missing onboarding config section for " + path);
 		if (!section.contains(lastPathPart(path))) throw new IllegalArgumentException("Missing onboarding config value: " + path);
 		if (!section.isString(lastPathPart(path))) throw new IllegalArgumentException("Onboarding config value must be text: " + path);
@@ -125,14 +129,14 @@ public record OnboardingConfiguration(
 		return value;
 	}
 
-	private static List<String> requiredStringList(ConfigurationSection section, String path) {
+	static List<String> requiredStringList(ConfigurationSection section, String path) {
 		if (section == null) throw new IllegalArgumentException("Missing onboarding config section for " + path);
 		if (!section.contains(lastPathPart(path))) throw new IllegalArgumentException("Missing onboarding config value: " + path);
 		if (!section.isList(lastPathPart(path))) throw new IllegalArgumentException("Onboarding config value must be a list: " + path);
 		return section.getStringList(lastPathPart(path));
 	}
 
-	private static String lastPathPart(String path) {
+	static String lastPathPart(String path) {
 		int separator = path.lastIndexOf('.');
 		return separator < 0 ? path : path.substring(separator + 1);
 	}
