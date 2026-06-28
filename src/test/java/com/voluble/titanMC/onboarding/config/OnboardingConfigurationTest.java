@@ -33,11 +33,12 @@ class OnboardingConfigurationTest {
 			  enabled: true
 			  delay-ticks: 40
 			cinematic: onboarding_intro
-			preview-mode: carousel
+			preview:
+			  mode: carousel
+			  carousel:
+			    focus: { world: world, x: 6, y: 7, z: 8, yaw: 9, pitch: 10 }
 			input:
 			  repeat-cooldown-ms: 300
-			preview-stage:
-			  focus: { world: world, x: 6, y: 7, z: 8, yaw: 9, pitch: 10 }
 			outfits:
 			  - prison
 			""")));
@@ -60,8 +61,9 @@ class OnboardingConfigurationTest {
 			cinematic: onboarding_intro
 			input:
 			  repeat-cooldown-ms: 300
-			preview-stage:
-			  focus: { world: world, x: 6, y: 7, z: 8, yaw: 9, pitch: 10 }
+			preview:
+			  carousel:
+			    focus: { world: world, x: 6, y: 7, z: 8, yaw: 9, pitch: 10 }
 			outfits:
 			  - prison
 			""")));
@@ -74,17 +76,20 @@ class OnboardingConfigurationTest {
 			  enabled: true
 			  delay-ticks: 40
 			cinematic: onboarding_intro
-			preview-mode: carousel
+			preview:
+			  mode: carousel
+			  carousel:
+			    focus: { world: world, x: 6, y: 7, z: 8, yaw: 9, pitch: 10 }
+			    left:
+			      entrance: { world: world, x: 16, y: 2, z: 3, yaw: 4, pitch: 5 }
+			      stage: { world: world, x: 17, y: 2, z: 3, yaw: 4, pitch: 5 }
+			      exit: { world: world, x: 18, y: 2, z: 3, yaw: 4, pitch: 5 }
+			    right:
+			      entrance: { world: world, x: 19, y: 2, z: 3, yaw: 4, pitch: 5 }
+			      stage: { world: world, x: 20, y: 2, z: 3, yaw: 4, pitch: 5 }
+			      exit: { world: world, x: 21, y: 2, z: 3, yaw: 4, pitch: 5 }
 			input:
 			  repeat-cooldown-ms: 300
-			preview-stage:
-			  focus: { world: world, x: 6, y: 7, z: 8, yaw: 9, pitch: 10 }
-			  left-entrance: { world: world, x: 16, y: 2, z: 3, yaw: 4, pitch: 5 }
-			  left-stage: { world: world, x: 17, y: 2, z: 3, yaw: 4, pitch: 5 }
-			  left-exit: { world: world, x: 18, y: 2, z: 3, yaw: 4, pitch: 5 }
-			  right-entrance: { world: world, x: 19, y: 2, z: 3, yaw: 4, pitch: 5 }
-			  right-stage: { world: world, x: 20, y: 2, z: 3, yaw: 4, pitch: 5 }
-			  right-exit: { world: world, x: 21, y: 2, z: 3, yaw: 4, pitch: 5 }
 			outfits:
 			  - prison
 			""";
@@ -97,13 +102,14 @@ class OnboardingConfigurationTest {
 			  enabled: true
 			  delay-ticks: 40
 			cinematic: onboarding_intro
-			preview-mode: runway
+			preview:
+			  mode: runway
+			  runway:
+			    entrance: { world: world, x: 1, y: 2, z: 3, yaw: 4, pitch: 5 }
+			    focus: { world: world, x: 6, y: 7, z: 8, yaw: 9, pitch: 10 }
+			    exit: { world: world, x: 11, y: 12, z: 13, yaw: 14, pitch: 15 }
 			input:
 			  repeat-cooldown-ms: 300
-			preview-stage:
-			  runway-entrance: { world: world, x: 1, y: 2, z: 3, yaw: 4, pitch: 5 }
-			  focus: { world: world, x: 6, y: 7, z: 8, yaw: 9, pitch: 10 }
-			  runway-exit: { world: world, x: 11, y: 12, z: 13, yaw: 14, pitch: 15 }
 			outfits:
 			  - prison
 			""";

@@ -52,7 +52,7 @@ public final class OnboardingConfigurationManager implements ConfigManager.Compo
 		Objects.requireNonNull(location, "location");
 		OnboardingConfiguration.LocationSpec spec = OnboardingConfiguration.LocationSpec.from(location);
 		YamlConfiguration yaml = YamlConfiguration.loadConfiguration(path.toFile());
-		String base = "preview-stage." + point.key();
+		String base = point.configPath();
 		yaml.set(base + ".world", spec.world());
 		yaml.set(base + ".x", spec.x());
 		yaml.set(base + ".y", spec.y());

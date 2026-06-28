@@ -4,24 +4,31 @@ import java.util.Arrays;
 import java.util.Locale;
 
 public enum OnboardingPreviewPoint {
-	RUNWAY_ENTRANCE("runway-entrance"),
-	FOCUS("focus"),
-	RUNWAY_EXIT("runway-exit"),
-	LEFT_ENTRANCE("left-entrance"),
-	LEFT_STAGE("left-stage"),
-	LEFT_EXIT("left-exit"),
-	RIGHT_ENTRANCE("right-entrance"),
-	RIGHT_STAGE("right-stage"),
-	RIGHT_EXIT("right-exit");
+	RUNWAY_ENTRANCE("runway-entrance", "preview.runway.entrance"),
+	FOCUS("focus", "preview.carousel.focus"),
+	RUNWAY_FOCUS("runway-focus", "preview.runway.focus"),
+	RUNWAY_EXIT("runway-exit", "preview.runway.exit"),
+	LEFT_ENTRANCE("left-entrance", "preview.carousel.left.entrance"),
+	LEFT_STAGE("left-stage", "preview.carousel.left.stage"),
+	LEFT_EXIT("left-exit", "preview.carousel.left.exit"),
+	RIGHT_ENTRANCE("right-entrance", "preview.carousel.right.entrance"),
+	RIGHT_STAGE("right-stage", "preview.carousel.right.stage"),
+	RIGHT_EXIT("right-exit", "preview.carousel.right.exit");
 
 	private final String key;
+	private final String configPath;
 
-	OnboardingPreviewPoint(String key) {
+	OnboardingPreviewPoint(String key, String configPath) {
 		this.key = key;
+		this.configPath = configPath;
 	}
 
 	public String key() {
 		return key;
+	}
+
+	public String configPath() {
+		return configPath;
 	}
 
 	public static OnboardingPreviewPoint parse(String input) {

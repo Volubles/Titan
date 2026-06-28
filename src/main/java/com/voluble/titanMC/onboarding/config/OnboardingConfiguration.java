@@ -34,7 +34,8 @@ public record OnboardingConfiguration(
 	public static OnboardingConfiguration load(FileConfiguration yaml) {
 		ConfigurationSection firstJoin = yaml.getConfigurationSection("first-join");
 		ConfigurationSection input = yaml.getConfigurationSection("input");
-		OnboardingPreviewMode previewMode = OnboardingPreviewMode.parse(requiredString(yaml, "preview-mode"));
+		ConfigurationSection preview = requiredSection(yaml, "preview");
+		OnboardingPreviewMode previewMode = OnboardingPreviewMode.parse(requiredString(preview, "preview.mode"));
 		return new OnboardingConfiguration(
 			requiredBoolean(yaml, "enabled"),
 			requiredBoolean(firstJoin, "first-join.enabled"),
@@ -42,7 +43,7 @@ public record OnboardingConfiguration(
 			CinematicId.of(requiredString(yaml, "cinematic")),
 			requiredLong(input, "input.repeat-cooldown-ms"),
 			previewMode,
-			OnboardingPreviewStage.load(yaml, previewMode),
+			OnboardingPreviewStage.load(preview, previewMode),
 			requiredStringList(yaml, "outfits").stream().map(OutfitId::of).toList()
 		);
 	}
@@ -87,6 +88,13 @@ public record OnboardingConfiguration(
 		if (section == null) throw new IllegalArgumentException("Missing onboarding config section for " + path);
 		if (!section.contains(lastPathPart(path))) throw new IllegalArgumentException("Missing onboarding config value: " + path);
 		return section.getBoolean(lastPathPart(path));
+	}
+
+	private static ConfigurationSection requiredSection(ConfigurationSection section, String path) {
+		if (section == null) throw new IllegalArgumentException("Missing onboarding config section for " + path);
+		ConfigurationSection child = section.getConfigurationSection(lastPathPart(path));
+		if (child == null) throw new IllegalArgumentException("Missing onboarding config section: " + path);
+		return child;
 	}
 
 	private static long requiredLong(ConfigurationSection section, String path) {
