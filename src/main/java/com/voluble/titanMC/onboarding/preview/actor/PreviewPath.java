@@ -15,12 +15,12 @@ public record PreviewPath(Location entrance, Location focus, Location exit) {
 		requireSameWorld(focus, exit, "focus", "exit");
 	}
 
-	public static PreviewPath from(OnboardingPreviewStage stage) {
+	public static PreviewPath runway(OnboardingPreviewStage stage) {
 		Objects.requireNonNull(stage, "stage");
 		return new PreviewPath(
-			stage.entrance().toLocation(),
+			stage.runwayEntrance().toLocation(),
 			stage.focus().toLocation(),
-			stage.exit().toLocation()
+			stage.runwayExit().toLocation()
 		);
 	}
 

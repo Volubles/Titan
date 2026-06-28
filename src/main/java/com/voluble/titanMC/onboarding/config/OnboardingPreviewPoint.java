@@ -4,9 +4,15 @@ import java.util.Arrays;
 import java.util.Locale;
 
 public enum OnboardingPreviewPoint {
-	ENTRANCE("entrance"),
+	RUNWAY_ENTRANCE("runway-entrance"),
 	FOCUS("focus"),
-	EXIT("exit");
+	RUNWAY_EXIT("runway-exit"),
+	LEFT_ENTRANCE("left-entrance"),
+	LEFT_STAGE("left-stage"),
+	LEFT_EXIT("left-exit"),
+	RIGHT_ENTRANCE("right-entrance"),
+	RIGHT_STAGE("right-stage"),
+	RIGHT_EXIT("right-exit");
 
 	private final String key;
 

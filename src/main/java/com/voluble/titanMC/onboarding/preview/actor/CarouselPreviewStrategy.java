@@ -42,50 +42,52 @@ final class CarouselPreviewStrategy implements PreviewStrategy {
 
 	private CompletableFuture<Void> initialize(OutfitPreview.PreviewScene scene) {
 		focusIndex = scene.selectedIndex();
-		PreviewPath path = PreviewPath.from(scene.stage());
-		PreviewActor entrance = actors.create(scene.previous());
+		CarouselPreviewPath path = CarouselPreviewPath.from(scene.stage());
+		PreviewActor left = actors.create(scene.previous());
 		PreviewActor focus = actors.create(scene.focus());
-		PreviewActor exit = actors.create(scene.next());
-		entrance.stageAt(path.entrance());
+		PreviewActor right = actors.create(scene.next());
+		left.stageAt(path.leftStage());
 		focus.stageAt(path.focus());
-		exit.stageAt(path.exit());
-		visible.add(entrance);
+		right.stageAt(path.rightStage());
+		visible.add(left);
 		visible.add(focus);
-		visible.add(exit);
-		wheel = new Wheel(entrance, focus, exit);
+		visible.add(right);
+		wheel = new Wheel(left, focus, right);
 		return CompletableFuture.completedFuture(null);
 	}
 
 	private CompletableFuture<Void> rotateForward(OutfitPreview.PreviewScene scene) {
-		PreviewPath path = PreviewPath.from(scene.stage());
-		PreviewActor oldEntrance = wheel.entrance;
+		CarouselPreviewPath path = CarouselPreviewPath.from(scene.stage());
+		PreviewActor oldLeft = wheel.left;
 		PreviewActor oldFocus = wheel.focus;
-		PreviewActor oldExit = wheel.exit;
-		PreviewActor newExit = actors.create(scene.next());
-		visible.add(newExit);
-		CompletableFuture<Void> oldEntranceMove = oldEntrance.moveToEntrance()
-			.whenComplete((ignored, failure) -> visible.remove(oldEntrance));
-		CompletableFuture<Void> focusSideMove = oldFocus.moveToEntranceSlot();
-		CompletableFuture<Void> focusMove = oldExit.moveToFocus();
-		CompletableFuture<Void> spawnMove = newExit.stageAtLater(path.exit(), SIDE_SPAWN_DELAY_TICKS);
-		wheel = new Wheel(oldFocus, oldExit, newExit);
-		return CompletableFuture.allOf(oldEntranceMove, focusSideMove, focusMove, spawnMove);
+		PreviewActor oldRight = wheel.right;
+		PreviewActor newRight = actors.create(scene.next());
+		visible.add(newRight);
+		CompletableFuture<Void> oldLeftMove = oldLeft.exitTo(path.leftExit())
+			.whenComplete((ignored, failure) -> visible.remove(oldLeft));
+		CompletableFuture<Void> focusSideMove = oldFocus.moveToStage(path.leftStage());
+		CompletableFuture<Void> focusMove = oldRight.moveToFocus(path.focus());
+		CompletableFuture<Void> spawnMove = newRight.stageAtLater(path.rightEntrance(), SIDE_SPAWN_DELAY_TICKS)
+			.thenCompose(ignored -> newRight.moveToStage(path.rightStage()));
+		wheel = new Wheel(oldFocus, oldRight, newRight);
+		return CompletableFuture.allOf(oldLeftMove, focusSideMove, focusMove, spawnMove);
 	}
 
 	private CompletableFuture<Void> rotateBackward(OutfitPreview.PreviewScene scene) {
-		PreviewPath path = PreviewPath.from(scene.stage());
-		PreviewActor oldEntrance = wheel.entrance;
+		CarouselPreviewPath path = CarouselPreviewPath.from(scene.stage());
+		PreviewActor oldLeft = wheel.left;
 		PreviewActor oldFocus = wheel.focus;
-		PreviewActor oldExit = wheel.exit;
-		PreviewActor newEntrance = actors.create(scene.previous());
-		visible.add(newEntrance);
-		CompletableFuture<Void> oldExitMove = oldExit.exit()
-			.whenComplete((ignored, failure) -> visible.remove(oldExit));
-		CompletableFuture<Void> focusSideMove = oldFocus.moveToExitSlot();
-		CompletableFuture<Void> focusMove = oldEntrance.moveToFocus();
-		CompletableFuture<Void> spawnMove = newEntrance.stageAtLater(path.entrance(), SIDE_SPAWN_DELAY_TICKS);
-		wheel = new Wheel(newEntrance, oldEntrance, oldFocus);
-		return CompletableFuture.allOf(oldExitMove, focusSideMove, focusMove, spawnMove);
+		PreviewActor oldRight = wheel.right;
+		PreviewActor newLeft = actors.create(scene.previous());
+		visible.add(newLeft);
+		CompletableFuture<Void> oldRightMove = oldRight.exitTo(path.rightExit())
+			.whenComplete((ignored, failure) -> visible.remove(oldRight));
+		CompletableFuture<Void> focusSideMove = oldFocus.moveToStage(path.rightStage());
+		CompletableFuture<Void> focusMove = oldLeft.moveToFocus(path.focus());
+		CompletableFuture<Void> spawnMove = newLeft.stageAtLater(path.leftEntrance(), SIDE_SPAWN_DELAY_TICKS)
+			.thenCompose(ignored -> newLeft.moveToStage(path.leftStage()));
+		wheel = new Wheel(newLeft, oldLeft, oldFocus);
+		return CompletableFuture.allOf(oldRightMove, focusSideMove, focusMove, spawnMove);
 	}
 
 	private int direction(int previous, int next, int size) {
@@ -97,11 +99,11 @@ final class CarouselPreviewStrategy implements PreviewStrategy {
 		return forward <= backward ? 1 : -1;
 	}
 
-	private record Wheel(PreviewActor entrance, PreviewActor focus, PreviewActor exit) {
+	private record Wheel(PreviewActor left, PreviewActor focus, PreviewActor right) {
 		private Wheel {
-			Objects.requireNonNull(entrance, "entrance");
+			Objects.requireNonNull(left, "left");
 			Objects.requireNonNull(focus, "focus");
-			Objects.requireNonNull(exit, "exit");
+			Objects.requireNonNull(right, "right");
 		}
 	}
 }

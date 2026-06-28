@@ -16,6 +16,7 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -36,7 +37,9 @@ public final class OnboardingCommandModule implements CommandModule {
 			.map(Player::getName)
 			.sorted(String.CASE_INSENSITIVE_ORDER)
 			.toList());
-		var previewPoints = Suggest.fromContext(source -> java.util.List.of("entrance", "focus", "exit"));
+		var previewPoints = Suggest.fromContext(source -> Arrays.stream(OnboardingPreviewPoint.values())
+			.map(OnboardingPreviewPoint::key)
+			.toList());
 		registration.register(CommandTree.root("onboarding")
 			.aliases("ob")
 			.description("Manage onboarding")

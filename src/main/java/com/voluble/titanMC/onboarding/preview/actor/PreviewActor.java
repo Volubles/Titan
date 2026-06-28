@@ -66,7 +66,7 @@ public final class PreviewActor {
 		focused = result;
 		state = PreviewActorState.ENTERING;
 		spawnAt(path.entrance());
-		moveTo(path.focus(), false).whenComplete((ignored, failure) -> {
+		moveTo(path.focus(), true).whenComplete((ignored, failure) -> {
 			if (failure != null) {
 				result.completeExceptionally(failure);
 				return;
@@ -100,10 +100,15 @@ public final class PreviewActor {
 	}
 
 	public CompletableFuture<Void> moveToFocus() {
+		return moveToFocus(path.focus());
+	}
+
+	public CompletableFuture<Void> moveToFocus(Location focus) {
+		if (state == PreviewActorState.REMOVED) return removed;
 		state = PreviewActorState.ENTERING;
-		return moveTo(path.focus(), false).thenRun(() -> {
+		return moveTo(focus, true).thenRun(() -> {
 			if (state == PreviewActorState.REMOVED) return;
-			current = path.focus().clone();
+			current = focus.clone();
 			state = PreviewActorState.FOCUSED;
 			npc.teleport(toPacketLocation(current));
 			npc.rotateHead(toPacketLocation(current));
@@ -111,41 +116,38 @@ public final class PreviewActor {
 	}
 
 	public CompletableFuture<Void> moveToEntrance() {
-		return moveToEntranceSlot().thenRun(this::remove);
+		return exitTo(path.entrance());
 	}
 
 	public CompletableFuture<Void> moveToEntranceSlot() {
-		state = PreviewActorState.EXITING;
-		return moveTo(path.entrance(), true).thenRun(() -> {
-			if (state == PreviewActorState.REMOVED) return;
-			current = path.entrance().clone();
-			state = PreviewActorState.STAGED;
-			npc.teleport(toPacketLocation(current));
-		});
+		return moveToStage(path.entrance());
 	}
 
 	public CompletableFuture<Void> moveToExitSlot() {
+		return moveToStage(path.exit());
+	}
+
+	public CompletableFuture<Void> moveToStage(Location stage) {
+		if (state == PreviewActorState.REMOVED) return removed;
 		state = PreviewActorState.EXITING;
-		return moveTo(path.exit(), true).thenRun(() -> {
+		return moveTo(stage, true).thenRun(() -> {
 			if (state == PreviewActorState.REMOVED) return;
-			current = path.exit().clone();
+			current = stage.clone();
 			state = PreviewActorState.STAGED;
 			npc.teleport(toPacketLocation(current));
 		});
 	}
 
 	public CompletableFuture<Void> exit() {
+		return exitTo(path.exit());
+	}
+
+	public CompletableFuture<Void> exitTo(Location target) {
 		if (state == PreviewActorState.REMOVED || state == PreviewActorState.EXITING) return removed;
 		cancelFocus("Preview actor started exiting before focus");
 		cancelTask();
 		state = PreviewActorState.EXITING;
-		Location start = current == null ? path.focus().clone() : current.clone();
-		Location target = path.exit().clone();
-		start.setYaw(target.getYaw());
-		start.setPitch(target.getPitch());
-		current = start;
-		npc.teleport(toPacketLocation(start));
-		moveToExitSlot().thenRun(this::remove);
+		moveTo(target, true).thenRun(this::remove);
 		return removed;
 	}
 
@@ -286,16 +288,13 @@ public final class PreviewActor {
 
 	private Location interpolate(Location start, Location target, double progress) {
 		double eased = easeInOut(progress);
+		double rotation = rotationProgress(progress);
 		Location next = start.clone();
 		next.setX(lerp(start.getX(), target.getX(), eased));
 		next.setY(lerp(start.getY(), target.getY(), eased));
 		next.setZ(lerp(start.getZ(), target.getZ(), eased));
-		next.setYaw(target.getYaw());
-		next.setPitch(target.getPitch());
-		if (state == PreviewActorState.ENTERING) {
-			next.setYaw(start.getYaw());
-			next.setPitch(start.getPitch());
-		}
+		next.setYaw(lerpYaw(start.getYaw(), target.getYaw(), rotation));
+		next.setPitch((float) lerp(start.getPitch(), target.getPitch(), rotation));
 		return next;
 	}
 
@@ -307,6 +306,17 @@ public final class PreviewActor {
 
 	private static double lerp(double start, double end, double progress) {
 		return start + (end - start) * progress;
+	}
+
+	private double rotationProgress(double progress) {
+		if (state != PreviewActorState.ENTERING) return easeInOut(progress);
+		double delayed = (progress - 0.55) / 0.45;
+		return easeInOut(Math.max(0.0, Math.min(1.0, delayed)));
+	}
+
+	private static float lerpYaw(float start, float end, double progress) {
+		float delta = ((end - start + 540.0F) % 360.0F) - 180.0F;
+		return (float) (start + delta * progress);
 	}
 
 	private static double easeInOut(double progress) {

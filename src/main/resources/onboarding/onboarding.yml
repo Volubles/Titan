@@ -12,7 +12,7 @@ input:
   repeat-cooldown-ms: 300
 
 preview-stage:
-  entrance:
+  runway-entrance:
     world: world
     x: -2.5
     y: 79.0
@@ -26,12 +26,54 @@ preview-stage:
     z: -2.5
     yaw: 0.0
     pitch: 0.0
-  exit:
+  runway-exit:
     world: world
     x: 3.5
     y: 79.0
     z: -2.5
     yaw: -90.0
+    pitch: 0.0
+  left-entrance:
+    world: world
+    x: -4.5
+    y: 79.0
+    z: -2.5
+    yaw: 90.0
+    pitch: 0.0
+  left-stage:
+    world: world
+    x: -2.5
+    y: 79.0
+    z: -2.5
+    yaw: 90.0
+    pitch: 0.0
+  left-exit:
+    world: world
+    x: -5.5
+    y: 79.0
+    z: -2.5
+    yaw: -90.0
+    pitch: 0.0
+  right-entrance:
+    world: world
+    x: 5.5
+    y: 79.0
+    z: -2.5
+    yaw: -90.0
+    pitch: 0.0
+  right-stage:
+    world: world
+    x: 3.5
+    y: 79.0
+    z: -2.5
+    yaw: -90.0
+    pitch: 0.0
+  right-exit:
+    world: world
+    x: 6.5
+    y: 79.0
+    z: -2.5
+    yaw: 90.0
     pitch: 0.0
 
 outfits:

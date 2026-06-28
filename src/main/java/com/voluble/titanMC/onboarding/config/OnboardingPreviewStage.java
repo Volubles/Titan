@@ -5,63 +5,64 @@ import org.bukkit.configuration.ConfigurationSection;
 import java.util.Objects;
 
 public record OnboardingPreviewStage(
-	OnboardingConfiguration.LocationSpec entrance,
+	OnboardingConfiguration.LocationSpec runwayEntrance,
 	OnboardingConfiguration.LocationSpec focus,
-	OnboardingConfiguration.LocationSpec exit
+	OnboardingConfiguration.LocationSpec runwayExit,
+	OnboardingConfiguration.LocationSpec leftEntrance,
+	OnboardingConfiguration.LocationSpec leftStage,
+	OnboardingConfiguration.LocationSpec leftExit,
+	OnboardingConfiguration.LocationSpec rightEntrance,
+	OnboardingConfiguration.LocationSpec rightStage,
+	OnboardingConfiguration.LocationSpec rightExit
 ) {
 	public OnboardingPreviewStage {
-		Objects.requireNonNull(entrance, "entrance");
+		Objects.requireNonNull(runwayEntrance, "runwayEntrance");
 		Objects.requireNonNull(focus, "focus");
-		Objects.requireNonNull(exit, "exit");
+		Objects.requireNonNull(runwayExit, "runwayExit");
+		Objects.requireNonNull(leftEntrance, "leftEntrance");
+		Objects.requireNonNull(leftStage, "leftStage");
+		Objects.requireNonNull(leftExit, "leftExit");
+		Objects.requireNonNull(rightEntrance, "rightEntrance");
+		Objects.requireNonNull(rightStage, "rightStage");
+		Objects.requireNonNull(rightExit, "rightExit");
 	}
 
 	public static OnboardingPreviewStage load(ConfigurationSection root) {
-		OnboardingConfiguration.LocationSpec legacy = loadIfPresent(root, "preview");
 		ConfigurationSection section = root.getConfigurationSection("preview-stage");
-		if (section == null) {
-			if (legacy == null) throw new IllegalArgumentException("Missing section: preview-stage");
-			return new OnboardingPreviewStage(legacy, legacy, legacy);
-		}
-		OnboardingConfiguration.LocationSpec fallback = firstPresent(section, legacy);
-		OnboardingConfiguration.LocationSpec focus = loadOr(section, OnboardingPreviewPoint.FOCUS, fallback);
+		if (section == null) throw new IllegalArgumentException("Missing section: preview-stage");
 		return new OnboardingPreviewStage(
-			loadOr(section, OnboardingPreviewPoint.ENTRANCE, focus),
-			focus,
-			loadOr(section, OnboardingPreviewPoint.EXIT, focus)
+			loadRequired(section, OnboardingPreviewPoint.RUNWAY_ENTRANCE),
+			loadRequired(section, OnboardingPreviewPoint.FOCUS),
+			loadRequired(section, OnboardingPreviewPoint.RUNWAY_EXIT),
+			loadRequired(section, OnboardingPreviewPoint.LEFT_ENTRANCE),
+			loadRequired(section, OnboardingPreviewPoint.LEFT_STAGE),
+			loadRequired(section, OnboardingPreviewPoint.LEFT_EXIT),
+			loadRequired(section, OnboardingPreviewPoint.RIGHT_ENTRANCE),
+			loadRequired(section, OnboardingPreviewPoint.RIGHT_STAGE),
+			loadRequired(section, OnboardingPreviewPoint.RIGHT_EXIT)
 		);
 	}
 
 	public OnboardingConfiguration.LocationSpec point(OnboardingPreviewPoint point) {
 		return switch (point) {
-			case ENTRANCE -> entrance;
+			case RUNWAY_ENTRANCE -> runwayEntrance;
 			case FOCUS -> focus;
-			case EXIT -> exit;
+			case RUNWAY_EXIT -> runwayExit;
+			case LEFT_ENTRANCE -> leftEntrance;
+			case LEFT_STAGE -> leftStage;
+			case LEFT_EXIT -> leftExit;
+			case RIGHT_ENTRANCE -> rightEntrance;
+			case RIGHT_STAGE -> rightStage;
+			case RIGHT_EXIT -> rightExit;
 		};
 	}
 
-	private static OnboardingConfiguration.LocationSpec loadOr(
+	private static OnboardingConfiguration.LocationSpec loadRequired(
 		ConfigurationSection section,
-		OnboardingPreviewPoint point,
-		OnboardingConfiguration.LocationSpec fallback
+		OnboardingPreviewPoint point
 	) {
 		ConfigurationSection pointSection = section.getConfigurationSection(point.key());
-		return pointSection == null ? fallback : OnboardingConfiguration.LocationSpec.load(pointSection);
-	}
-
-	private static OnboardingConfiguration.LocationSpec firstPresent(
-		ConfigurationSection section,
-		OnboardingConfiguration.LocationSpec legacy
-	) {
-		if (legacy != null) return legacy;
-		for (OnboardingPreviewPoint point : OnboardingPreviewPoint.values()) {
-			OnboardingConfiguration.LocationSpec spec = loadIfPresent(section, point.key());
-			if (spec != null) return spec;
-		}
-		throw new IllegalArgumentException("Missing preview-stage focus location");
-	}
-
-	private static OnboardingConfiguration.LocationSpec loadIfPresent(ConfigurationSection root, String path) {
-		ConfigurationSection section = root.getConfigurationSection(path);
-		return section == null ? null : OnboardingConfiguration.LocationSpec.load(section);
+		if (pointSection == null) throw new IllegalArgumentException("Missing preview-stage point: " + point.key());
+		return OnboardingConfiguration.LocationSpec.load(pointSection);
 	}
 }

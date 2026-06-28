@@ -4,69 +4,57 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class OnboardingConfigurationTest {
 	@Test
 	void loadsPreviewStagePoints() {
-		OnboardingConfiguration config = OnboardingConfiguration.load(yaml("""
-			enabled: true
-			cinematic: onboarding_intro
-			preview-stage:
-			  entrance: { world: world, x: 1, y: 2, z: 3, yaw: 4, pitch: 5 }
-			  focus: { world: world, x: 6, y: 7, z: 8, yaw: 9, pitch: 10 }
-			  exit: { world: world, x: 11, y: 12, z: 13, yaw: 14, pitch: 15 }
-			outfits:
-			  - prison
-			"""));
+		OnboardingConfiguration config = OnboardingConfiguration.load(yaml(configWithStage("")));
 
-		assertEquals(1.0, config.previewStage().entrance().x());
+		assertEquals(1.0, config.previewStage().runwayEntrance().x());
 		assertEquals(6.0, config.previewStage().focus().x());
-		assertEquals(11.0, config.previewStage().exit().x());
+		assertEquals(11.0, config.previewStage().runwayExit().x());
+		assertEquals(17.0, config.previewStage().leftStage().x());
+		assertEquals(20.0, config.previewStage().rightStage().x());
 	}
 
 	@Test
-	void legacyPreviewLocationBecomesWholeStage() {
-		OnboardingConfiguration config = OnboardingConfiguration.load(yaml("""
-			enabled: true
-			cinematic: onboarding_intro
-			preview: { world: world, x: 2, y: 3, z: 4, yaw: 5, pitch: 6 }
-			outfits:
-			  - prison
-			"""));
-
-		assertEquals(2.0, config.previewStage().entrance().x());
-		assertEquals(2.0, config.previewStage().focus().x());
-		assertEquals(2.0, config.previewStage().exit().x());
-	}
-
-	@Test
-	void partialPreviewStageCanBeCapturedInAnyOrder() {
-		OnboardingConfiguration config = OnboardingConfiguration.load(yaml("""
+	void requiresCompletePreviewStage() {
+		assertThrows(IllegalArgumentException.class, () -> OnboardingConfiguration.load(yaml("""
 			enabled: true
 			cinematic: onboarding_intro
 			preview-stage:
-			  entrance: { world: world, x: 9, y: 2, z: 3, yaw: 4, pitch: 5 }
+			  focus: { world: world, x: 6, y: 7, z: 8, yaw: 9, pitch: 10 }
 			outfits:
 			  - prison
-			"""));
-
-		assertEquals(9.0, config.previewStage().entrance().x());
-		assertEquals(9.0, config.previewStage().focus().x());
-		assertEquals(9.0, config.previewStage().exit().x());
+			""")));
 	}
 
 	@Test
 	void loadsPreviewMode() {
-		OnboardingConfiguration config = OnboardingConfiguration.load(yaml("""
-			enabled: true
-			cinematic: onboarding_intro
-			preview-mode: carousel
-			preview: { world: world, x: 2, y: 3, z: 4, yaw: 5, pitch: 6 }
-			outfits:
-			  - prison
-			"""));
+		OnboardingConfiguration config = OnboardingConfiguration.load(yaml(configWithStage("preview-mode: carousel\n")));
 
 		assertEquals(OnboardingPreviewMode.CAROUSEL, config.previewMode());
+	}
+
+	private static String configWithStage(String extra) {
+		return """
+			enabled: true
+			cinematic: onboarding_intro
+			""" + extra + """
+			preview-stage:
+			  runway-entrance: { world: world, x: 1, y: 2, z: 3, yaw: 4, pitch: 5 }
+			  focus: { world: world, x: 6, y: 7, z: 8, yaw: 9, pitch: 10 }
+			  runway-exit: { world: world, x: 11, y: 12, z: 13, yaw: 14, pitch: 15 }
+			  left-entrance: { world: world, x: 16, y: 2, z: 3, yaw: 4, pitch: 5 }
+			  left-stage: { world: world, x: 17, y: 2, z: 3, yaw: 4, pitch: 5 }
+			  left-exit: { world: world, x: 18, y: 2, z: 3, yaw: 4, pitch: 5 }
+			  right-entrance: { world: world, x: 19, y: 2, z: 3, yaw: 4, pitch: 5 }
+			  right-stage: { world: world, x: 20, y: 2, z: 3, yaw: 4, pitch: 5 }
+			  right-exit: { world: world, x: 21, y: 2, z: 3, yaw: 4, pitch: 5 }
+			outfits:
+			  - prison
+			""";
 	}
 
 	private static YamlConfiguration yaml(String source) {
