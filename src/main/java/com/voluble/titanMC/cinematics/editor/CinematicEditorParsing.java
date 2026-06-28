@@ -16,6 +16,12 @@ final class CinematicEditorParsing {
 		return parsed;
 	}
 
+	static long nonNegativeLong(String value) {
+		long parsed = Long.parseLong(value.trim());
+		if (parsed < 0L) throw new NumberFormatException("value must not be negative");
+		return parsed;
+	}
+
 	static double decimal(String value) {
 		return Double.parseDouble(value.trim());
 	}
@@ -33,6 +39,16 @@ final class CinematicEditorParsing {
 			Double.parseDouble(parts[0]),
 			Double.parseDouble(parts[1]),
 			Double.parseDouble(parts[2])
+		};
+	}
+
+	static long[] timing3(String value) {
+		String[] parts = value.trim().split("\\s+");
+		if (parts.length != 3) throw new NumberFormatException("expected three numbers");
+		return new long[] {
+			nonNegativeLong(parts[0]),
+			nonNegativeLong(parts[1]),
+			nonNegativeLong(parts[2])
 		};
 	}
 }

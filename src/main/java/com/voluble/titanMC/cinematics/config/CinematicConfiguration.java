@@ -10,7 +10,11 @@ import com.voluble.titanMC.cinematics.model.CinematicId;
 import com.voluble.titanMC.cinematics.model.CinematicTimeline;
 import com.voluble.titanMC.cinematics.model.CommandCinematicEvent;
 import com.voluble.titanMC.cinematics.model.ParticleCinematicEvent;
+import com.voluble.titanMC.cinematics.model.ScreenCinematicEvent;
 import com.voluble.titanMC.cinematics.model.SoundCinematicEvent;
+import com.voluble.titanMC.display.screen.ScreenEffectId;
+import com.voluble.titanMC.display.screen.ScreenEffectTiming;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 
@@ -27,6 +31,8 @@ public record CinematicConfiguration(
 	boolean defaultRestorePlayer,
 	Map<CinematicId, CinematicDefinition> cinematics
 ) {
+	private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
+
 	public CinematicConfiguration {
 		if (defaultPointDurationTicks <= 0) throw new IllegalArgumentException("default point duration must be positive");
 		cinematics = Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(cinematics, "cinematics")));
@@ -96,6 +102,14 @@ public record CinematicConfiguration(
 				number(raw, "offset-z", 0.0).doubleValue(),
 				number(raw, "speed", 0.0).doubleValue()
 			);
+			case SCREEN -> new ScreenCinematicEvent(
+				tick,
+				slot,
+				row,
+				ScreenEffectId.of(text(raw, "screen")),
+				optionalText(raw, "title").map(MINI_MESSAGE::deserialize),
+				optionalTiming(raw)
+			);
 			case SOUND -> new SoundCinematicEvent(
 				tick,
 				slot,
@@ -150,6 +164,23 @@ public record CinematicConfiguration(
 		Object value = raw.get(key);
 		if (value == null || value.toString().isBlank()) return fallback;
 		return value.toString();
+	}
+
+	private static Optional<String> optionalText(Map<?, ?> raw, String key) {
+		Object value = raw.get(key);
+		if (value == null || value.toString().isBlank()) return Optional.empty();
+		return Optional.of(value.toString());
+	}
+
+	private static Optional<ScreenEffectTiming> optionalTiming(Map<?, ?> raw) {
+		if (!raw.containsKey("fade-in-ticks") && !raw.containsKey("hold-ticks") && !raw.containsKey("fade-out-ticks")) {
+			return Optional.empty();
+		}
+		return Optional.of(new ScreenEffectTiming(
+			number(raw, "fade-in-ticks", 10).longValue(),
+			number(raw, "hold-ticks", 20).longValue(),
+			number(raw, "fade-out-ticks", 10).longValue()
+		));
 	}
 
 	private static boolean bool(Map<?, ?> raw, String key, boolean fallback) {

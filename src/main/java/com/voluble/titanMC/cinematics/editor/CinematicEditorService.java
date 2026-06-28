@@ -9,6 +9,7 @@ import com.voluble.titanMC.cinematics.model.CinematicId;
 import com.voluble.titanMC.cinematics.model.CinematicTimeline;
 import com.voluble.titanMC.cinematics.model.CommandCinematicEvent;
 import com.voluble.titanMC.cinematics.model.ParticleCinematicEvent;
+import com.voluble.titanMC.cinematics.model.ScreenCinematicEvent;
 import com.voluble.titanMC.cinematics.model.SoundCinematicEvent;
 import com.voluble.titanMC.cinematics.runtime.CinematicRuntime;
 import com.voluble.titanMC.display.notice.MessageDefaults;
@@ -39,6 +40,7 @@ public final class CinematicEditorService {
 	private final CommandEventOptionsMenu commandOptions;
 	private final SoundEventOptionsMenu soundOptions;
 	private final ParticleEventOptionsMenu particleOptions;
+	private final ScreenEventOptionsMenu screenOptions;
 
 	public CinematicEditorService(
 		Plugin plugin,
@@ -60,6 +62,7 @@ public final class CinematicEditorService {
 		commandOptions = new CommandEventOptionsMenu(menus, this, items);
 		soundOptions = new SoundEventOptionsMenu(menus, this, items);
 		particleOptions = new ParticleEventOptionsMenu(menus, this, items);
+		screenOptions = new ScreenEventOptionsMenu(menus, this, items);
 	}
 
 	public CinematicEditorInputService input() {
@@ -90,6 +93,7 @@ public final class CinematicEditorService {
 		switch (event) {
 			case com.voluble.titanMC.cinematics.model.CommandCinematicEvent command -> commandOptions.open(player, command);
 			case com.voluble.titanMC.cinematics.model.ParticleCinematicEvent particle -> particleOptions.open(player, particle);
+			case com.voluble.titanMC.cinematics.model.ScreenCinematicEvent screen -> screenOptions.open(player, screen);
 			case com.voluble.titanMC.cinematics.model.SoundCinematicEvent sound -> soundOptions.open(player, sound);
 		}
 	}
@@ -314,6 +318,14 @@ public final class CinematicEditorService {
 				sound.pitch(),
 				sound.category()
 			);
+			case ScreenCinematicEvent screen -> new ScreenCinematicEvent(
+				tick,
+				screen.timelineSlot(),
+				screen.row(),
+				screen.screenId(),
+				screen.title(),
+				screen.timing()
+			);
 		};
 	}
 
@@ -341,6 +353,14 @@ public final class CinematicEditorService {
 				sound.volume(),
 				sound.pitch(),
 				sound.category()
+			);
+			case ScreenCinematicEvent screen -> new ScreenCinematicEvent(
+				screen.tick(),
+				timelineSlot,
+				screen.row(),
+				screen.screenId(),
+				screen.title(),
+				screen.timing()
 			);
 		};
 	}

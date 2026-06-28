@@ -3,6 +3,8 @@ package com.voluble.titanMC.cinematics.runtime;
 import com.voluble.titanMC.cinematics.model.CinematicDefinition;
 import com.voluble.titanMC.cinematics.runtime.camera.CinematicCameraDriver;
 import com.voluble.titanMC.cinematics.runtime.camera.CinematicCameraDrivers;
+import net.kyori.adventure.sound.SoundStop;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -21,11 +23,13 @@ public final class CinematicSession {
 	private final Consumer<UUID> completion;
 	private final CinematicEventExecutor events;
 	private final CinematicCameraDriver camera;
+	private final int firstCameraTick;
 	private CinematicPlayerState playerState;
 	private CinematicPlayerPresentation presentation;
 	private BukkitTask task;
 	private int frame;
 	private int holdTicks;
+	private boolean cameraStarted;
 	private boolean held;
 	private boolean stopped;
 
@@ -33,9 +37,10 @@ public final class CinematicSession {
 		Plugin plugin,
 		Player player,
 		CinematicDefinition definition,
-		Consumer<UUID> completion
+		Consumer<UUID> completion,
+		CinematicScreenEffects screenEffects
 	) {
-		this(plugin, player, definition, CinematicPlaybackOptions.defaults(), completion);
+		this(plugin, player, definition, CinematicPlaybackOptions.defaults(), completion, screenEffects);
 	}
 
 	public CinematicSession(
@@ -43,15 +48,17 @@ public final class CinematicSession {
 		Player player,
 		CinematicDefinition definition,
 		CinematicPlaybackOptions options,
-		Consumer<UUID> completion
+		Consumer<UUID> completion,
+		CinematicScreenEffects screenEffects
 	) {
 		this.plugin = Objects.requireNonNull(plugin, "plugin");
 		this.player = Objects.requireNonNull(player, "player");
 		this.definition = Objects.requireNonNull(definition, "definition");
 		this.options = Objects.requireNonNull(options, "options");
 		this.completion = Objects.requireNonNull(completion, "completion");
-		this.events = new CinematicEventExecutor(plugin);
+		this.events = new CinematicEventExecutor(plugin, screenEffects);
 		this.camera = CinematicCameraDrivers.create(plugin, player);
+		this.firstCameraTick = definition.camera().points().getFirst().tick();
 	}
 
 	public UUID playerId() {
@@ -76,6 +83,9 @@ public final class CinematicSession {
 			task = null;
 		}
 		camera.stop();
+		if (player.isOnline()) {
+			player.stopSound(SoundStop.all());
+		}
 		if (restorePlayer && player.isOnline() && playerState != null && definition.camera().restorePlayer()) {
 			playerState.restore(player);
 		}
@@ -92,7 +102,7 @@ public final class CinematicSession {
 		player.setAllowFlight(true);
 		player.setFlying(true);
 		player.setInvulnerable(true);
-		camera.start(CameraPathInterpolator.locationAt(definition.camera().points(), 0));
+		moveCamera(0);
 	}
 
 	private void tick() {
@@ -109,7 +119,7 @@ public final class CinematicSession {
 				finishPlayback();
 				return;
 			}
-			camera.move(frame, CameraPathInterpolator.locationAt(definition.camera().points(), frame));
+			moveCamera(frame);
 			for (var event : definition.timeline().atTick(frame)) {
 				events.execute(player, event);
 			}
@@ -134,14 +144,25 @@ public final class CinematicSession {
 		held = true;
 		frame = definition.durationTicks();
 		holdTicks = 0;
-		camera.move(frame, CameraPathInterpolator.locationAt(definition.camera().points(), frame));
+		moveCamera(frame);
 		options.notifyHeld();
 	}
 
 	private void holdTick() {
 		if (holdTicks % HOLD_SYNC_INTERVAL_TICKS == 0) {
-			camera.move(frame + holdTicks, CameraPathInterpolator.locationAt(definition.camera().points(), frame));
+			moveCamera(frame);
 		}
 		holdTicks++;
+	}
+
+	private void moveCamera(int tick) {
+		if (tick < firstCameraTick) return;
+		Location location = CameraPathInterpolator.locationAt(definition.camera().points(), tick);
+		if (!cameraStarted) {
+			camera.start(location);
+			cameraStarted = true;
+			return;
+		}
+		camera.move(tick, location);
 	}
 }

@@ -4,7 +4,10 @@ import com.voluble.titanMC.cinematics.model.CameraPoint;
 import com.voluble.titanMC.cinematics.model.CinematicEventPosition;
 import com.voluble.titanMC.cinematics.model.CommandCinematicEvent;
 import com.voluble.titanMC.cinematics.model.ParticleCinematicEvent;
+import com.voluble.titanMC.cinematics.model.ScreenCinematicEvent;
 import com.voluble.titanMC.cinematics.model.SoundCinematicEvent;
+import com.voluble.titanMC.display.screen.ScreenEffectId;
+import com.voluble.titanMC.display.screen.ScreenEffectTiming;
 import io.voluble.michellelib.menu.MenuService;
 import io.voluble.michellelib.menu.template.MenuDefinition;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -13,6 +16,7 @@ import org.bukkit.entity.Player;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 final class AddNodeMenu {
 	private final MenuService menus;
@@ -47,9 +51,10 @@ final class AddNodeMenu {
 						}
 					));
 				} else {
-					context.setItem(11, sound(player, timelineSlot, row));
-					context.setItem(13, command(player, timelineSlot, row));
-					context.setItem(15, particle(player, timelineSlot, row));
+					context.setItem(10, sound(player, timelineSlot, row));
+					context.setItem(12, command(player, timelineSlot, row));
+					context.setItem(14, screen(player, timelineSlot, row));
+					context.setItem(16, particle(player, timelineSlot, row));
 				}
 				context.setItem(22, CinematicEditorChrome.button(
 					items,
@@ -124,6 +129,27 @@ final class AddNodeMenu {
 					0.0,
 					0.0,
 					0.0
+				);
+				editor.addEvent(player, event);
+				context.actions().transition(() -> editor.openEventOptions(player, event));
+			}
+		);
+	}
+
+	private io.voluble.michellelib.menu.item.MenuItem screen(Player player, int timelineSlot, int row) {
+		return CinematicEditorChrome.button(
+			items,
+			Material.BLACK_DYE,
+			"<#d43030><bold>Add Screen Fade",
+			addLore(player, timelineSlot, "Shows a configured fullscreen screen effect."),
+			context -> {
+				ScreenCinematicEvent event = new ScreenCinematicEvent(
+					editor.defaultTickForSlot(player, timelineSlot),
+					timelineSlot,
+					row,
+					ScreenEffectId.of("fullscreen_black"),
+					Optional.empty(),
+					Optional.of(new ScreenEffectTiming(10L, 20L, 10L))
 				);
 				editor.addEvent(player, event);
 				context.actions().transition(() -> editor.openEventOptions(player, event));

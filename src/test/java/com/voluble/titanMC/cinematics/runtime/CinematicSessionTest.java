@@ -24,6 +24,7 @@ class CinematicSessionTest {
 	private Plugin plugin;
 	private World world;
 	private Player player;
+	private CinematicScreenEffects screenEffects;
 
 	@BeforeEach
 	void setUp() {
@@ -31,6 +32,7 @@ class CinematicSessionTest {
 		plugin = MockBukkit.createMockPlugin();
 		world = server.addSimpleWorld("cinematic_session");
 		player = server.addPlayer();
+		screenEffects = (viewer, request) -> true;
 	}
 
 	@AfterEach
@@ -41,7 +43,7 @@ class CinematicSessionTest {
 	@Test
 	void defaultPlaybackStopsWhenTimelineFinishes() {
 		AtomicInteger completions = new AtomicInteger();
-		CinematicSession session = new CinematicSession(plugin, player, definition(), ignored -> completions.incrementAndGet());
+		CinematicSession session = new CinematicSession(plugin, player, definition(), ignored -> completions.incrementAndGet(), screenEffects);
 
 		session.start();
 		server.getScheduler().performTicks(5L);
@@ -58,7 +60,8 @@ class CinematicSessionTest {
 			player,
 			definition(),
 			CinematicPlaybackOptions.holdLastFrame().withHoldCallback(holds::incrementAndGet),
-			ignored -> completions.incrementAndGet()
+			ignored -> completions.incrementAndGet(),
+			screenEffects
 		);
 
 		session.start();
@@ -73,6 +76,20 @@ class CinematicSessionTest {
 		assertEquals(1, completions.get());
 	}
 
+	@Test
+	void cameraStartsAtFirstCameraTick() {
+		CinematicSession session = new CinematicSession(plugin, player, delayedDefinition(), ignored -> { }, screenEffects);
+
+		session.start();
+		server.getScheduler().performTicks(2L);
+
+		assertEquals(0.0, player.getLocation().getX(), 0.001);
+
+		server.getScheduler().performTicks(3L);
+
+		assertEquals(10.0, player.getLocation().getX(), 0.001);
+	}
+
 	private CinematicDefinition definition() {
 		return new CinematicDefinition(
 			CinematicId.of("test"),
@@ -80,6 +97,18 @@ class CinematicSessionTest {
 			new CameraPathDefinition(true, List.of(
 				point(0, 0, 0.0),
 				point(2, 1, 10.0)
+			)),
+			new CinematicTimeline(List.of())
+		);
+	}
+
+	private CinematicDefinition delayedDefinition() {
+		return new CinematicDefinition(
+			CinematicId.of("delayed"),
+			4,
+			new CameraPathDefinition(true, List.of(
+				point(3, 0, 10.0),
+				point(4, 1, 10.0)
 			)),
 			new CinematicTimeline(List.of())
 		);

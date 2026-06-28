@@ -5,6 +5,7 @@ import java.util.Locale;
 public enum CinematicEventType {
 	COMMAND,
 	PARTICLE,
+	SCREEN,
 	SOUND;
 
 	public static CinematicEventType parse(String value) {

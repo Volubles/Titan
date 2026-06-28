@@ -7,9 +7,11 @@ import com.voluble.titanMC.cinematics.model.CinematicEventPosition;
 import com.voluble.titanMC.cinematics.model.CinematicId;
 import com.voluble.titanMC.cinematics.model.CommandCinematicEvent;
 import com.voluble.titanMC.cinematics.model.ParticleCinematicEvent;
+import com.voluble.titanMC.cinematics.model.ScreenCinematicEvent;
 import com.voluble.titanMC.cinematics.model.SoundCinematicEvent;
 import com.voluble.titanMC.managers.ConfigManager;
 import com.voluble.titanMC.util.ComponentFiles;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -25,6 +27,8 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
 public final class CinematicConfigurationManager implements ConfigManager.ComponentConfigManager {
+	private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
+
 	private final Plugin plugin;
 	private final Path path;
 	private final AtomicReference<CinematicConfiguration> current = new AtomicReference<>();
@@ -251,6 +255,15 @@ public final class CinematicConfigurationManager implements ConfigManager.Compon
 				raw.put("volume", sound.volume());
 				raw.put("pitch", sound.pitch());
 				raw.put("category", sound.category());
+			}
+			case ScreenCinematicEvent screen -> {
+				raw.put("screen", screen.screenId().value());
+				screen.title().ifPresent(title -> raw.put("title", MINI_MESSAGE.serialize(title)));
+				screen.timing().ifPresent(timing -> {
+					raw.put("fade-in-ticks", timing.fadeInTicks());
+					raw.put("hold-ticks", timing.holdTicks());
+					raw.put("fade-out-ticks", timing.fadeOutTicks());
+				});
 			}
 		}
 		return raw;

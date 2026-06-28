@@ -3,6 +3,7 @@ package com.voluble.titanMC.cinematics.runtime;
 import com.voluble.titanMC.cinematics.config.CinematicConfigurationManager;
 import com.voluble.titanMC.cinematics.model.CinematicDefinition;
 import com.voluble.titanMC.cinematics.model.CinematicId;
+import com.voluble.titanMC.display.screen.ScreenEffectService;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
@@ -15,11 +16,17 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class CinematicRuntime implements AutoCloseable {
 	private final Plugin plugin;
 	private final CinematicConfigurationManager configuration;
+	private final CinematicScreenEffects screenEffects;
 	private final Map<UUID, CinematicSession> sessions = new ConcurrentHashMap<>();
 
-	public CinematicRuntime(Plugin plugin, CinematicConfigurationManager configuration) {
+	public CinematicRuntime(Plugin plugin, CinematicConfigurationManager configuration, ScreenEffectService screenEffects) {
+		this(plugin, configuration, screenEffects::show);
+	}
+
+	CinematicRuntime(Plugin plugin, CinematicConfigurationManager configuration, CinematicScreenEffects screenEffects) {
 		this.plugin = Objects.requireNonNull(plugin, "plugin");
 		this.configuration = Objects.requireNonNull(configuration, "configuration");
+		this.screenEffects = Objects.requireNonNull(screenEffects, "screenEffects");
 	}
 
 	public StartResult start(Player player, CinematicId id) {
@@ -34,7 +41,7 @@ public final class CinematicRuntime implements AutoCloseable {
 		Optional<CinematicDefinition> definition = configuration.current().find(id);
 		if (definition.isEmpty()) return StartResult.UNKNOWN;
 		stop(player.getUniqueId(), true);
-		CinematicSession session = new CinematicSession(plugin, player, definition.get(), options, sessions::remove);
+		CinematicSession session = new CinematicSession(plugin, player, definition.get(), options, sessions::remove, screenEffects);
 		sessions.put(player.getUniqueId(), session);
 		session.start();
 		return StartResult.STARTED;

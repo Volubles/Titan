@@ -5,6 +5,7 @@ import com.voluble.titanMC.cinematics.model.CinematicDefinition;
 import com.voluble.titanMC.cinematics.model.CinematicEvent;
 import com.voluble.titanMC.cinematics.model.CommandCinematicEvent;
 import com.voluble.titanMC.cinematics.model.ParticleCinematicEvent;
+import com.voluble.titanMC.cinematics.model.ScreenCinematicEvent;
 import com.voluble.titanMC.cinematics.model.SoundCinematicEvent;
 import com.voluble.titanMC.util.ChatUtils;
 import net.kyori.adventure.text.Component;
@@ -92,6 +93,14 @@ final class CinematicEditorItemFactory {
 				lore.add("<gray>Volume/Pitch: <white>" + sound.volume() + " / " + sound.pitch());
 				lore.add("<gray>Category: <white>" + sound.category());
 			}
+			case ScreenCinematicEvent screen -> {
+				lore.add("<gray>Screen: <white>" + screen.screenId().value());
+				screen.timing().ifPresentOrElse(
+					timing -> lore.add("<gray>Timing: <white>" + timing.fadeInTicks() + " / " + timing.holdTicks() + " / " + timing.fadeOutTicks()),
+					() -> lore.add("<gray>Timing: <white>Screen default")
+				);
+				lore.add("<gray>Title: <white>" + (screen.title().isPresent() ? "Custom" : "Screen default"));
+			}
 		}
 		return lore;
 	}
@@ -140,6 +149,7 @@ final class CinematicEditorItemFactory {
 		return switch (event.type()) {
 			case COMMAND -> Material.COMMAND_BLOCK;
 			case PARTICLE -> Material.BLAZE_POWDER;
+			case SCREEN -> Material.BLACK_DYE;
 			case SOUND -> Material.NOTE_BLOCK;
 		};
 	}
@@ -148,6 +158,7 @@ final class CinematicEditorItemFactory {
 		return switch (event.type()) {
 			case COMMAND -> "<#f7d774><bold>Command Event";
 			case PARTICLE -> "<#b36bff><bold>Particle Event";
+			case SCREEN -> "<#d43030><bold>Screen Event";
 			case SOUND -> "<#42d829><bold>Sound Event";
 		};
 	}
