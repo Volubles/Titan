@@ -3,6 +3,8 @@ package com.voluble.titanMC.outfits.skin;
 import com.voluble.titanMC.outfits.model.OutfitDefinition;
 
 import javax.imageio.ImageIO;
+import java.awt.AlphaComposite;
+import java.awt.Composite;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
@@ -36,6 +38,15 @@ public final class OutfitSkinComposer {
 		BufferedImage original = readRemote(URI.create(originalSkinUrl.toString()));
 		BufferedImage template = ImageIO.read(outfit.templatePath().toFile());
 		if (template == null) throw new IOException("Could not read outfit template: " + outfit.templatePath());
+		BufferedImage result = compose(original, template);
+		ByteArrayOutputStream output = new ByteArrayOutputStream();
+		ImageIO.write(result, "png", output);
+		return output.toByteArray();
+	}
+
+	BufferedImage compose(BufferedImage original, BufferedImage template) {
+		Objects.requireNonNull(original, "original");
+		Objects.requireNonNull(template, "template");
 		BufferedImage result = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
 		Graphics2D graphics = result.createGraphics();
 		try {
@@ -45,9 +56,7 @@ public final class OutfitSkinComposer {
 		} finally {
 			graphics.dispose();
 		}
-		ByteArrayOutputStream output = new ByteArrayOutputStream();
-		ImageIO.write(result, "png", output);
-		return output.toByteArray();
+		return result;
 	}
 
 	private BufferedImage readRemote(URI uri) throws IOException, InterruptedException {
@@ -71,6 +80,10 @@ public final class OutfitSkinComposer {
 	}
 
 	private void copyHead(BufferedImage original, Graphics2D graphics) {
+		Composite composite = graphics.getComposite();
+		graphics.setComposite(AlphaComposite.Clear);
+		graphics.fillRect(0, 0, 64, 16);
+		graphics.setComposite(composite);
 		graphics.drawImage(original.getSubimage(0, 0, 64, 16), 0, 0, null);
 	}
 
