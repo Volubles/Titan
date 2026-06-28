@@ -1,5 +1,6 @@
 package com.voluble.titanMC.onboarding.persistence;
 
+import com.voluble.titanMC.onboarding.OnboardingOutfitSelection;
 import com.voluble.titanMC.outfits.model.OutfitId;
 
 import java.nio.file.Files;
@@ -73,6 +74,10 @@ public final class OnboardingStorage implements AutoCloseable {
 	}
 
 	public synchronized void complete(UUID playerId, OutfitId outfit, long completedAt) throws SQLException {
+		complete(playerId, outfit.value(), completedAt);
+	}
+
+	public synchronized void complete(UUID playerId, String selection, long completedAt) throws SQLException {
 		try (PreparedStatement statement = connection.prepareStatement("""
 			INSERT INTO onboarding_players(player_uuid, completed, selected_outfit, completed_at)
 			VALUES(?,?,?,?) ON CONFLICT(player_uuid) DO UPDATE SET
@@ -82,7 +87,7 @@ public final class OnboardingStorage implements AutoCloseable {
 			""")) {
 			statement.setString(1, playerId.toString());
 			statement.setInt(2, 1);
-			statement.setString(3, outfit.value());
+			statement.setString(3, selection);
 			statement.setLong(4, completedAt);
 			statement.executeUpdate();
 		}
@@ -95,7 +100,7 @@ public final class OnboardingStorage implements AutoCloseable {
 		}
 	}
 
-	public synchronized Optional<OutfitId> selectedOutfit(UUID playerId) throws SQLException {
+	public synchronized Optional<OnboardingOutfitSelection> selectedOutfit(UUID playerId) throws SQLException {
 		try (PreparedStatement statement = connection.prepareStatement("""
 			SELECT selected_outfit FROM onboarding_players WHERE player_uuid = ? AND completed = 1
 			""")) {
@@ -103,7 +108,9 @@ public final class OnboardingStorage implements AutoCloseable {
 			try (ResultSet result = statement.executeQuery()) {
 				if (!result.next()) return Optional.empty();
 				String outfit = result.getString("selected_outfit");
-				return outfit == null || outfit.isBlank() ? Optional.empty() : Optional.of(OutfitId.of(outfit));
+				return outfit == null || outfit.isBlank()
+					? Optional.empty()
+					: Optional.of(OnboardingOutfitSelection.parse(outfit));
 			}
 		}
 	}

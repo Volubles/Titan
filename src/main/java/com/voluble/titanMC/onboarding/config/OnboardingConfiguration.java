@@ -1,7 +1,7 @@
 package com.voluble.titanMC.onboarding.config;
 
 import com.voluble.titanMC.cinematics.model.CinematicId;
-import com.voluble.titanMC.outfits.model.OutfitId;
+import com.voluble.titanMC.onboarding.OnboardingOutfitSelection;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -20,7 +20,7 @@ public record OnboardingConfiguration(
 	OnboardingPreviewMode previewMode,
 	OnboardingPreviewStage previewStage,
 	OnboardingPresentationConfiguration presentation,
-	List<OutfitId> outfits
+	List<OnboardingOutfitSelection> outfits
 ) {
 	public OnboardingConfiguration {
 		Objects.requireNonNull(cinematic, "cinematic");
@@ -48,7 +48,7 @@ public record OnboardingConfiguration(
 			previewMode,
 			OnboardingPreviewStage.load(preview, previewMode),
 			OnboardingPresentationConfiguration.load(presentation),
-			requiredStringList(yaml, "outfits").stream().map(OutfitId::of).toList()
+			requiredStringList(yaml, "outfits").stream().map(OnboardingOutfitSelection::parse).toList()
 		);
 	}
 

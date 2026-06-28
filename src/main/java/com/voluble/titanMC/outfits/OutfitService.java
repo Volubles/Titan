@@ -182,6 +182,33 @@ public final class OutfitService implements AutoCloseable {
 		}
 	}
 
+	public void prepareOriginalSkin(Player player, Consumer<PreparedOutfitSkin> callback) {
+		if (!skinApplier.available()) {
+			callback.accept(PreparedOutfitSkin.failed(OutfitResult.SKINS_RESTORER_UNAVAILABLE));
+			return;
+		}
+		UUID playerId = player.getUniqueId();
+		String playerName = player.getName();
+		CompletableFuture.supplyAsync(() -> {
+			try {
+				return skinApplier.resolveOriginal(playerName);
+			} catch (Exception exception) {
+				throw new IllegalStateException(exception);
+			}
+		}).whenComplete((original, failure) -> Bukkit.getScheduler().runTask(plugin, () -> {
+			if (failure != null) {
+				logger.log(Level.WARNING, "Failed to prepare original skin preview for " + playerId, failure);
+				callback.accept(PreparedOutfitSkin.failed(OutfitResult.NO_ORIGINAL_SKIN));
+				return;
+			}
+			if (original.isEmpty()) {
+				callback.accept(PreparedOutfitSkin.failed(OutfitResult.NO_ORIGINAL_SKIN));
+				return;
+			}
+			callback.accept(PreparedOutfitSkin.success(original.get()));
+		}));
+	}
+
 	public java.util.Optional<OutfitPreference> preference(UUID playerId) {
 		try {
 			return storage.preference(playerId);

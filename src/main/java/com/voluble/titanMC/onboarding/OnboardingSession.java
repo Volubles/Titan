@@ -15,7 +15,6 @@ import com.voluble.titanMC.outfits.OutfitService;
 import com.voluble.titanMC.outfits.PreparedOutfitSkin;
 import com.voluble.titanMC.outfits.config.OutfitConfigurationManager;
 import com.voluble.titanMC.outfits.model.OutfitDefinition;
-import com.voluble.titanMC.outfits.model.OutfitId;
 import org.bukkit.Bukkit;
 import org.bukkit.Input;
 import org.bukkit.entity.Player;
@@ -157,9 +156,8 @@ public final class OnboardingSession {
 	}
 
 	private void showSelectedOutfit(int direction) {
-		OutfitId outfit = selectedOutfit();
-		String name = outfitName(outfit);
-		messages.send(player, MessageDefaults.ONBOARDING_OUTFIT_SELECTED, args -> args.plain("outfit", name));
+		OnboardingOutfitSelection selection = selectedOutfit();
+		messages.send(player, MessageDefaults.ONBOARDING_OUTFIT_SELECTED, args -> args.plain("outfit", selectionName(selection)));
 		if (!preview.available()) {
 			messages.send(player, MessageDefaults.ONBOARDING_PREVIEW_UNAVAILABLE);
 			return;
@@ -233,8 +231,8 @@ public final class OnboardingSession {
 	}
 
 	private void preparePreviewModel(int generation, int index, Consumer<OutfitPreview.PreviewModel> callback) {
-		OutfitId outfit = configuration.outfits().get(index);
-		outfits.prepareOutfitSkin(player, outfit, prepared -> {
+		OnboardingOutfitSelection selection = configuration.outfits().get(index);
+		Consumer<PreparedOutfitSkin> preparedCallback = prepared -> {
 			if (stopping || generation != previewGeneration) return;
 			if (!prepared(prepared)) {
 				messages.send(player, MessageDefaults.ONBOARDING_PREVIEW_FAILED);
@@ -242,11 +240,16 @@ public final class OnboardingSession {
 				return;
 			}
 			callback.accept(new OutfitPreview.PreviewModel(
-				outfitName(outfit),
+				selectionName(selection),
 				configuration.previewStage(),
 				prepared.property()
 			));
-		});
+		};
+		if (selection.original()) {
+			outfits.prepareOriginalSkin(player, preparedCallback);
+			return;
+		}
+		outfits.prepareOutfitSkin(player, selection.outfitId(), preparedCallback);
 	}
 
 	private boolean prepared(PreparedOutfitSkin prepared) {
@@ -282,23 +285,33 @@ public final class OnboardingSession {
 	}
 
 	private void confirm() {
-		OutfitId outfit = selectedOutfit();
-		messages.send(player, MessageDefaults.ONBOARDING_APPLYING, args -> args.plain("outfit", outfitName(outfit)));
-		outfits.applyOutfit(player, outfit, result -> {
-			if (result != OutfitResult.APPLIED) {
-				messages.send(player, MessageDefaults.ONBOARDING_APPLY_FAILED);
-				return;
-			}
-			try {
-				storage.complete(player.getUniqueId(), outfit, System.currentTimeMillis());
-			} catch (SQLException exception) {
-				logger.log(Level.WARNING, "Failed to save onboarding completion for " + player.getUniqueId(), exception);
-				messages.send(player, MessageDefaults.ONBOARDING_APPLY_FAILED);
-				return;
-			}
-			messages.send(player, MessageDefaults.ONBOARDING_COMPLETED);
-			stop(true);
-		});
+		OnboardingOutfitSelection selection = selectedOutfit();
+		messages.send(player, MessageDefaults.ONBOARDING_APPLYING, args -> args.plain("outfit", selectionName(selection)));
+		if (selection.original()) {
+			outfits.applyOriginal(player, result -> confirm(selection, result));
+			return;
+		}
+		outfits.applyOutfit(player, selection.outfitId(), result -> confirm(selection, result));
+	}
+
+	private void confirm(OnboardingOutfitSelection selection, OutfitResult result) {
+		if (!confirmed(selection, result)) {
+			messages.send(player, MessageDefaults.ONBOARDING_APPLY_FAILED);
+			return;
+		}
+		try {
+			storage.complete(player.getUniqueId(), selection.storageValue(), System.currentTimeMillis());
+		} catch (SQLException exception) {
+			logger.log(Level.WARNING, "Failed to save onboarding completion for " + player.getUniqueId(), exception);
+			messages.send(player, MessageDefaults.ONBOARDING_APPLY_FAILED);
+			return;
+		}
+		messages.send(player, MessageDefaults.ONBOARDING_COMPLETED);
+		stop(true);
+	}
+
+	private boolean confirmed(OnboardingOutfitSelection selection, OutfitResult result) {
+		return selection.original() ? result == OutfitResult.ORIGINAL : result == OutfitResult.APPLIED;
 	}
 
 	private void cancel() {
@@ -306,14 +319,15 @@ public final class OnboardingSession {
 		stop(true);
 	}
 
-	private OutfitId selectedOutfit() {
-		List<OutfitId> configured = configuration.outfits();
+	private OnboardingOutfitSelection selectedOutfit() {
+		List<OnboardingOutfitSelection> configured = configuration.outfits();
 		return configured.get(Math.max(0, Math.min(outfitIndex, configured.size() - 1)));
 	}
 
-	private String outfitName(OutfitId outfit) {
-		return outfitConfiguration.current().find(outfit)
+	private String selectionName(OnboardingOutfitSelection selection) {
+		if (selection.original()) return "Original Skin";
+		return outfitConfiguration.current().find(selection.outfitId())
 			.map(OutfitDefinition::displayName)
-			.orElse(outfit.value());
+			.orElse(selection.outfitId().value());
 	}
 }
