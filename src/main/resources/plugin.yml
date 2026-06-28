@@ -55,6 +55,10 @@ commands:
     description: Play a screen fade effect
     usage: /fade [screen] [player|all] [fadeIn hold fadeOut]
     permission: titanmc.fade.admin
+  dialogue:
+    description: Preview Titan display dialogues
+    usage: /dialogue <preview|skip|clear>
+    permission: titanmc.dialogue.admin
 permissions:
   donatortools.give:
     description: Allows giving donator tools
@@ -116,6 +120,8 @@ permissions:
     default: op
   titanmc.fade.admin:
     description: Allows playing and reloading screen fade effects
+  titanmc.dialogue.admin:
+    description: Allows previewing Titan display dialogues
     default: op
   titanmc.protection.bypass:
     description: Bypasses Titan region protection
