@@ -16,12 +16,17 @@ import java.util.regex.Pattern;
 
 public final class MineSkinClient {
 	private static final URI UPLOAD_ENDPOINT = URI.create("https://api.mineskin.org/v2/generate");
+	private static final long MINIMUM_UPLOAD_SPACING_MILLIS = 3_000L;
+	private static final int MAX_ATTEMPTS = 3;
 	private static final Pattern VALUE = Pattern.compile("\"value\"\\s*:\\s*\"([^\"]+)\"");
 	private static final Pattern SIGNATURE = Pattern.compile("\"signature\"\\s*:\\s*\"([^\"]+)\"");
+	private static final Pattern RETRY_AFTER = Pattern.compile("next request in (\\d+)ms");
 
 	private final HttpClient client = HttpClient.newBuilder()
 		.connectTimeout(Duration.ofSeconds(10))
 		.build();
+	private final Object uploadLock = new Object();
+	private long nextUploadAtMillis;
 
 	public SkinPropertyData upload(
 		String apiKey,
@@ -35,6 +40,29 @@ public final class MineSkinClient {
 		Objects.requireNonNull(model, "model");
 		Objects.requireNonNull(visibility, "visibility");
 		Objects.requireNonNull(png, "png");
+		synchronized (uploadLock) {
+			for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+				waitForUploadSlot();
+				HttpResponse<String> response = send(apiKey, outfitId, model, visibility, png);
+				nextUploadAtMillis = System.currentTimeMillis() + MINIMUM_UPLOAD_SPACING_MILLIS;
+				if (response.statusCode() >= 200 && response.statusCode() < 300) return property(response.body());
+				if (response.statusCode() == 429 && attempt < MAX_ATTEMPTS) {
+					nextUploadAtMillis = Math.max(nextUploadAtMillis, System.currentTimeMillis() + retryAfterMillis(response.body()));
+					continue;
+				}
+				throw new IOException("MineSkin upload failed with HTTP " + response.statusCode() + ": " + trim(response.body()));
+			}
+			throw new IOException("MineSkin upload failed after " + MAX_ATTEMPTS + " attempts");
+		}
+	}
+
+	private HttpResponse<String> send(
+		String apiKey,
+		OutfitId outfitId,
+		SkinModel model,
+		MineSkinVisibility visibility,
+		byte[] png
+	) throws IOException, InterruptedException {
 		String boundary = "TitanMCBoundary" + System.nanoTime();
 		byte[] body = multipart(boundary, outfitId, model, visibility, png);
 		HttpRequest request = HttpRequest.newBuilder(UPLOAD_ENDPOINT)
@@ -45,11 +73,22 @@ public final class MineSkinClient {
 			.header("Content-Type", "multipart/form-data; boundary=" + boundary)
 			.POST(HttpRequest.BodyPublishers.ofByteArray(body))
 			.build();
-		HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-		if (response.statusCode() < 200 || response.statusCode() >= 300) {
-			throw new IOException("MineSkin upload failed with HTTP " + response.statusCode() + ": " + trim(response.body()));
+		return client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+	}
+
+	private void waitForUploadSlot() throws InterruptedException {
+		long wait = nextUploadAtMillis - System.currentTimeMillis();
+		if (wait > 0L) Thread.sleep(wait);
+	}
+
+	private static long retryAfterMillis(String body) {
+		Matcher matcher = RETRY_AFTER.matcher(body == null ? "" : body);
+		if (!matcher.find()) return MINIMUM_UPLOAD_SPACING_MILLIS;
+		try {
+			return Math.max(MINIMUM_UPLOAD_SPACING_MILLIS, Long.parseLong(matcher.group(1)) + 250L);
+		} catch (NumberFormatException exception) {
+			return MINIMUM_UPLOAD_SPACING_MILLIS;
 		}
-		return property(response.body());
 	}
 
 	private static byte[] multipart(
