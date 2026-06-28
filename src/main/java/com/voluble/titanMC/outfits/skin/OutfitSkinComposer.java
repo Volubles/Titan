@@ -17,6 +17,14 @@ import java.time.Duration;
 import java.util.Objects;
 
 public final class OutfitSkinComposer {
+	private static final SkinRegion[] BODY_BASE_REGIONS = {
+		new SkinRegion(0, 16, 16, 16),
+		new SkinRegion(16, 16, 24, 16),
+		new SkinRegion(40, 16, 16, 16),
+		new SkinRegion(16, 48, 16, 16),
+		new SkinRegion(32, 48, 16, 16)
+	};
+
 	private final HttpClient client = HttpClient.newBuilder()
 		.connectTimeout(Duration.ofSeconds(10))
 		.followRedirects(HttpClient.Redirect.NORMAL)
@@ -31,7 +39,7 @@ public final class OutfitSkinComposer {
 		BufferedImage result = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
 		Graphics2D graphics = result.createGraphics();
 		try {
-			graphics.drawImage(original, 0, 0, null);
+			copyBodyBase(original, graphics);
 			graphics.drawImage(template, 0, 0, 64, 64, null);
 			copyHead(original, graphics);
 		} finally {
@@ -64,5 +72,23 @@ public final class OutfitSkinComposer {
 
 	private void copyHead(BufferedImage original, Graphics2D graphics) {
 		graphics.drawImage(original.getSubimage(0, 0, 64, 16), 0, 0, null);
+	}
+
+	private void copyBodyBase(BufferedImage original, Graphics2D graphics) {
+		for (SkinRegion region : BODY_BASE_REGIONS) {
+			if (!region.fits(original)) continue;
+			graphics.drawImage(
+				original.getSubimage(region.x(), region.y(), region.width(), region.height()),
+				region.x(),
+				region.y(),
+				null
+			);
+		}
+	}
+
+	private record SkinRegion(int x, int y, int width, int height) {
+		private boolean fits(BufferedImage image) {
+			return x + width <= image.getWidth() && y + height <= image.getHeight();
+		}
 	}
 }
