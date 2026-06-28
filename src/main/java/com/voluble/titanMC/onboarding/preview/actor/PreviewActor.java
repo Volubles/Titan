@@ -34,7 +34,6 @@ public final class PreviewActor {
 	private final UUID npcId;
 	private final String npcName;
 	private final String teamName;
-	private final PreviewPath path;
 	private final PreviewMotion motion;
 	private final WrapperPlayer npc;
 	private final CompletableFuture<Void> removed = new CompletableFuture<>();
@@ -46,7 +45,6 @@ public final class PreviewActor {
 	public PreviewActor(
 		Plugin plugin,
 		Player viewer,
-		PreviewPath path,
 		SkinPropertyData skin,
 		PreviewMotion motion
 	) {
@@ -56,23 +54,24 @@ public final class PreviewActor {
 		this.npcId = UUID.randomUUID();
 		this.npcName = username(npcId);
 		this.teamName = teamName(npcId);
-		this.path = Objects.requireNonNull(path, "path");
 		this.motion = Objects.requireNonNull(motion, "motion");
 		this.npc = createNpc(Objects.requireNonNull(skin, "skin"));
 	}
 
-	public CompletableFuture<Void> enter() {
+	public CompletableFuture<Void> enter(Location entrance, Location focus) {
+		Objects.requireNonNull(entrance, "entrance");
+		Objects.requireNonNull(focus, "focus");
 		CompletableFuture<Void> result = new CompletableFuture<>();
 		focused = result;
 		state = PreviewActorState.ENTERING;
-		spawnAt(path.entrance());
-		moveTo(path.focus(), true).whenComplete((ignored, failure) -> {
+		spawnAt(entrance);
+		moveTo(focus, true).whenComplete((ignored, failure) -> {
 			if (failure != null) {
 				result.completeExceptionally(failure);
 				return;
 			}
 			if (state == PreviewActorState.REMOVED) return;
-			current = path.focus().clone();
+			current = focus.clone();
 			state = PreviewActorState.FOCUSED;
 			npc.teleport(toPacketLocation(current));
 			npc.rotateHead(toPacketLocation(current));
@@ -99,10 +98,6 @@ public final class PreviewActor {
 		return result;
 	}
 
-	public CompletableFuture<Void> moveToFocus() {
-		return moveToFocus(path.focus());
-	}
-
 	public CompletableFuture<Void> moveToFocus(Location focus) {
 		if (state == PreviewActorState.REMOVED) return removed;
 		state = PreviewActorState.ENTERING;
@@ -115,18 +110,6 @@ public final class PreviewActor {
 		});
 	}
 
-	public CompletableFuture<Void> moveToEntrance() {
-		return exitTo(path.entrance());
-	}
-
-	public CompletableFuture<Void> moveToEntranceSlot() {
-		return moveToStage(path.entrance());
-	}
-
-	public CompletableFuture<Void> moveToExitSlot() {
-		return moveToStage(path.exit());
-	}
-
 	public CompletableFuture<Void> moveToStage(Location stage) {
 		if (state == PreviewActorState.REMOVED) return removed;
 		state = PreviewActorState.EXITING;
@@ -136,10 +119,6 @@ public final class PreviewActor {
 			state = PreviewActorState.STAGED;
 			npc.teleport(toPacketLocation(current));
 		});
-	}
-
-	public CompletableFuture<Void> exit() {
-		return exitTo(path.exit());
 	}
 
 	public CompletableFuture<Void> exitTo(Location target) {

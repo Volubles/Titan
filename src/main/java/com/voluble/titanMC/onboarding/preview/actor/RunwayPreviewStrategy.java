@@ -17,14 +17,15 @@ final class RunwayPreviewStrategy implements PreviewStrategy {
 
 	@Override
 	public CompletableFuture<Void> show(OutfitPreview.PreviewScene scene) {
+		RunwayPreviewLayout layout = RunwayPreviewLayout.from(scene.stage());
 		if (active != null) {
 			PreviewActor outgoing = active;
-			outgoing.exit().whenComplete((ignored, failure) -> visible.remove(outgoing));
+			outgoing.exitTo(layout.exit()).whenComplete((ignored, failure) -> visible.remove(outgoing));
 		}
 		PreviewActor next = actors.create(scene.focus());
 		active = next;
 		visible.add(next);
-		return next.enter();
+		return next.enter(layout.entrance(), layout.focus());
 	}
 
 	@Override

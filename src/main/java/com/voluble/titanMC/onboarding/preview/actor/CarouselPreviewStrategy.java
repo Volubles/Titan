@@ -42,7 +42,7 @@ final class CarouselPreviewStrategy implements PreviewStrategy {
 
 	private CompletableFuture<Void> initialize(OutfitPreview.PreviewScene scene) {
 		focusIndex = scene.selectedIndex();
-		CarouselPreviewPath path = CarouselPreviewPath.from(scene.stage());
+		CarouselPreviewLayout path = CarouselPreviewLayout.from(scene.stage());
 		PreviewActor left = actors.create(scene.previous());
 		PreviewActor focus = actors.create(scene.focus());
 		PreviewActor right = actors.create(scene.next());
@@ -57,7 +57,7 @@ final class CarouselPreviewStrategy implements PreviewStrategy {
 	}
 
 	private CompletableFuture<Void> rotateForward(OutfitPreview.PreviewScene scene) {
-		CarouselPreviewPath path = CarouselPreviewPath.from(scene.stage());
+		CarouselPreviewLayout path = CarouselPreviewLayout.from(scene.stage());
 		PreviewActor oldLeft = wheel.left;
 		PreviewActor oldFocus = wheel.focus;
 		PreviewActor oldRight = wheel.right;
@@ -74,7 +74,7 @@ final class CarouselPreviewStrategy implements PreviewStrategy {
 	}
 
 	private CompletableFuture<Void> rotateBackward(OutfitPreview.PreviewScene scene) {
-		CarouselPreviewPath path = CarouselPreviewPath.from(scene.stage());
+		CarouselPreviewLayout path = CarouselPreviewLayout.from(scene.stage());
 		PreviewActor oldLeft = wheel.left;
 		PreviewActor oldFocus = wheel.focus;
 		PreviewActor oldRight = wheel.right;

@@ -18,6 +18,6 @@ final class PreviewActorFactory {
 	}
 
 	PreviewActor create(OutfitPreview.PreviewModel model) {
-		return new PreviewActor(plugin, player, PreviewPath.runway(model.stage()), model.skin(), motion);
+		return new PreviewActor(plugin, player, model.skin(), motion);
 	}
 }
