@@ -493,6 +493,16 @@ public final class MessageDefaults {
 		"onboarding.cancelled", MessageType.INFO, "Onboarding cancelled."
 	);
 
+	public static final MessageDefinition FADE_RELOADED = message(
+		"fade.reloaded", MessageType.SUCCESS, "Screen effects reloaded."
+	);
+	public static final MessageDefinition FADE_STOPPED = message(
+		"fade.stopped", MessageType.SUCCESS, "Stopped your screen effect."
+	);
+	public static final MessageDefinition FADE_UNKNOWN = message(
+		"fade.unknown", MessageType.ERROR, "Unknown screen effect: {{screen}}"
+	);
+
 	public static final MessageDefinition MINES_LIST = message(
 		"mines.list", MessageType.INFO, "Mines: {{mines}}"
 	);

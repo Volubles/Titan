@@ -1,0 +1,15 @@
+defaults:
+  color: "#000000"
+  title: ""
+  fade-in-ticks: 10
+  hold-ticks: 20
+  fade-out-ticks: 10
+  hide-hud: true
+
+screens:
+  fullscreen_black:
+    nexo-glyph: nexoscreens_fullscreen_black
+  fullscreen:
+    nexo-glyph: nexoscreens_fullscreen
+  fullscreen_transparent:
+    nexo-glyph: nexoscreens_fullscreen_transparent

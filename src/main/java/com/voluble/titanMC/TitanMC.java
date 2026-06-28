@@ -47,6 +47,9 @@ import com.voluble.titanMC.display.message.DisplayBroadcastService;
 import com.voluble.titanMC.display.notice.MessageConfigurationManager;
 import com.voluble.titanMC.display.notice.MessageDefaults;
 import com.voluble.titanMC.display.notice.PluginMessageService;
+import com.voluble.titanMC.display.screen.ScreenEffectConfigurationManager;
+import com.voluble.titanMC.display.screen.ScreenEffectService;
+import com.voluble.titanMC.display.screen.command.FadeCommandModule;
 import com.voluble.titanMC.integrations.placeholderapi.TitanPlaceholderExpansion;
 import com.voluble.titanMC.managers.EconomyManager;
 import com.voluble.titanMC.milestones.bukkit.MilestoneCompletionHandler;
@@ -170,6 +173,8 @@ public final class TitanMC extends JavaPlugin {
 	private MilestoneService milestoneService;
 	private MilestoneMenuService milestoneMenus;
 	private DisplayBroadcastService displayBroadcastService;
+	private ScreenEffectConfigurationManager screenEffectConfiguration;
+	private ScreenEffectService screenEffects;
 	private MessageConfigurationManager messageConfiguration;
 	private PluginMessageService messages;
 	private OutfitConfigurationManager outfitConfiguration;
@@ -209,6 +214,7 @@ public final class TitanMC extends JavaPlugin {
 		rankConfiguration = new RankConfigurationManager(this);
 		progressionConfiguration = new ProgressionConfigurationManager(this);
 		milestoneConfiguration = new MilestoneConfigurationManager(this);
+		screenEffectConfiguration = new ScreenEffectConfigurationManager(this);
 		outfitConfiguration = new OutfitConfigurationManager(this);
 		cinematicConfiguration = new CinematicConfigurationManager(this);
 		onboardingConfiguration = new OnboardingConfigurationManager(this);
@@ -218,6 +224,7 @@ public final class TitanMC extends JavaPlugin {
 			configManager.registerComponent(rankConfiguration);
 			configManager.registerComponent(progressionConfiguration);
 			configManager.registerComponent(milestoneConfiguration);
+			configManager.registerComponent(screenEffectConfiguration);
 			configManager.registerComponent(outfitConfiguration);
 			configManager.registerComponent(cinematicConfiguration);
 			configManager.registerComponent(onboardingConfiguration);
@@ -230,6 +237,8 @@ public final class TitanMC extends JavaPlugin {
 			return;
 		}
 		messages = messageConfiguration.service();
+		screenEffects = new ScreenEffectService(this, screenEffectConfiguration);
+		getServer().getPluginManager().registerEvents(screenEffects, this);
 		getLogger().info(
 			"Loaded " + rankConfiguration.catalog().ranks().size()
 				+ " prison ranks across " + rankConfiguration.catalog().wards().size() + " wards"
@@ -362,6 +371,7 @@ public final class TitanMC extends JavaPlugin {
 			.addModule(new OutfitCommandModule(outfitConfiguration, outfitService, messages))
 			.addModule(new CinematicCommandModule(cinematicConfiguration, cinematicRuntime, cinematicEditor, messages))
 			.addModule(new OnboardingCommandModule(onboardingService, messages))
+			.addModule(new FadeCommandModule(screenEffectConfiguration, screenEffects, messages))
 			.install();
 
 		getLogger().info("TitanMC has been enabled!");
@@ -662,6 +672,7 @@ public final class TitanMC extends JavaPlugin {
 			try { rankStorage.close(); }
 			catch (Exception exception) { getLogger().severe("Failed to close Ranks cleanly: " + exception.getMessage()); }
 		}
+		if (screenEffects != null) screenEffects.close();
 		if (progressionBars != null) progressionBars.close();
 		if (progressionEngine != null) {
 			try { progressionEngine.close(); }
