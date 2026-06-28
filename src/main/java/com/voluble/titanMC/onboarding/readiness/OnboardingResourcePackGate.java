@@ -15,27 +15,24 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Logger;
 
 public final class OnboardingResourcePackGate implements Listener, AutoCloseable {
 	private final Plugin plugin;
-	private final OnboardingResourcePackSender sender;
-	private final Logger logger;
 	private final Map<UUID, PendingPack> pending = new ConcurrentHashMap<>();
+	private final Map<UUID, OnboardingReadinessResult> latestTerminalStatus = new ConcurrentHashMap<>();
 
-	public OnboardingResourcePackGate(Plugin plugin, OnboardingResourcePackSender sender, Logger logger) {
+	public OnboardingResourcePackGate(Plugin plugin) {
 		this.plugin = Objects.requireNonNull(plugin, "plugin");
-		this.sender = Objects.requireNonNull(sender, "sender");
-		this.logger = Objects.requireNonNull(logger, "logger");
 	}
 
 	public CompletableFuture<OnboardingReadinessResult> await(Player player, OnboardingResourcePackConfiguration configuration) {
 		if (!configuration.enabled()) return CompletableFuture.completedFuture(OnboardingReadinessResult.READY);
-		if (!sender.available()) {
-			if (configuration.requireNexo()) return CompletableFuture.completedFuture(OnboardingReadinessResult.RESOURCE_PACK_UNAVAILABLE);
-			return CompletableFuture.completedFuture(OnboardingReadinessResult.READY);
+		if (configuration.requireNexo() && !Bukkit.getPluginManager().isPluginEnabled("Nexo")) {
+			return CompletableFuture.completedFuture(OnboardingReadinessResult.RESOURCE_PACK_UNAVAILABLE);
 		}
 		UUID playerId = player.getUniqueId();
+		OnboardingReadinessResult latest = latestTerminalStatus.get(playerId);
+		if (latest != null) return CompletableFuture.completedFuture(latest);
 		CompletableFuture<OnboardingReadinessResult> future = new CompletableFuture<>();
 		PendingPack previous = pending.remove(playerId);
 		if (previous != null) previous.complete(OnboardingReadinessResult.RESOURCE_PACK_FAILED);
@@ -43,32 +40,31 @@ public final class OnboardingResourcePackGate implements Listener, AutoCloseable
 			complete(playerId, OnboardingReadinessResult.RESOURCE_PACK_TIMEOUT), configuration.timeoutTicks()
 		);
 		pending.put(playerId, new PendingPack(future, timeout));
-		try {
-			sender.send(player);
-		} catch (RuntimeException exception) {
-			logger.warning("Failed to send onboarding resource pack to " + playerId + ": " + exception.getMessage());
-			complete(playerId, OnboardingReadinessResult.RESOURCE_PACK_FAILED);
-		}
 		return future;
 	}
 
 	@EventHandler
 	public void onResourcePackStatus(PlayerResourcePackStatusEvent event) {
 		UUID playerId = event.getPlayer().getUniqueId();
-		if (!pending.containsKey(playerId)) return;
 		switch (event.getStatus()) {
-			case SUCCESSFULLY_LOADED -> complete(playerId, OnboardingReadinessResult.READY);
-			case DECLINED -> complete(playerId, OnboardingReadinessResult.RESOURCE_PACK_DECLINED);
-			case FAILED_DOWNLOAD, INVALID_URL, FAILED_RELOAD, DISCARDED ->
-				complete(playerId, OnboardingReadinessResult.RESOURCE_PACK_FAILED);
-			case ACCEPTED, DOWNLOADED -> {
-			}
+			case SUCCESSFULLY_LOADED -> rememberAndComplete(playerId, OnboardingReadinessResult.READY);
+			case DECLINED -> rememberAndComplete(playerId, OnboardingReadinessResult.RESOURCE_PACK_DECLINED);
+			case FAILED_DOWNLOAD, INVALID_URL, FAILED_RELOAD, DISCARDED -> rememberAndComplete(
+				playerId, OnboardingReadinessResult.RESOURCE_PACK_FAILED
+			);
+			case ACCEPTED, DOWNLOADED -> latestTerminalStatus.remove(playerId);
 		}
 	}
 
 	@EventHandler
 	public void onQuit(PlayerQuitEvent event) {
+		latestTerminalStatus.remove(event.getPlayer().getUniqueId());
 		complete(event.getPlayer().getUniqueId(), OnboardingReadinessResult.RESOURCE_PACK_FAILED);
+	}
+
+	private void rememberAndComplete(UUID playerId, OnboardingReadinessResult result) {
+		latestTerminalStatus.put(playerId, result);
+		complete(playerId, result);
 	}
 
 	private void complete(UUID playerId, OnboardingReadinessResult result) {

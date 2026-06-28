@@ -35,11 +35,9 @@ import com.voluble.titanMC.onboarding.persistence.OnboardingStorage;
 import com.voluble.titanMC.onboarding.preview.EntityLibOutfitPreview;
 import com.voluble.titanMC.onboarding.preview.OutfitPreview;
 import com.voluble.titanMC.onboarding.preview.UnavailableOutfitPreview;
-import com.voluble.titanMC.onboarding.readiness.NexoOnboardingResourcePackSender;
 import com.voluble.titanMC.onboarding.readiness.OnboardingOutfitWarmup;
 import com.voluble.titanMC.onboarding.readiness.OnboardingReadinessService;
 import com.voluble.titanMC.onboarding.readiness.OnboardingResourcePackGate;
-import com.voluble.titanMC.onboarding.readiness.OnboardingResourcePackSender;
 import com.voluble.titanMC.onboarding.readiness.OnboardingWaitingRoom;
 import com.voluble.titanMC.donatortools.DonatorToolsService;
 import com.voluble.titanMC.donatortools.command.DonatorToolsCommandModule;
@@ -529,7 +527,7 @@ public final class TitanMC extends JavaPlugin {
 			return false;
 		}
 		getServer().getPluginManager().registerEvents(
-			new OnboardingListener(this, onboardingConfiguration, onboardingService), this
+			new OnboardingListener(onboardingService), this
 		);
 		getLogger().info("Onboarding ready");
 		return true;
@@ -538,20 +536,10 @@ public final class TitanMC extends JavaPlugin {
 	private OnboardingReadinessService onboardingReadiness() {
 		return new OnboardingReadinessService(
 			new OnboardingWaitingRoom(),
-			new OnboardingResourcePackGate(this, onboardingResourcePackSender(), getLogger()),
+			new OnboardingResourcePackGate(this),
 			new OnboardingOutfitWarmup(this, outfitService),
 			getLogger()
 		);
-	}
-
-	private OnboardingResourcePackSender onboardingResourcePackSender() {
-		if (!getServer().getPluginManager().isPluginEnabled("Nexo")) {
-			if (onboardingConfiguration.current().readiness().resourcePack().enabled()) {
-				getLogger().warning("Nexo is not installed; onboarding resource-pack readiness is unavailable");
-			}
-			return OnboardingResourcePackSender.unavailable();
-		}
-		return new NexoOnboardingResourcePackSender();
 	}
 
 	private OutfitPreview outfitPreview() {

@@ -2,7 +2,6 @@ package com.voluble.titanMC.onboarding.readiness;
 
 import com.voluble.titanMC.onboarding.OnboardingOutfitSelection;
 import com.voluble.titanMC.onboarding.config.OnboardingConfiguration;
-import com.voluble.titanMC.onboarding.config.OnboardingPreviewMode;
 import com.voluble.titanMC.onboarding.config.OnboardingWarmupConfiguration;
 import com.voluble.titanMC.outfits.OutfitResult;
 import com.voluble.titanMC.outfits.OutfitService;
@@ -12,11 +11,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public final class OnboardingOutfitWarmup {
@@ -75,16 +72,6 @@ public final class OnboardingOutfitWarmup {
 	}
 
 	private List<OnboardingOutfitSelection> warmupSelections(OnboardingConfiguration configuration) {
-		List<OnboardingOutfitSelection> configured = configuration.outfits();
-		if (configured.isEmpty()) return List.of();
-		Set<Integer> indices = new LinkedHashSet<>();
-		indices.add(0);
-		if (configuration.previewMode() == OnboardingPreviewMode.CAROUSEL && configured.size() > 1) {
-			indices.add(configured.size() - 1);
-			indices.add(1);
-		}
-		List<OnboardingOutfitSelection> selections = new ArrayList<>();
-		for (int index : indices) selections.add(configured.get(index));
-		return selections;
+		return List.copyOf(new LinkedHashSet<>(configuration.outfits()));
 	}
 }

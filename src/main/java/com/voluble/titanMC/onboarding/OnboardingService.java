@@ -122,7 +122,10 @@ public final class OnboardingService implements AutoCloseable {
 					messages.send(online, MessageDefaults.ONBOARDING_READINESS_FAILED);
 					return;
 				}
-				start(online);
+				Bukkit.getScheduler().runTaskLater(plugin, () -> {
+					Player delayed = Bukkit.getPlayer(player.getUniqueId());
+					if (delayed != null) start(delayed);
+				}, snapshot.firstJoinDelayTicks());
 			})
 		);
 	}
