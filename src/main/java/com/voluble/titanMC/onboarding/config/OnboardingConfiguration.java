@@ -34,14 +34,15 @@ public record OnboardingConfiguration(
 	public static OnboardingConfiguration load(FileConfiguration yaml) {
 		ConfigurationSection firstJoin = yaml.getConfigurationSection("first-join");
 		ConfigurationSection input = yaml.getConfigurationSection("input");
+		OnboardingPreviewMode previewMode = OnboardingPreviewMode.parse(yaml.getString("preview-mode", "runway"));
 		return new OnboardingConfiguration(
 			yaml.getBoolean("enabled", true),
 			firstJoin == null || firstJoin.getBoolean("enabled", true),
 			firstJoin == null ? 40L : firstJoin.getLong("delay-ticks", 40L),
 			CinematicId.of(yaml.getString("cinematic", "onboarding_intro")),
 			input == null ? 300L : input.getLong("repeat-cooldown-ms", 300L),
-			OnboardingPreviewMode.parse(yaml.getString("preview-mode", "runway")),
-			OnboardingPreviewStage.load(yaml),
+			previewMode,
+			OnboardingPreviewStage.load(yaml, previewMode),
 			yaml.getStringList("outfits").stream().map(OutfitId::of).toList()
 		);
 	}

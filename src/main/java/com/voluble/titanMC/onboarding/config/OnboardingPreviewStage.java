@@ -16,31 +16,38 @@ public record OnboardingPreviewStage(
 	OnboardingConfiguration.LocationSpec rightExit
 ) {
 	public OnboardingPreviewStage {
-		Objects.requireNonNull(runwayEntrance, "runwayEntrance");
 		Objects.requireNonNull(focus, "focus");
-		Objects.requireNonNull(runwayExit, "runwayExit");
-		Objects.requireNonNull(leftEntrance, "leftEntrance");
-		Objects.requireNonNull(leftStage, "leftStage");
-		Objects.requireNonNull(leftExit, "leftExit");
-		Objects.requireNonNull(rightEntrance, "rightEntrance");
-		Objects.requireNonNull(rightStage, "rightStage");
-		Objects.requireNonNull(rightExit, "rightExit");
 	}
 
-	public static OnboardingPreviewStage load(ConfigurationSection root) {
+	public static OnboardingPreviewStage load(ConfigurationSection root, OnboardingPreviewMode mode) {
+		Objects.requireNonNull(mode, "mode");
 		ConfigurationSection section = root.getConfigurationSection("preview-stage");
 		if (section == null) throw new IllegalArgumentException("Missing section: preview-stage");
-		return new OnboardingPreviewStage(
-			loadRequired(section, OnboardingPreviewPoint.RUNWAY_ENTRANCE),
-			loadRequired(section, OnboardingPreviewPoint.FOCUS),
-			loadRequired(section, OnboardingPreviewPoint.RUNWAY_EXIT),
-			loadRequired(section, OnboardingPreviewPoint.LEFT_ENTRANCE),
-			loadRequired(section, OnboardingPreviewPoint.LEFT_STAGE),
-			loadRequired(section, OnboardingPreviewPoint.LEFT_EXIT),
-			loadRequired(section, OnboardingPreviewPoint.RIGHT_ENTRANCE),
-			loadRequired(section, OnboardingPreviewPoint.RIGHT_STAGE),
-			loadRequired(section, OnboardingPreviewPoint.RIGHT_EXIT)
-		);
+		OnboardingConfiguration.LocationSpec focus = loadRequired(section, OnboardingPreviewPoint.FOCUS);
+		return switch (mode) {
+			case RUNWAY -> new OnboardingPreviewStage(
+				loadRequired(section, OnboardingPreviewPoint.RUNWAY_ENTRANCE),
+				focus,
+				loadRequired(section, OnboardingPreviewPoint.RUNWAY_EXIT),
+				loadOptional(section, OnboardingPreviewPoint.LEFT_ENTRANCE),
+				loadOptional(section, OnboardingPreviewPoint.LEFT_STAGE),
+				loadOptional(section, OnboardingPreviewPoint.LEFT_EXIT),
+				loadOptional(section, OnboardingPreviewPoint.RIGHT_ENTRANCE),
+				loadOptional(section, OnboardingPreviewPoint.RIGHT_STAGE),
+				loadOptional(section, OnboardingPreviewPoint.RIGHT_EXIT)
+			);
+			case CAROUSEL -> new OnboardingPreviewStage(
+				loadOptional(section, OnboardingPreviewPoint.RUNWAY_ENTRANCE),
+				focus,
+				loadOptional(section, OnboardingPreviewPoint.RUNWAY_EXIT),
+				loadRequired(section, OnboardingPreviewPoint.LEFT_ENTRANCE),
+				loadRequired(section, OnboardingPreviewPoint.LEFT_STAGE),
+				loadRequired(section, OnboardingPreviewPoint.LEFT_EXIT),
+				loadRequired(section, OnboardingPreviewPoint.RIGHT_ENTRANCE),
+				loadRequired(section, OnboardingPreviewPoint.RIGHT_STAGE),
+				loadRequired(section, OnboardingPreviewPoint.RIGHT_EXIT)
+			);
+		};
 	}
 
 	public OnboardingConfiguration.LocationSpec point(OnboardingPreviewPoint point) {
@@ -64,5 +71,13 @@ public record OnboardingPreviewStage(
 		ConfigurationSection pointSection = section.getConfigurationSection(point.key());
 		if (pointSection == null) throw new IllegalArgumentException("Missing preview-stage point: " + point.key());
 		return OnboardingConfiguration.LocationSpec.load(pointSection);
+	}
+
+	private static OnboardingConfiguration.LocationSpec loadOptional(
+		ConfigurationSection section,
+		OnboardingPreviewPoint point
+	) {
+		ConfigurationSection pointSection = section.getConfigurationSection(point.key());
+		return pointSection == null ? null : OnboardingConfiguration.LocationSpec.load(pointSection);
 	}
 }
