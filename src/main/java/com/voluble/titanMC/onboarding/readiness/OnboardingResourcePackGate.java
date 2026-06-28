@@ -18,16 +18,21 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class OnboardingResourcePackGate implements Listener, AutoCloseable {
 	private final Plugin plugin;
+	private final OnboardingResourcePackDispatcher dispatcher;
 	private final Map<UUID, PendingPack> pending = new ConcurrentHashMap<>();
 	private final Map<UUID, OnboardingReadinessResult> latestTerminalStatus = new ConcurrentHashMap<>();
 
-	public OnboardingResourcePackGate(Plugin plugin) {
+	public OnboardingResourcePackGate(Plugin plugin, OnboardingResourcePackDispatcher dispatcher) {
 		this.plugin = Objects.requireNonNull(plugin, "plugin");
+		this.dispatcher = Objects.requireNonNull(dispatcher, "dispatcher");
 	}
 
 	public CompletableFuture<OnboardingReadinessResult> await(Player player, OnboardingResourcePackConfiguration configuration) {
 		if (!configuration.enabled()) return CompletableFuture.completedFuture(OnboardingReadinessResult.READY);
 		if (configuration.requireNexo() && !Bukkit.getPluginManager().isPluginEnabled("Nexo")) {
+			return CompletableFuture.completedFuture(OnboardingReadinessResult.RESOURCE_PACK_UNAVAILABLE);
+		}
+		if (configuration.sendWithNexo() && !dispatcher.available()) {
 			return CompletableFuture.completedFuture(OnboardingReadinessResult.RESOURCE_PACK_UNAVAILABLE);
 		}
 		UUID playerId = player.getUniqueId();
@@ -40,7 +45,24 @@ public final class OnboardingResourcePackGate implements Listener, AutoCloseable
 			complete(playerId, OnboardingReadinessResult.RESOURCE_PACK_TIMEOUT), configuration.timeoutTicks()
 		);
 		pending.put(playerId, new PendingPack(future, timeout));
+		if (configuration.sendWithNexo()) {
+			Bukkit.getScheduler().runTaskLater(plugin, () -> dispatch(playerId), configuration.sendDelayTicks());
+		}
 		return future;
+	}
+
+	private void dispatch(UUID playerId) {
+		if (!pending.containsKey(playerId)) return;
+		Player player = Bukkit.getPlayer(playerId);
+		if (player == null) {
+			complete(playerId, OnboardingReadinessResult.RESOURCE_PACK_FAILED);
+			return;
+		}
+		try {
+			dispatcher.dispatch(player);
+		} catch (RuntimeException exception) {
+			complete(playerId, OnboardingReadinessResult.RESOURCE_PACK_FAILED);
+		}
 	}
 
 	@EventHandler
