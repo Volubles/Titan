@@ -15,7 +15,6 @@ import java.util.function.Consumer;
 
 public final class CinematicSession {
 	private static final int HOLD_SYNC_INTERVAL_TICKS = 10;
-	private static final int PRESENTATION_SYNC_INTERVAL_TICKS = 10;
 
 	private final Plugin plugin;
 	private final Player player;
@@ -124,7 +123,6 @@ public final class CinematicSession {
 			for (var event : definition.timeline().atTick(frame)) {
 				events.execute(player, event);
 			}
-			refreshPresentation(frame);
 			frame++;
 		} catch (Exception exception) {
 			plugin.getLogger().warning(
@@ -154,13 +152,7 @@ public final class CinematicSession {
 		if (holdTicks % HOLD_SYNC_INTERVAL_TICKS == 0) {
 			moveCamera(frame);
 		}
-		refreshPresentation(holdTicks);
 		holdTicks++;
-	}
-
-	private void refreshPresentation(int tick) {
-		if (presentation == null || tick % PRESENTATION_SYNC_INTERVAL_TICKS != 0) return;
-		presentation.refresh();
 	}
 
 	private void moveCamera(int tick) {

@@ -62,9 +62,4 @@ final class CinematicPlayerPresentation {
 		}
 		hud.restore();
 	}
-
-	void refresh() {
-		if (!player.isOnline()) return;
-		hud.apply();
-	}
 }

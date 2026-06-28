@@ -509,6 +509,7 @@ public final class TitanMC extends JavaPlugin {
 
 	private void initializeCinematics() {
 		cinematicRuntime = new CinematicRuntime(this, cinematicConfiguration, screenEffects);
+		screenEffects.blockHudRestoreWhen(cinematicRuntime::active);
 		cinematicEditor = new CinematicEditorService(this, menuService, cinematicConfiguration, cinematicRuntime, messages);
 		getServer().getPluginManager().registerEvents(new CinematicListener(cinematicRuntime), this);
 		getServer().getPluginManager().registerEvents(cinematicEditor.input(), this);

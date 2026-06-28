@@ -11,14 +11,18 @@ record ActiveScreenEffect(BukkitTask task, boolean hudHidden, GameMode gameMode)
 	}
 
 	void cancel(Player player, ScreenEffectHudController hud) {
-		task.cancel();
-		restore(player, hud);
+		cancel(player, hud, true);
 	}
 
-	void restore(Player player, ScreenEffectHudController hud) {
+	void cancel(Player player, ScreenEffectHudController hud, boolean restoreHud) {
+		task.cancel();
+		restore(player, hud, restoreHud);
+	}
+
+	void restore(Player player, ScreenEffectHudController hud, boolean restoreHud) {
 		if (player != null && player.isOnline()) {
 			player.clearTitle();
-			if (hudHidden) hud.restore(player, gameMode);
+			if (restoreHud && hudHidden) hud.restore(player, gameMode);
 		}
 	}
 }

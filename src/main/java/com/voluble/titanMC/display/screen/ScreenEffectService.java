@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 
 public final class ScreenEffectService implements Listener, AutoCloseable {
 	private final Plugin plugin;
@@ -25,6 +26,7 @@ public final class ScreenEffectService implements Listener, AutoCloseable {
 	private final ScreenEffectHudController hud;
 	private final MiniMessage miniMessage = MiniMessage.miniMessage();
 	private final Map<UUID, ActiveScreenEffect> active = new ConcurrentHashMap<>();
+	private Predicate<UUID> hudRestoreBlocked = ignored -> false;
 
 	public ScreenEffectService(Plugin plugin, ScreenEffectConfigurationManager configuration) {
 		this.plugin = Objects.requireNonNull(plugin, "plugin");
@@ -64,23 +66,29 @@ public final class ScreenEffectService implements Listener, AutoCloseable {
 		ActiveScreenEffect effect = active.remove(playerId);
 		if (effect == null) return;
 		Player player = Bukkit.getPlayer(playerId);
-		effect.cancel(player, hud);
+		effect.cancel(player, hud, !hudRestoreBlocked.test(playerId));
 	}
 
 	public void reload() {
 		configuration.reload();
 	}
 
+	public void blockHudRestoreWhen(Predicate<UUID> hudRestoreBlocked) {
+		this.hudRestoreBlocked = Objects.requireNonNull(hudRestoreBlocked, "hudRestoreBlocked");
+	}
+
 	private void replaceCurrent(Player player) {
 		ActiveScreenEffect current = active.remove(player.getUniqueId());
-		if (current != null) current.cancel(player, hud);
+		if (current != null) {
+			current.cancel(player, hud, !hudRestoreBlocked.test(player.getUniqueId()));
+		}
 	}
 
 	private void finish(UUID playerId) {
 		ActiveScreenEffect effect = active.remove(playerId);
 		if (effect == null) return;
 		Player player = Bukkit.getPlayer(playerId);
-		effect.restore(player, hud);
+		effect.restore(player, hud, !hudRestoreBlocked.test(playerId));
 	}
 
 	private Component title(String configuredTitle) {
