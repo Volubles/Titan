@@ -114,20 +114,15 @@ public final class OutfitService implements AutoCloseable {
 			return;
 		}
 		UUID playerId = player.getUniqueId();
-		PlayerSkin originalSkin = skinSource.skin(player).orElse(null);
-		if (originalSkin == null && outfit.renderMode() == OutfitRenderMode.COMPOSITE) {
-			active.remove(playerId);
-			callback.accept(PreparedOutfitSkin.failed(OutfitResult.NO_ORIGINAL_SKIN));
-			return;
-		}
-		CompletableFuture.supplyAsync(() -> prepare(playerId, apiKey, originalSkin, outfit))
-			.whenComplete((property, failure) -> Bukkit.getScheduler().runTask(plugin, () -> {
+		String playerName = player.getName();
+		CompletableFuture.supplyAsync(() -> prepare(playerId, playerName, apiKey, outfit))
+			.whenComplete((prepared, failure) -> Bukkit.getScheduler().runTask(plugin, () -> {
 				try {
-					if (failure != null || property == null) {
+					if (failure != null || prepared == null) {
 						logger.log(Level.WARNING, "Failed to prepare outfit " + outfit.id() + " for " + playerId, failure);
 						callback.accept(PreparedOutfitSkin.failed(OutfitResult.FAILED));
 					} else {
-						callback.accept(PreparedOutfitSkin.success(property));
+						callback.accept(prepared);
 					}
 				} catch (Exception exception) {
 					logger.log(Level.WARNING, "Failed to prepare outfit " + outfit.id() + " for " + playerId, exception);
@@ -225,8 +220,12 @@ public final class OutfitService implements AutoCloseable {
 		}));
 	}
 
-	private SkinPropertyData prepare(UUID playerId, String apiKey, PlayerSkin originalSkin, OutfitDefinition outfit) {
+	private PreparedOutfitSkin prepare(UUID playerId, String playerName, String apiKey, OutfitDefinition outfit) {
 		try {
+			PlayerSkin originalSkin = originalSkin(outfit, playerName);
+			if (originalSkin == null && outfit.renderMode() == OutfitRenderMode.COMPOSITE) {
+				return PreparedOutfitSkin.failed(OutfitResult.NO_ORIGINAL_SKIN);
+			}
 			SkinModel model = originalSkin == null ? SkinModel.CLASSIC : originalSkin.model();
 			Path template = outfit.templatePath(model);
 			String originalHash = originalSkin == null ? "full-skin" : SkinHash.sha256(originalSkin.url().toString());
@@ -240,7 +239,7 @@ public final class OutfitService implements AutoCloseable {
 				originalHash,
 				templateHash
 			).orElse(null);
-			if (cached != null) return cached.property();
+			if (cached != null) return PreparedOutfitSkin.success(cached.property());
 			byte[] png = outfit.renderMode() == OutfitRenderMode.FULL_SKIN
 				? composer.fullSkin(template)
 				: composer.compose(originalSkin, template);
@@ -260,10 +259,17 @@ public final class OutfitService implements AutoCloseable {
 				generated,
 				System.currentTimeMillis()
 			));
-			return generated;
+			return PreparedOutfitSkin.success(generated);
 		} catch (Exception exception) {
 			throw new IllegalStateException("Could not generate outfit skin", exception);
 		}
+	}
+
+	private PlayerSkin originalSkin(OutfitDefinition outfit, String playerName) throws Exception {
+		if (outfit.renderMode() == OutfitRenderMode.FULL_SKIN) return null;
+		return skinApplier.resolveOriginal(playerName)
+			.flatMap(skinSource::skin)
+			.orElse(null);
 	}
 
 	@Override
