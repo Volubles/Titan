@@ -476,6 +476,10 @@ public final class MessageDefaults {
 	public static final MessageDefinition ONBOARDING_PREVIEW_POINT_SET = message(
 		"onboarding.preview-point-set", MessageType.SUCCESS, "Captured onboarding preview {{point}} point."
 	);
+	public static final MessageDefinition ONBOARDING_WAITING_ROOM_SET = message(
+		"onboarding.waiting-room-set", MessageType.SUCCESS,
+		"Captured and enabled the onboarding waiting room."
+	);
 	public static final MessageDefinition ONBOARDING_APPLYING = message(
 		"onboarding.applying", MessageType.INFO, "Applying {{outfit}}..."
 	);

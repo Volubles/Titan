@@ -56,6 +56,9 @@ public final class OnboardingCommandModule implements CommandModule {
 					.argument("point", Args.word(), point -> point
 						.suggests(previewPoints)
 						.executesPlayer(this::setPreviewPoint))))
+			.literal("readiness", readiness -> readiness
+				.literal("waiting-room", waitingRoom -> waitingRoom
+					.literal("set", set -> set.executesPlayer(this::setWaitingRoom))))
 			.spec());
 	}
 
@@ -114,6 +117,12 @@ public final class OnboardingCommandModule implements CommandModule {
 		}
 		onboarding.capturePreviewPoint(player, point);
 		messages.send(player, MessageDefaults.ONBOARDING_PREVIEW_POINT_SET, args -> args.plain("point", point.key()));
+		return CommandTree.ok();
+	}
+
+	private int setWaitingRoom(Player player, MichelleCommandContext context) {
+		onboarding.captureWaitingRoom(player);
+		messages.send(player, MessageDefaults.ONBOARDING_WAITING_ROOM_SET);
 		return CommandTree.ok();
 	}
 

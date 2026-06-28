@@ -153,6 +153,10 @@ public final class OnboardingService implements AutoCloseable {
 		configuration.savePreviewPoint(point, player.getLocation());
 	}
 
+	public void captureWaitingRoom(Player player) {
+		configuration.saveWaitingRoom(player.getLocation());
+	}
+
 	@Override
 	public void close() throws SQLException {
 		for (UUID playerId : java.util.List.copyOf(sessions.keySet())) {

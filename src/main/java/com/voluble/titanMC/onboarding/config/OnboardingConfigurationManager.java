@@ -65,6 +65,21 @@ public final class OnboardingConfigurationManager implements ConfigManager.Compo
 		reload();
 	}
 
+	public void saveWaitingRoom(Location location) {
+		Objects.requireNonNull(location, "location");
+		OnboardingConfiguration.LocationSpec spec = OnboardingConfiguration.LocationSpec.from(location);
+		YamlConfiguration yaml = YamlConfiguration.loadConfiguration(path.toFile());
+		yaml.set("readiness.waiting-room.enabled", true);
+		yaml.set("readiness.waiting-room.location.world", spec.world());
+		yaml.set("readiness.waiting-room.location.x", spec.x());
+		yaml.set("readiness.waiting-room.location.y", spec.y());
+		yaml.set("readiness.waiting-room.location.z", spec.z());
+		yaml.set("readiness.waiting-room.location.yaw", spec.yaw());
+		yaml.set("readiness.waiting-room.location.pitch", spec.pitch());
+		save(yaml);
+		reload();
+	}
+
 	private void save(YamlConfiguration yaml) {
 		try {
 			yaml.save(path.toFile());
