@@ -33,8 +33,16 @@ public final class OutfitJoinListener implements Listener {
 	@EventHandler
 	public void onPlayerJoin(PlayerJoinEvent event) {
 		var config = configuration.current();
-		if (!config.enabled() || !config.firstJoinPrompt()) return;
-		if (outfits.preference(event.getPlayer().getUniqueId()).isPresent()) return;
+		if (!config.enabled()) return;
+		var preference = outfits.preference(event.getPlayer().getUniqueId());
+		if (preference.isPresent()) {
+			Bukkit.getScheduler().runTaskLater(plugin, () -> {
+				if (!event.getPlayer().isOnline()) return;
+				outfits.restorePreference(event.getPlayer(), preference.get());
+			}, config.firstJoinPromptDelayTicks());
+			return;
+		}
+		if (!config.firstJoinPrompt()) return;
 		Bukkit.getScheduler().runTaskLater(plugin, () -> {
 			if (!event.getPlayer().isOnline()) return;
 			messages.send(event.getPlayer(), MessageDefaults.OUTFITS_FIRST_JOIN_PROMPT);

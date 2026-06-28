@@ -144,9 +144,38 @@ public final class OutfitService implements AutoCloseable {
 			return;
 		}
 		try {
-			skinApplier.applyOriginal(player);
-			storage.savePreference(player.getUniqueId(), OutfitPreference.original(), System.currentTimeMillis());
-			callback.accept(OutfitResult.ORIGINAL);
+			UUID playerId = player.getUniqueId();
+			String playerName = player.getName();
+			skinApplier.clearOriginalAssignment(player);
+			CompletableFuture.supplyAsync(() -> {
+				try {
+					return skinApplier.resolveOriginal(playerName);
+				} catch (Exception exception) {
+					throw new IllegalStateException(exception);
+				}
+			})
+				.whenComplete((original, failure) -> Bukkit.getScheduler().runTask(plugin, () -> {
+					try {
+						Player online = Bukkit.getPlayer(playerId);
+						if (online == null) {
+							callback.accept(OutfitResult.FAILED);
+							return;
+						}
+						if (failure != null) {
+							logger.log(Level.WARNING, "Failed to resolve original skin for " + playerId, failure);
+							skinApplier.applyOriginal(online);
+						} else if (original.isPresent()) {
+							skinApplier.apply(online, original.get());
+						} else {
+							skinApplier.applyOriginal(online);
+						}
+						storage.savePreference(playerId, OutfitPreference.original(), System.currentTimeMillis());
+						callback.accept(OutfitResult.ORIGINAL);
+					} catch (Exception exception) {
+						logger.log(Level.WARNING, "Failed to restore original skin for " + playerId, exception);
+						callback.accept(OutfitResult.FAILED);
+					}
+				}));
 		} catch (Exception exception) {
 			logger.log(Level.WARNING, "Failed to restore original skin for " + player.getUniqueId(), exception);
 			callback.accept(OutfitResult.FAILED);
@@ -160,6 +189,13 @@ public final class OutfitService implements AutoCloseable {
 			logger.log(Level.WARNING, "Failed to load outfit preference for " + playerId, exception);
 			return java.util.Optional.empty();
 		}
+	}
+
+	public void restorePreference(Player player, OutfitPreference preference) {
+		preference.outfitId().ifPresent(outfitId -> applyOutfit(player, outfitId, result -> {
+			if (result == OutfitResult.APPLIED) return;
+			logger.warning("Failed to restore outfit " + outfitId + " for " + player.getUniqueId() + ": " + result);
+		}));
 	}
 
 	private SkinPropertyData prepare(UUID playerId, String apiKey, PlayerSkin originalSkin, OutfitDefinition outfit) {
